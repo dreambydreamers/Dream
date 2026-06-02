@@ -15,6 +15,7 @@
 		4C74FAFB2FCB0A0E00F1713A /* Dream.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Dream.xcodeproj; sourceTree = "<group>"; };
 		4C74FC002FCB1FB000F1713A /* Dream.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Dream.xcodeproj; sourceTree = "<group>"; };
 		4C74FC432FCB22F500F1713A /* Dream.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Dream.xcodeproj; sourceTree = "<group>"; };
+		4C74FCCE2FCF5FBF00F1713A /* Dream.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Dream.xcodeproj; sourceTree = "<group>"; };
 		4CC9C7CA2FC34B6F002221B1 /* Dream.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Dream.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -54,6 +55,11 @@
 			sourceTree = "<group>";
 		};
 		4C74FC462FCB22F500F1713A /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
+		4C74FCD12FCF5FBF00F1713A /* Products */ = {
 			isa = PBXGroup;
 			name = Products;
 			sourceTree = "<group>";
@@ -134,6 +140,10 @@
 				{
 					ProductGroup = 4C74FAFE2FCB0A0E00F1713A /* Products */;
 					ProjectRef = 4C74FAFB2FCB0A0E00F1713A /* Dream.xcodeproj */;
+				},
+				{
+					ProductGroup = 4C74FCD12FCF5FBF00F1713A /* Products */;
+					ProjectRef = 4C74FCCE2FCF5FBF00F1713A /* Dream.xcodeproj */;
 				},
 				{
 					ProductGroup = 4C5ADCEF2FC34EB6000AD2FD /* Products */;

@@ -13,7 +13,6 @@ struct DreamVideoBackground: View {
     var isMuted: Bool = false
 
     @State private var player: AVQueuePlayer?
-    @State private var looper: AVPlayerLooper?
     @State private var isPlaying = true
 
     var body: some View {
@@ -58,9 +57,10 @@ struct DreamVideoBackground: View {
         .task(id: dream.id) { await loadVideo() }
         .onChange(of: isMuted) { _, muted in player?.isMuted = muted }
         .onDisappear {
+            // Just pause — the preloader owns the player's lifecycle so it
+            // stays warm in the cache for an instant restart.
             player?.pause()
             player = nil
-            looper = nil
         }
     }
 
@@ -74,26 +74,14 @@ struct DreamVideoBackground: View {
 
     private func loadVideo() async {
         isPlaying = true
-        guard let path = dream.videoStoragePath,
-              let url = try? await VideoUploader.shared.signedVideoURL(storagePath: path)
-        else { return }
-
-        configureAudioSession()
-
-        let item = AVPlayerItem(url: url)
-        let queue = AVQueuePlayer(playerItem: item)
+        guard let queue = await FeedVideoPreloader.shared.player(for: dream, isMuted: isMuted) else {
+            player = nil
+            return
+        }
         queue.isMuted = isMuted
-        looper = AVPlayerLooper(player: queue, templateItem: item)
-        player = queue
+        await queue.seek(to: .zero)
         queue.play()
-    }
-
-    /// Route to .playback so video sound is audible even when the hardware
-    /// ring/silent switch is set to silent.
-    private func configureAudioSession() {
-        let session = AVAudioSession.sharedInstance()
-        try? session.setCategory(.playback, mode: .moviePlayback)
-        try? session.setActive(true)
+        player = queue
     }
 }
 

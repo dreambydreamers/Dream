@@ -24,6 +24,13 @@ struct DiscoverScreen: View {
         }
         .task {
             if repo.dreams.isEmpty { await repo.loadFeed() }
+            FeedVideoPreloader.shared.prefetchNeighbors(of: dreams, around: index)
+        }
+        .onChange(of: index) { _, newIndex in
+            FeedVideoPreloader.shared.prefetchNeighbors(of: dreams, around: newIndex)
+        }
+        .onChange(of: repo.dreams.count) { _, _ in
+            FeedVideoPreloader.shared.prefetchNeighbors(of: dreams, around: index)
         }
         .fullScreenCover(item: $presentedDream) { d in
             DreamDetailScreen(
