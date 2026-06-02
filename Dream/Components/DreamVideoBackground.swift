@@ -17,37 +17,44 @@ struct DreamVideoBackground: View {
     @State private var isPlaying = true
 
     var body: some View {
-        ZStack {
-            // Base layer: poster image if we have one, else the gradient.
-            if let posterURL = dream.posterURL {
-                AsyncImage(url: posterURL) { phase in
-                    if let image = phase.image {
-                        image.resizable().scaledToFill()
-                    } else {
-                        ScenePoster(category: dream.category)
+        // A single GeometryReader pins every layer to the container's bounds.
+        // `scaledToFill` and the AVPlayerLayer otherwise report the media's
+        // natural dimensions for *layout* (clipped() only clips drawing), which
+        // would inflate this view and shift the feed's overlay content.
+        GeometryReader { geo in
+            ZStack {
+                // Base layer: poster image if we have one, else the gradient.
+                if let posterURL = dream.posterURL {
+                    AsyncImage(url: posterURL) { phase in
+                        if let image = phase.image {
+                            image.resizable().scaledToFill()
+                        } else {
+                            ScenePoster(category: dream.category)
+                        }
                     }
+                } else {
+                    ScenePoster(category: dream.category)
                 }
-            } else {
-                ScenePoster(category: dream.category)
-            }
 
-            // Video plays on top once its signed URL is ready.
-            if let player {
-                VideoLayerView(player: player)
-            }
+                // Video plays on top once its signed URL is ready.
+                if let player {
+                    VideoLayerView(player: player)
+                }
 
-            // Centered play glyph while paused.
-            if player != nil && !isPlaying {
-                Image(systemName: "play.fill")
-                    .font(.system(size: 56, weight: .bold))
-                    .foregroundStyle(.white.opacity(0.85))
-                    .shadow(color: .black.opacity(0.4), radius: 10)
-                    .transition(.opacity.combined(with: .scale))
+                // Centered play glyph while paused.
+                if player != nil && !isPlaying {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 56, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.85))
+                        .shadow(color: .black.opacity(0.4), radius: 10)
+                        .transition(.opacity.combined(with: .scale))
+                }
             }
+            .frame(width: geo.size.width, height: geo.size.height)
+            .clipped()
+            .contentShape(Rectangle())
+            .onTapGesture { togglePlayback() }
         }
-        .clipped()
-        .contentShape(Rectangle())
-        .onTapGesture { togglePlayback() }
         .task(id: dream.id) { await loadVideo() }
         .onChange(of: isMuted) { _, muted in player?.isMuted = muted }
         .onDisappear {

@@ -66,7 +66,7 @@ struct DiscoverScreen: View {
 
                     HStack(alignment: .bottom, spacing: 12) {
                         bottomInfo
-                        Spacer(minLength: 0)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         rightRail
                     }
                 }
