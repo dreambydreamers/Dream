@@ -1,16 +1,19 @@
 import AVFoundation
 import Foundation
 
-/// Prepares feed videos ahead of time so scrolling between dreams starts
-/// playback instantly instead of waiting on a signed-URL fetch + cold buffer.
+/// Prepares feed videos ahead of time so playback starts as fast as possible —
+/// both when scrolling between dreams and on the very first video.
 ///
-/// Two layers of caching:
+/// Layers:
 ///   1. Signed URLs (valid ~1h) are cached so re-visiting a dream never
 ///      re-hits the network.
 ///   2. A small LRU pool of fully-built, pre-buffered `AVQueuePlayer`s is kept
-///      warm for the current dream and its neighbours. When the user scrolls,
-///      `DreamVideoBackground` grabs the already-prepared player and just calls
-///      `play()`.
+///      warm for the current dream and its neighbours.
+///   3. Each player lowers its buffer threshold and `preroll`s (priming the
+///      decode pipeline) the moment it reports `.readyToPlay`, so the first
+///      frame appears with minimal delay.
+///   4. Builds are coalesced per-dream, so an early prefetch and the view's own
+///      load share one player instead of racing to create two.
 @MainActor
 final class FeedVideoPreloader {
     static let shared = FeedVideoPreloader()
@@ -23,7 +26,8 @@ final class FeedVideoPreloader {
     private var players: [UUID: Prepared] = [:]
     private var lru: [UUID] = []                       // most-recent last
     private var signedURLs: [UUID: (url: URL, expires: Date)] = [:]
-    private var inFlight: Set<UUID> = []
+    private var building: [UUID: Task<Prepared?, Never>] = [:]
+    private var statusObservers: [UUID: NSKeyValueObservation] = [:]
     private let maxPlayers = 4
     private var audioConfigured = false
 
@@ -35,65 +39,81 @@ final class FeedVideoPreloader {
     /// one on the spot if it wasn't already prefetched. The player is returned
     /// paused at the start; the caller decides when to `play()`.
     func player(for dream: Dream, isMuted: Bool) async -> AVQueuePlayer? {
-        if let prepared = players[dream.id] {
-            touch(dream.id)
-            prepared.player.isMuted = isMuted
-            return prepared.player
-        }
         guard let prepared = await build(for: dream, isMuted: isMuted) else { return nil }
+        prepared.player.isMuted = isMuted
         return prepared.player
     }
 
     /// Warm up a dream's player in the background without playing it, so it's
     /// buffered by the time the user scrolls to it.
     func prefetch(_ dream: Dream) {
-        guard dream.videoStoragePath != nil,
-              players[dream.id] == nil,
-              !inFlight.contains(dream.id) else { return }
-        inFlight.insert(dream.id)
-        Task { [weak self] in
-            _ = await self?.build(for: dream, isMuted: true)
-            self?.inFlight.remove(dream.id)
-        }
+        guard dream.videoStoragePath != nil, players[dream.id] == nil else { return }
+        Task { [weak self] in _ = await self?.build(for: dream, isMuted: true) }
     }
 
-    /// Convenience: prefetch the dreams immediately before/after `index`.
+    /// Prefetch the current dream plus its nearest neighbours.
     func prefetchNeighbors(of dreams: [Dream], around index: Int) {
         guard !dreams.isEmpty else { return }
         let count = dreams.count
-        for offset in [1, -1, 2] {
+        for offset in [0, 1, -1, 2] {
             let i = ((index + offset) % count + count) % count
             prefetch(dreams[i])
         }
     }
 
-    // MARK: - Building
+    // MARK: - Building (coalesced per dream)
 
     private func build(for dream: Dream, isMuted: Bool) async -> Prepared? {
         if let prepared = players[dream.id] {
             touch(dream.id)
             return prepared
         }
+        if let inFlight = building[dream.id] {
+            return await inFlight.value
+        }
+        let task = Task { [weak self] () -> Prepared? in
+            await self?.makePrepared(for: dream, isMuted: isMuted)
+        }
+        building[dream.id] = task
+        let result = await task.value
+        building[dream.id] = nil
+        return result
+    }
+
+    private func makePrepared(for dream: Dream, isMuted: Bool) async -> Prepared? {
         guard let url = await signedURL(for: dream) else { return nil }
 
         configureAudioSessionIfNeeded()
 
         let item = AVPlayerItem(url: url)
+        // Reach `.readyToPlay` after buffering ~1s rather than the larger
+        // automatic default — gets the first frame on screen sooner.
+        item.preferredForwardBufferDuration = 1
+
         let queue = AVQueuePlayer(playerItem: item)
         queue.isMuted = isMuted
-        // Start playback as soon as enough is buffered rather than waiting to
-        // minimise stalls — feels snappier in a vertical feed.
+        // Start as soon as enough is buffered instead of waiting to minimise
+        // stalls — feels snappier in a vertical feed.
         queue.automaticallyWaitsToMinimizeStalling = false
         let looper = AVPlayerLooper(player: queue, templateItem: item)
 
-        // Building the player + item already begins loading the asset and
-        // buffering ahead of the user reaching this dream. (Don't call
-        // `preroll` here — it throws unless the player is already
-        // `.readyToPlay`, which it isn't yet right after creation.)
+        // Prime the decode pipeline once the player is ready. `preroll` throws
+        // if called before `.readyToPlay`, so gate it on the status observer.
+        primePrerollWhenReady(dream.id, queue)
 
         let prepared = Prepared(player: queue, looper: looper)
         store(dream.id, prepared)
         return prepared
+    }
+
+    /// Observe the player's status and `preroll` exactly once it's ready, which
+    /// decodes initial frames so the eventual `play()` shows video immediately.
+    private func primePrerollWhenReady(_ id: UUID, _ queue: AVQueuePlayer) {
+        statusObservers[id]?.invalidate()
+        statusObservers[id] = queue.observe(\.status, options: [.initial, .new]) { player, _ in
+            guard player.status == .readyToPlay else { return }
+            player.preroll(atRate: 1) { _ in }
+        }
     }
 
     private func signedURL(for dream: Dream) async -> URL? {
@@ -113,6 +133,8 @@ final class FeedVideoPreloader {
         touch(id)
         while lru.count > maxPlayers, let oldest = lru.first {
             lru.removeFirst()
+            statusObservers[oldest]?.invalidate()
+            statusObservers[oldest] = nil
             if let evicted = players.removeValue(forKey: oldest) {
                 evicted.player.pause()
                 evicted.player.removeAllItems()
