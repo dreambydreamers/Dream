@@ -13,7 +13,7 @@ struct DreamApp: App {
         WindowGroup {
             ContentView()
                 .task {
-                    await AuthService.shared.ensureSignedIn()
+                    await AuthService.shared.restoreSession()
                 }
         }
     }

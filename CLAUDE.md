@@ -117,8 +117,18 @@ When touching feed/video code, preserve these invariants: bounds-pinning in `Dre
 
 ## Git
 
-Two push remotes are configured on `origin` (pushes go to **both**):
-- `git@github.com:dreambydreamers/Dream.git` (primary)
-- `git@github.com:igabrilo/Dream.git`
+`origin` has **two push URLs**, contacted in order on every `git push origin`:
+1. `git@github.com:dreambydreamers/Dream.git` (primary)
+2. `git@github.com:igabrilo/Dream.git`
+
+⚠️ **Silent partial-push trap:** git pushes to both URLs but only exits non-zero on failure — a successful URL's output can hide a rejected one. If `dreambydreamers` ever **diverges** (a commit on its `video` not in your local history), its push is rejected as non-fast-forward while `igabrilo` still succeeds, so the branches drift apart unnoticed. A correct push prints **two** result blocks (one per URL). After pushing, verify parity:
+
+```bash
+git rev-parse video
+git ls-remote git@github.com:dreambydreamers/Dream.git refs/heads/video | cut -f1
+git ls-remote git@github.com:igabrilo/Dream.git refs/heads/video | cut -f1   # all three must match
+```
+
+If dreambydreamers is behind, push it explicitly: `git push git@github.com:dreambydreamers/Dream.git video:video`.
 
 Main branch: `main`. Active feature branch: `video`.
