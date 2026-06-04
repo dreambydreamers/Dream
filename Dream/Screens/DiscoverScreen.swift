@@ -7,6 +7,7 @@ struct DiscoverScreen: View {
     @State private var supporterSkills: [String] = ["Design", "Funding"]
     @State private var presentedDream: Dream?
     @State private var helpForDream: Dream?
+    @State private var profileForUser: UUID?
     @State private var isMuted: Bool = false
 
     private var dreams: [Dream] { repo.dreams }
@@ -44,6 +45,9 @@ struct DiscoverScreen: View {
         }
         .sheet(item: $helpForDream) { d in
             HelpSheet(dream: d, onClose: { helpForDream = nil })
+        }
+        .fullScreenCover(item: $profileForUser) { userId in
+            ProfileScreen(userId: userId, onBack: { profileForUser = nil })
         }
     }
 
@@ -247,9 +251,12 @@ struct DiscoverScreen: View {
             }
 
             HStack(spacing: 8) {
-                Text("@\(dream.handle)")
-                    .font(DreamTheme.Font.text(14, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.92))
+                Button { profileForUser = dream.ownerId } label: {
+                    Text("@\(dream.handle)")
+                        .font(DreamTheme.Font.text(14, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.92))
+                }
+                .buttonStyle(.plain)
                 Circle().fill(.white.opacity(0.5)).frame(width: 3, height: 3)
                 Text(dream.distance)
                     .font(DreamTheme.Font.text(14))
@@ -306,15 +313,18 @@ struct DiscoverScreen: View {
             ActionButton(systemImage: "arrowshape.turn.up.right.fill", label: "124")
             ActionButton(systemImage: "bookmark.fill", label: "Save")
 
-            Avatar(name: dream.name, seed: dream.avatarSeed, size: 40)
-                .padding(2)
-                .overlay(
-                    Circle().strokeBorder(
-                        matched ? Color(hex: 0x8AD3A7) : .white,
-                        lineWidth: matched ? 2.5 : 2
+            Button { profileForUser = dream.ownerId } label: {
+                Avatar(name: dream.name, seed: dream.avatarSeed, size: 40)
+                    .padding(2)
+                    .overlay(
+                        Circle().strokeBorder(
+                            matched ? Color(hex: 0x8AD3A7) : .white,
+                            lineWidth: matched ? 2.5 : 2
+                        )
                     )
-                )
-                .shadow(color: matched ? Color(hex: 0x8AD3A7).opacity(0.7) : .clear, radius: 8)
+                    .shadow(color: matched ? Color(hex: 0x8AD3A7).opacity(0.7) : .clear, radius: 8)
+            }
+            .buttonStyle(.plain)
         }
         .frame(width: 64)
     }
@@ -322,4 +332,9 @@ struct DiscoverScreen: View {
 
 #Preview {
     DiscoverScreen()
+}
+
+/// Lets a bare `UUID` drive `.sheet(item:)` / `.fullScreenCover(item:)`.
+extension UUID: @retroactive Identifiable {
+    public var id: UUID { self }
 }

@@ -77,7 +77,12 @@ private struct MainShell: View {
         case .discover: DiscoverScreen()
         case .explore:  ExplorePlaceholder()
         case .activity: ActivityPlaceholder()
-        case .profile:  ProfilePlaceholder()
+        case .profile:
+            if let userId = AuthService.shared.userId {
+                ProfileScreen(userId: userId, isCurrentUser: true)
+            } else {
+                ProfilePlaceholder()
+            }
         }
     }
 }

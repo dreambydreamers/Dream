@@ -25,6 +25,8 @@ enum DreamStage: String {
 
 struct Dream: Identifiable, Hashable {
     let id: UUID
+    /// Owner's `auth.users` id — used to open the author's profile from the feed.
+    let ownerId: UUID
     let name: String
     let handle: String
     let title: String

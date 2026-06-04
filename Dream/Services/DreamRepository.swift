@@ -30,46 +30,67 @@ final class DreamRepository: ObservableObject {
                 .execute()
                 .value
 
-            guard !dreamRows.isEmpty else {
-                self.dreams = []
-                return
-            }
-
-            let ownerIds = Array(Set(dreamRows.map(\.ownerId)))
-            let dreamIds = dreamRows.map(\.id)
-
-            async let profiles: [ProfileDTO] = client
-                .from("profiles").select().in("id", values: ownerIds)
-                .execute().value
-            async let stats: [DreamStatsDTO] = client
-                .from("dream_stats").select().in("dream_id", values: dreamIds)
-                .execute().value
-            async let videos: [DreamVideoDTO] = client
-                .from("dream_videos").select().in("dream_id", values: dreamIds).eq("is_primary", value: true)
-                .execute().value
-            async let steps: [JourneyStepDTO] = client
-                .from("journey_steps").select().in("dream_id", values: dreamIds).order("sort_order", ascending: true)
-                .execute().value
-
-            let (p, s, v, j) = try await (profiles, stats, videos, steps)
-
-            let profileById = Dictionary(uniqueKeysWithValues: p.map { ($0.id, $0) })
-            let statsById = Dictionary(uniqueKeysWithValues: s.map { ($0.dreamId, $0) })
-            let videoByDream = Dictionary(uniqueKeysWithValues: v.map { ($0.dreamId, $0) })
-            let stepsByDream = Dictionary(grouping: j, by: \.dreamId)
-
-            self.dreams = dreamRows.map { row in
-                Self.mapToDream(
-                    row: row,
-                    profile: profileById[row.ownerId],
-                    stats: statsById[row.id],
-                    video: videoByDream[row.id],
-                    steps: stepsByDream[row.id] ?? []
-                )
-            }
+            self.dreams = try await enrich(dreamRows)
         } catch {
             lastError = "\(error)"
             print("[DreamRepository] loadFeed failed: \(error)")
+        }
+    }
+
+    /// Fetches the dreams owned by a single user (newest first) as view models.
+    /// Used by the profile screen. Returns `[]` and logs on failure.
+    func dreams(ownedBy ownerId: UUID) async -> [Dream] {
+        do {
+            let dreamRows: [DreamDTO] = try await client
+                .from("dreams")
+                .select()
+                .eq("owner_id", value: ownerId)
+                .order("created_at", ascending: false)
+                .execute()
+                .value
+            return try await enrich(dreamRows)
+        } catch {
+            print("[DreamRepository] dreams(ownedBy:) failed: \(error)")
+            return []
+        }
+    }
+
+    /// Enriches dream rows with author profiles, stats, primary videos and journey
+    /// steps (all fetched concurrently) and maps them to `Dream` view models.
+    private func enrich(_ dreamRows: [DreamDTO]) async throws -> [Dream] {
+        guard !dreamRows.isEmpty else { return [] }
+
+        let ownerIds = Array(Set(dreamRows.map(\.ownerId)))
+        let dreamIds = dreamRows.map(\.id)
+
+        async let profiles: [ProfileDTO] = client
+            .from("profiles").select().in("id", values: ownerIds)
+            .execute().value
+        async let stats: [DreamStatsDTO] = client
+            .from("dream_stats").select().in("dream_id", values: dreamIds)
+            .execute().value
+        async let videos: [DreamVideoDTO] = client
+            .from("dream_videos").select().in("dream_id", values: dreamIds).eq("is_primary", value: true)
+            .execute().value
+        async let steps: [JourneyStepDTO] = client
+            .from("journey_steps").select().in("dream_id", values: dreamIds).order("sort_order", ascending: true)
+            .execute().value
+
+        let (p, s, v, j) = try await (profiles, stats, videos, steps)
+
+        let profileById = Dictionary(uniqueKeysWithValues: p.map { ($0.id, $0) })
+        let statsById = Dictionary(uniqueKeysWithValues: s.map { ($0.dreamId, $0) })
+        let videoByDream = Dictionary(uniqueKeysWithValues: v.map { ($0.dreamId, $0) })
+        let stepsByDream = Dictionary(grouping: j, by: \.dreamId)
+
+        return dreamRows.map { row in
+            Self.mapToDream(
+                row: row,
+                profile: profileById[row.ownerId],
+                stats: statsById[row.id],
+                video: videoByDream[row.id],
+                steps: stepsByDream[row.id] ?? []
+            )
         }
     }
 
@@ -137,6 +158,7 @@ final class DreamRepository: ObservableObject {
 
         return Dream(
             id: row.id,
+            ownerId: row.ownerId,
             name: profile?.name ?? "Anonymous",
             handle: profile?.handle ?? "anon",
             title: row.title,
