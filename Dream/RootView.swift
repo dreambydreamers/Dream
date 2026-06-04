@@ -1,23 +1,24 @@
 import SwiftUI
 
 struct RootView: View {
-    @State private var signedIn = false
+    @StateObject private var auth = AuthService.shared
     @State private var activeTab: DreamTab = .discover
     @State private var creating = false
     @State private var showPublishedToast = false
 
     var body: some View {
         Group {
-            if signedIn {
+            if auth.isSignedIn {
                 MainShell(
                     activeTab: $activeTab,
                     creating: $creating,
                     showPublishedToast: $showPublishedToast
                 )
             } else {
-                OnboardingScreen(onSignIn: { withAnimation(.easeInOut) { signedIn = true } })
+                OnboardingScreen()
             }
         }
+        .animation(.easeInOut, value: auth.isSignedIn)
     }
 }
 

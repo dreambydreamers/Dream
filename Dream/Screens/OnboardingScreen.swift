@@ -1,8 +1,7 @@
 import SwiftUI
 
 struct OnboardingScreen: View {
-    var onSignIn: () -> Void
-    var onCreateAccount: () -> Void = {}
+    @State private var authMode: AuthScreen.Mode?
 
     private var tagline: AttributedString {
         var part1 = AttributedString("Where dreams\n")
@@ -59,13 +58,13 @@ struct OnboardingScreen: View {
                 .padding(.bottom, 60)
 
                 VStack(spacing: 18) {
-                    PrimaryButton(title: "Sign in with Apple", icon: "applelogo", action: onSignIn)
+                    PrimaryButton(title: "Get started", action: { authMode = .signUp })
 
                     HStack(spacing: 4) {
-                        Text("New here?")
+                        Text("Already have an account?")
                             .foregroundStyle(DreamTheme.ink2)
-                        Button(action: onCreateAccount) {
-                            Text("Create an account")
+                        Button(action: { authMode = .signIn }) {
+                            Text("Sign in")
                                 .foregroundStyle(DreamTheme.blueDeep)
                                 .fontWeight(.semibold)
                                 .overlay(alignment: .bottom) {
@@ -83,9 +82,16 @@ struct OnboardingScreen: View {
                 .padding(.bottom, 50)
             }
         }
+        .fullScreenCover(item: $authMode) { mode in
+            AuthScreen(mode: mode)
+        }
     }
 }
 
+extension AuthScreen.Mode: Identifiable {
+    public var id: Int { hashValue }
+}
+
 #Preview {
-    OnboardingScreen(onSignIn: {})
+    OnboardingScreen()
 }
