@@ -32,7 +32,9 @@ struct ActionButton: View {
                     .foregroundStyle(.white)
                     .shadow(color: .black.opacity(0.5), radius: 2, y: 1)
                     .lineLimit(1)
-                    .frame(maxWidth: 78)
+                    .minimumScaleFactor(0.7)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 64)
             }
         }
         .buttonStyle(.plain)
