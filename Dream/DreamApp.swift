@@ -12,6 +12,9 @@ struct DreamApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .task {
+                    await AuthService.shared.ensureSignedIn()
+                }
         }
     }
 }

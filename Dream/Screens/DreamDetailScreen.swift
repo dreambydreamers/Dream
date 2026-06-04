@@ -226,7 +226,3 @@ struct DreamDetailScreen: View {
             .foregroundStyle(DreamTheme.ink2)
     }
 }
-
-#Preview {
-    DreamDetailScreen(dream: Dream.samples[0])
-}

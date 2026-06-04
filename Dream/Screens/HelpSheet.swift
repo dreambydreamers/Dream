@@ -435,7 +435,3 @@ struct HelpSheet: View {
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
-
-#Preview {
-    HelpSheet(dream: Dream.samples[0])
-}

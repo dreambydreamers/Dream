@@ -1,4 +1,6 @@
+import AVFoundation
 import SwiftUI
+import UIKit
 
 private enum CreateStep { case source, details }
 
@@ -13,6 +15,13 @@ struct CreateDreamScreen: View {
     @State private var helpNeeded: Set<String> = []
     @State private var desc: String = ""
     @State private var hasMedia: Bool = false
+    /// File URL of a picked/recorded video, uploaded on publish.
+    @State private var selectedVideoURL: URL?
+    @State private var videoThumbnail: UIImage?
+    @State private var showCamera: Bool = false
+    @State private var showLibrary: Bool = false
+    @State private var isPublishing: Bool = false
+    @State private var publishError: String?
 
     private let helps = ["Coding", "Design", "Funding", "Mentorship", "Marketing", "Legal"]
 
@@ -45,7 +54,32 @@ struct CreateDreamScreen: View {
                         }
                 }
             }
+            .fullScreenCover(isPresented: $showCamera) {
+                VideoRecorder { url in handlePicked(url) }
+                    .ignoresSafeArea()
+            }
+            .sheet(isPresented: $showLibrary) {
+                VideoLibraryPicker { url in handlePicked(url) }
+                    .ignoresSafeArea()
+            }
         }
+    }
+
+    private func handlePicked(_ url: URL) {
+        selectedVideoURL = url
+        hasMedia = true
+        step = .details
+        Task { await generateThumbnail(from: url) }
+    }
+
+    private func generateThumbnail(from url: URL) async {
+        let asset = AVURLAsset(url: url)
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        generator.maximumSize = CGSize(width: 1080, height: 1080)
+        let time = CMTime(seconds: 0.5, preferredTimescale: 600)
+        guard let cgImage = try? await generator.image(at: time).image else { return }
+        await MainActor.run { videoThumbnail = UIImage(cgImage: cgImage) }
     }
 
     // MARK: - Source step
@@ -71,8 +105,7 @@ struct CreateDreamScreen: View {
                 sub: "Up to 60 seconds · Vertical",
                 tinted: true
             ) {
-                hasMedia = true
-                step = .details
+                showCamera = true
             }
             .padding(.bottom, 12)
 
@@ -82,8 +115,7 @@ struct CreateDreamScreen: View {
                 sub: "Pick an existing video",
                 tinted: false
             ) {
-                hasMedia = true
-                step = .details
+                showLibrary = true
             }
 
             Spacer()
@@ -158,6 +190,7 @@ struct CreateDreamScreen: View {
                     field("Title") {
                         TextField("e.g. A quiet café for writers", text: $title)
                             .font(DreamTheme.Font.text(15))
+                            .foregroundStyle(Color.black)
                             .padding(14)
                             .background(RoundedRectangle(cornerRadius: 14).fill(DreamTheme.bg))
                             .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(DreamTheme.line, lineWidth: 1))
@@ -196,6 +229,7 @@ struct CreateDreamScreen: View {
                     field("Description (optional)") {
                         TextField("Share more about your dream...", text: $desc, axis: .vertical)
                             .font(DreamTheme.Font.text(15))
+                            .foregroundStyle(Color.black)
                             .lineLimit(4...10)
                             .padding(14)
                             .frame(minHeight: 100, alignment: .topLeading)
@@ -208,12 +242,20 @@ struct CreateDreamScreen: View {
             }
 
             Divider().background(DreamTheme.line)
-            PrimaryButton(
-                title: "Publish dream",
-                background: canPublish ? (category?.palette.fg ?? DreamTheme.blue) : DreamTheme.ink3,
-                action: { if canPublish { onPublish() } }
-            )
-            .disabled(!canPublish)
+            VStack(spacing: 10) {
+                if let publishError {
+                    Text(publishError)
+                        .font(DreamTheme.Font.text(13))
+                        .foregroundStyle(Color(hex: 0xB83D45))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                PrimaryButton(
+                    title: isPublishing ? "Publishing…" : "Publish dream",
+                    background: (canPublish && !isPublishing) ? (category?.palette.fg ?? DreamTheme.blue) : DreamTheme.ink3,
+                    action: { Task { await publish() } }
+                )
+                .disabled(!canPublish || isPublishing)
+            }
             .padding(.horizontal, 20)
             .padding(.top, 14)
             .padding(.bottom, 24)
@@ -225,11 +267,48 @@ struct CreateDreamScreen: View {
         !title.isEmpty && category != nil && stage != nil && !helpNeeded.isEmpty
     }
 
+    @MainActor
+    private func publish() async {
+        guard canPublish, !isPublishing, let category, let stage else { return }
+        isPublishing = true
+        publishError = nil
+        defer { isPublishing = false }
+
+        do {
+            let dreamId = try await DreamRepository.shared.createDream(
+                title: title.trimmingCharacters(in: .whitespacesAndNewlines),
+                description: desc.trimmingCharacters(in: .whitespacesAndNewlines),
+                category: category,
+                stage: stage,
+                location: nil,
+                helpTags: helpNeeded.sorted()
+            )
+
+            if let selectedVideoURL {
+                _ = try await VideoUploader.shared.upload(localVideoURL: selectedVideoURL, dreamId: dreamId)
+            }
+
+            // Refresh the shared feed so the new dream shows up in Discover.
+            await DreamRepository.shared.loadFeed()
+            onPublish()
+        } catch {
+            publishError = "Couldn't publish. Please try again."
+            print("[CreateDreamScreen] publish failed: \(error)")
+        }
+    }
+
     private var videoPreview: some View {
         ZStack {
-            ScenePoster(category: category ?? .tech)
-                .aspectRatio(16.0/9.0, contentMode: .fill)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
+            if let videoThumbnail {
+                Image(uiImage: videoThumbnail)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+            } else {
+                ScenePoster(category: category ?? .tech)
+                    .aspectRatio(16.0/9.0, contentMode: .fill)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+            }
 
             Circle()
                 .fill(Color.black.opacity(0.4))

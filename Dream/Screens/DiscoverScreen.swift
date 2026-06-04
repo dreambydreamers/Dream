@@ -1,48 +1,37 @@
 import SwiftUI
 
 struct DiscoverScreen: View {
+    @StateObject private var repo = DreamRepository.shared
     @State private var index: Int = 0
     @State private var supporterMode: Bool = true
     @State private var supporterSkills: [String] = ["Design", "Funding"]
     @State private var presentedDream: Dream?
     @State private var helpForDream: Dream?
+    @State private var isMuted: Bool = false
 
-    private var dream: Dream { Dream.samples[index % Dream.samples.count] }
+    private var dreams: [Dream] { repo.dreams }
+    private var dream: Dream { dreams[index % dreams.count] }
 
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
 
-            ScenePoster(category: dream.category)
-                .ignoresSafeArea()
-                .id(dream.id)
-                .transition(.opacity)
-
-            topGradient
-            bottomGradient
-
-            VStack(alignment: .leading, spacing: 0) {
-                topBar
-                if supporterMode {
-                    supporterBanner.padding(.top, 10)
-                }
-                if let matchedSkill = dream.matched(against: supporterSkills), supporterMode {
-                    matchBadge(matchedSkill).padding(.top, 10)
-                }
-                Spacer()
+            if dreams.isEmpty {
+                placeholder
+            } else {
+                feed
             }
-            .padding(.top, 8)
-            .padding(.horizontal, 16)
-
-            HStack(alignment: .bottom) {
-                bottomInfo
-                Spacer(minLength: 12)
-                rightRail
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 130)
         }
-        .contentShape(Rectangle())
+        .task {
+            if repo.dreams.isEmpty { await repo.loadFeed() }
+            FeedVideoPreloader.shared.prefetchNeighbors(of: dreams, around: index)
+        }
+        .onChange(of: index) { _, newIndex in
+            FeedVideoPreloader.shared.prefetchNeighbors(of: dreams, around: newIndex)
+        }
+        .onChange(of: repo.dreams.count) { _, _ in
+            FeedVideoPreloader.shared.prefetchNeighbors(of: dreams, around: index)
+        }
         .fullScreenCover(item: $presentedDream) { d in
             DreamDetailScreen(
                 dream: d,
@@ -56,20 +45,82 @@ struct DiscoverScreen: View {
         .sheet(item: $helpForDream) { d in
             HelpSheet(dream: d, onClose: { helpForDream = nil })
         }
+    }
+
+    // MARK: - Feed
+
+    private var feed: some View {
+        ZStack {
+            DreamVideoBackground(dream: dream, isMuted: isMuted)
+                .ignoresSafeArea()
+                .id(dream.id)
+                .transition(.opacity)
+
+            topGradient
+            bottomGradient
+
+            GeometryReader { geo in
+                VStack(alignment: .leading, spacing: 0) {
+                    topBar
+                    if supporterMode {
+                        supporterBanner.padding(.top, 10)
+                    }
+                    if let matchedSkill = dream.matched(against: supporterSkills), supporterMode {
+                        matchBadge(matchedSkill).padding(.top, 10)
+                    }
+
+                    Spacer(minLength: 24)
+
+                    HStack(alignment: .bottom, spacing: 12) {
+                        bottomInfo
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        rightRail
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, 132)
+                .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
+            }
+        }
+        .contentShape(Rectangle())
         .gesture(
             DragGesture(minimumDistance: 30)
                 .onEnded { value in
                     if value.translation.height < -60 {
                         withAnimation(.easeInOut(duration: 0.35)) {
-                            index = (index + 1) % Dream.samples.count
+                            index = (index + 1) % dreams.count
                         }
                     } else if value.translation.height > 60 {
                         withAnimation(.easeInOut(duration: 0.35)) {
-                            index = (index - 1 + Dream.samples.count) % Dream.samples.count
+                            index = (index - 1 + dreams.count) % dreams.count
                         }
                     }
                 }
         )
+    }
+
+    private var placeholder: some View {
+        VStack(spacing: 14) {
+            if repo.isLoading {
+                ProgressView()
+                    .tint(.white)
+                Text("Finding dreams near you…")
+                    .font(DreamTheme.Font.text(14))
+                    .foregroundStyle(.white.opacity(0.75))
+            } else {
+                Image(systemName: "moon.stars")
+                    .font(.system(size: 34, weight: .light))
+                    .foregroundStyle(.white.opacity(0.6))
+                Text("No dreams yet")
+                    .font(DreamTheme.Font.display(22, weight: .regular))
+                    .foregroundStyle(.white)
+                Text("Be the first to share one.")
+                    .font(DreamTheme.Font.text(14))
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+        }
+        .padding(32)
     }
 
     // MARK: - Pieces
@@ -107,17 +158,26 @@ struct DiscoverScreen: View {
 
             Spacer()
 
-            Button(action: {}) {
-                Image(systemName: "slider.horizontal.3")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 40, height: 40)
-                    .background(Color.white.opacity(0.16), in: Circle())
-                    .background(.ultraThinMaterial, in: Circle())
-                    .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5))
+            HStack(spacing: 10) {
+                circleButton(systemImage: isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill") {
+                    isMuted.toggle()
+                }
+                circleButton(systemImage: "slider.horizontal.3") {}
             }
-            .buttonStyle(.plain)
         }
+    }
+
+    private func circleButton(systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 40, height: 40)
+                .background(Color.white.opacity(0.16), in: Circle())
+                .background(.ultraThinMaterial, in: Circle())
+                .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5))
+        }
+        .buttonStyle(.plain)
     }
 
     private var supporterBanner: some View {
@@ -129,6 +189,8 @@ struct DiscoverScreen: View {
             Text("Supporter mode · matching")
                 .font(DreamTheme.Font.text(12))
                 .foregroundStyle(.white.opacity(0.9))
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
             Spacer(minLength: 8)
             HStack(spacing: 4) {
                 ForEach(supporterSkills, id: \.self) { s in
@@ -140,6 +202,8 @@ struct DiscoverScreen: View {
                         .background(Color.white.opacity(0.2), in: Capsule())
                 }
             }
+            .fixedSize()
+            .layoutPriority(1)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -210,14 +274,14 @@ struct DiscoverScreen: View {
                 .clipShape(Capsule())
                 .shadow(color: dream.category.palette.fg.opacity(0.7), radius: 6)
 
-            Text(descriptionWithMore)
-                .font(DreamTheme.Font.text(13))
-                .foregroundStyle(.white.opacity(0.9))
-                .lineSpacing(2)
-                .lineLimit(2)
+            if !dream.desc.isEmpty {
+                Text(descriptionWithMore)
+                    .font(DreamTheme.Font.text(13))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .lineSpacing(2)
+                    .lineLimit(2)
+            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(maxWidth: 280, alignment: .leading)
     }
 
     private var descriptionWithMore: AttributedString {
@@ -252,6 +316,7 @@ struct DiscoverScreen: View {
                 )
                 .shadow(color: matched ? Color(hex: 0x8AD3A7).opacity(0.7) : .clear, radius: 8)
         }
+        .frame(width: 64)
     }
 }
 
