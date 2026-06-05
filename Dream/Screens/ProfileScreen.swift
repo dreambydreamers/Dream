@@ -16,6 +16,7 @@ struct ProfileScreen: View {
     @State private var presentedDream: Dream?
     @State private var playingMedia: DreamMedia?
     @State private var editing = false
+    @State private var postingUpdate = false
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -44,6 +45,18 @@ struct ProfileScreen: View {
         }
         .fullScreenCover(item: $playingMedia) { m in
             MediaVideoPlayer(media: m, onClose: { playingMedia = nil })
+        }
+        .fullScreenCover(isPresented: $postingUpdate) {
+            if let dream = model.featuredDream {
+                PostUpdateScreen(
+                    dream: dream,
+                    onClose: { postingUpdate = false },
+                    onPosted: {
+                        postingUpdate = false
+                        Task { await model.reload(userId: userId, isCurrentUser: isCurrentUser) }
+                    }
+                )
+            }
         }
         .sheet(isPresented: $editing) {
             EditProfileScreen(
@@ -189,6 +202,9 @@ struct ProfileScreen: View {
             VStack(alignment: .leading, spacing: 14) {
                 eyebrow(isCurrentUser ? "My Dream" : "Their Dream")
                 mainVideoCard(dream)
+                if isCurrentUser {
+                    postUpdateButton
+                }
                 if !model.otherVideos.isEmpty {
                     moreVideos
                 }
@@ -254,6 +270,22 @@ struct ProfileScreen: View {
                 .allowsHitTesting(true)
             }
         }
+    }
+
+    private var postUpdateButton: some View {
+        Button { postingUpdate = true } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                Text("Post an update")
+            }
+            .font(DreamTheme.Font.text(14, weight: .semibold))
+            .foregroundStyle(DreamTheme.blueDeep)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(Capsule().fill(DreamTheme.blueSoft))
+        }
+        .buttonStyle(.plain)
     }
 
     private var moreVideos: some View {

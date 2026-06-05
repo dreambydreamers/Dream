@@ -20,6 +20,7 @@
 		4CA7A0682FD2090700266FF0 /* Dream.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Dream.xcodeproj; sourceTree = "<group>"; };
 		4CA7A0BA2FD2FB8F00266FF0 /* Dream.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Dream.xcodeproj; sourceTree = "<group>"; };
 		4CC9C7CA2FC34B6F002221B1 /* Dream.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Dream.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CF5339B2FD310D6002B4089 /* Dream.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Dream.xcodeproj; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -98,6 +99,11 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		4CF5339E2FD310D6002B4089 /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -156,12 +162,12 @@
 			projectDirPath = "";
 			projectReferences = (
 				{
-					ProductGroup = 4C74FAFE2FCB0A0E00F1713A /* Products */;
-					ProjectRef = 4C74FAFB2FCB0A0E00F1713A /* Dream.xcodeproj */;
+					ProductGroup = 4CF5339E2FD310D6002B4089 /* Products */;
+					ProjectRef = 4CF5339B2FD310D6002B4089 /* Dream.xcodeproj */;
 				},
 				{
-					ProductGroup = 4C74FCD12FCF5FBF00F1713A /* Products */;
-					ProjectRef = 4C74FCCE2FCF5FBF00F1713A /* Dream.xcodeproj */;
+					ProductGroup = 4C74FAFE2FCB0A0E00F1713A /* Products */;
+					ProjectRef = 4C74FAFB2FCB0A0E00F1713A /* Dream.xcodeproj */;
 				},
 				{
 					ProductGroup = 4CA7A0BD2FD2FB8F00266FF0 /* Products */;
@@ -170,10 +176,6 @@
 				{
 					ProductGroup = 4C5ADCEF2FC34EB6000AD2FD /* Products */;
 					ProjectRef = 4C5ADCEC2FC34EB6000AD2FD /* Dream.xcodeproj */;
-				},
-				{
-					ProductGroup = 4CA79F912FD1C06900266FF0 /* Products */;
-					ProjectRef = 4CA79F8E2FD1C06900266FF0 /* Dream.xcodeproj */;
 				},
 				{
 					ProductGroup = 4CA7A06B2FD2090700266FF0 /* Products */;
@@ -186,6 +188,14 @@
 				{
 					ProductGroup = 4C74FC462FCB22F500F1713A /* Products */;
 					ProjectRef = 4C74FC432FCB22F500F1713A /* Dream.xcodeproj */;
+				},
+				{
+					ProductGroup = 4C74FCD12FCF5FBF00F1713A /* Products */;
+					ProjectRef = 4C74FCCE2FCF5FBF00F1713A /* Dream.xcodeproj */;
+				},
+				{
+					ProductGroup = 4CA79F912FD1C06900266FF0 /* Products */;
+					ProjectRef = 4CA79F8E2FD1C06900266FF0 /* Dream.xcodeproj */;
 				},
 			);
 			projectRoot = "";

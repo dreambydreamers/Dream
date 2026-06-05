@@ -57,7 +57,7 @@ struct DiscoverScreen: View {
         ZStack {
             DreamVideoBackground(dream: dream, isMuted: isMuted)
                 .ignoresSafeArea()
-                .id(dream.id)
+                .id(dream.feedID)
                 .transition(.opacity)
 
             topGradient
@@ -264,7 +264,7 @@ struct DiscoverScreen: View {
             }
 
             Button { presentedDream = dream } label: {
-                Text(dream.title)
+                Text(dream.displayTitle)
                     .font(DreamTheme.Font.display(30, weight: .regular))
                     .tracking(-0.6)
                     .foregroundStyle(.white)

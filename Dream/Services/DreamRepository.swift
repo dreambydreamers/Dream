@@ -30,7 +30,7 @@ final class DreamRepository: ObservableObject {
                 .execute()
                 .value
 
-            self.dreams = try await enrich(dreamRows)
+            self.dreams = try await enrichFeed(dreamRows)
         } catch {
             lastError = "\(error)"
             print("[DreamRepository] loadFeed failed: \(error)")
@@ -55,11 +55,17 @@ final class DreamRepository: ObservableObject {
         }
     }
 
-    /// Enriches dream rows with author profiles, stats, primary videos and journey
-    /// steps (all fetched concurrently) and maps them to `Dream` view models.
-    private func enrich(_ dreamRows: [DreamDTO]) async throws -> [Dream] {
-        guard !dreamRows.isEmpty else { return [] }
+    /// The author/stats/steps/videos needed to turn dream rows into view models.
+    private struct DreamContext {
+        let profileByOwner: [UUID: ProfileDTO]
+        let statsByDream: [UUID: DreamStatsDTO]
+        let videosByDream: [UUID: [DreamVideoDTO]]   // primary first, then newest
+        let stepsByDream: [UUID: [JourneyStepDTO]]
+    }
 
+    /// Fetches author profiles, stats, *all* videos and journey steps for a set
+    /// of dream rows concurrently and groups them by id for fast lookup.
+    private func fetchContext(_ dreamRows: [DreamDTO]) async throws -> DreamContext {
         let ownerIds = Array(Set(dreamRows.map(\.ownerId)))
         let dreamIds = dreamRows.map(\.id)
 
@@ -70,7 +76,8 @@ final class DreamRepository: ObservableObject {
             .from("dream_stats").select().in("dream_id", values: dreamIds)
             .execute().value
         async let videos: [DreamVideoDTO] = client
-            .from("dream_videos").select().in("dream_id", values: dreamIds).eq("is_primary", value: true)
+            .from("dream_videos").select().in("dream_id", values: dreamIds)
+            .order("is_primary", ascending: false).order("created_at", ascending: false)
             .execute().value
         async let steps: [JourneyStepDTO] = client
             .from("journey_steps").select().in("dream_id", values: dreamIds).order("sort_order", ascending: true)
@@ -78,20 +85,56 @@ final class DreamRepository: ObservableObject {
 
         let (p, s, v, j) = try await (profiles, stats, videos, steps)
 
-        let profileById = Dictionary(uniqueKeysWithValues: p.map { ($0.id, $0) })
-        let statsById = Dictionary(uniqueKeysWithValues: s.map { ($0.dreamId, $0) })
-        let videoByDream = Dictionary(uniqueKeysWithValues: v.map { ($0.dreamId, $0) })
-        let stepsByDream = Dictionary(grouping: j, by: \.dreamId)
+        return DreamContext(
+            profileByOwner: Dictionary(p.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a }),
+            statsByDream: Dictionary(s.map { ($0.dreamId, $0) }, uniquingKeysWith: { a, _ in a }),
+            videosByDream: Dictionary(grouping: v, by: \.dreamId),
+            stepsByDream: Dictionary(grouping: j, by: \.dreamId)
+        )
+    }
 
+    /// One `Dream` per dream row, using its primary (cover) video. Used by the
+    /// profile screen, which treats a dream as a single unit.
+    private func enrich(_ dreamRows: [DreamDTO]) async throws -> [Dream] {
+        guard !dreamRows.isEmpty else { return [] }
+        let ctx = try await fetchContext(dreamRows)
         return dreamRows.map { row in
             Self.mapToDream(
                 row: row,
-                profile: profileById[row.ownerId],
-                stats: statsById[row.id],
-                video: videoByDream[row.id],
-                steps: stepsByDream[row.id] ?? []
+                profile: ctx.profileByOwner[row.ownerId],
+                stats: ctx.statsByDream[row.id],
+                video: ctx.videosByDream[row.id]?.first,   // primary first
+                steps: ctx.stepsByDream[row.id] ?? []
             )
         }
+    }
+
+    /// One feed card *per video*: a dream's main clip and every update clip each
+    /// surface as their own card, interleaved across all dreams by recency so
+    /// fresh updates show up in Discover. Dreams without any video still produce
+    /// one (gradient) card. Used by `loadFeed`.
+    private func enrichFeed(_ dreamRows: [DreamDTO]) async throws -> [Dream] {
+        guard !dreamRows.isEmpty else { return [] }
+        let ctx = try await fetchContext(dreamRows)
+
+        var cards: [(date: Date, dream: Dream)] = []
+        for row in dreamRows {
+            let profile = ctx.profileByOwner[row.ownerId]
+            let stats = ctx.statsByDream[row.id]
+            let steps = ctx.stepsByDream[row.id] ?? []
+            let videos = ctx.videosByDream[row.id] ?? []
+
+            if videos.isEmpty {
+                cards.append((row.createdAt,
+                              Self.mapToDream(row: row, profile: profile, stats: stats, video: nil, steps: steps)))
+            } else {
+                for video in videos {
+                    cards.append((video.createdAt,
+                                  Self.mapToDream(row: row, profile: profile, stats: stats, video: video, steps: steps)))
+                }
+            }
+        }
+        return cards.sorted { $0.date > $1.date }.map(\.dream)
     }
 
     /// Fetches every video for a dream (primary first, then newest), resolving
@@ -116,6 +159,14 @@ final class DreamRepository: ObservableObject {
             print("[DreamRepository] videos(forDream:) failed: \(error)")
             return []
         }
+    }
+
+    /// The current user's dream that updates attach to: their featured dream if
+    /// they've pinned one, else their most recent. `nil` if they have none yet.
+    func myDream() async -> Dream? {
+        guard let userId = try? await client.auth.session.user.id else { return nil }
+        let owned = await dreams(ownedBy: userId)
+        return owned.first(where: { $0.isFeatured }) ?? owned.first
     }
 
     // MARK: - Featured ("main") dream
@@ -219,7 +270,9 @@ final class DreamRepository: ObservableObject {
             isFeatured: row.isFeatured,
             videoURL: nil, // private bucket — fetch signed URL on demand
             posterURL: posterURL,
-            videoStoragePath: video?.storagePath
+            videoStoragePath: video?.storagePath,
+            videoId: video?.id,
+            videoTitle: video?.title
         )
     }
 

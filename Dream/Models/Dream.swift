@@ -47,13 +47,33 @@ struct Dream: Identifiable, Hashable {
     var videoURL: URL? = nil
     /// Optional URL for the video poster image.
     var posterURL: URL? = nil
-    /// Storage path of the primary video in the private `dream-videos` bucket.
+    /// Storage path of the video in the private `dream-videos` bucket.
     /// Used to fetch a signed playback URL on demand. `nil` when there's no video.
     var videoStoragePath: String? = nil
+    /// Identity of the specific `dream_videos` row this card represents. A dream
+    /// can surface multiple cards in the feed (the main video + update clips),
+    /// so video-scoped state (player cache, view identity) keys on this, while
+    /// `id`/`ownerId` still point at the parent dream for detail/profile.
+    var videoId: UUID? = nil
+    /// Per-video heading for "update" clips. `nil` for the cover video, which
+    /// shows the dream's own `title`. See `displayTitle`.
+    var videoTitle: String? = nil
 }
 
 extension Dream {
     func matched(against skills: [String]) -> String? {
         help.first(where: { skills.contains($0) })
+    }
+
+    /// Identity for video-scoped feed concerns (per-video player cache + the
+    /// SwiftUI view identity that drives playback). Falls back to the dream id
+    /// for dreams without an uploaded video.
+    var feedID: UUID { videoId ?? id }
+
+    /// Title to show on this feed card: an update clip's own heading when it has
+    /// one, otherwise the parent dream's title.
+    var displayTitle: String {
+        if let videoTitle, !videoTitle.isEmpty { return videoTitle }
+        return title
     }
 }

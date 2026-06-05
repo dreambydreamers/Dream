@@ -47,7 +47,7 @@ final class FeedVideoPreloader {
     /// Warm up a dream's player in the background without playing it, so it's
     /// buffered by the time the user scrolls to it.
     func prefetch(_ dream: Dream) {
-        guard dream.videoStoragePath != nil, players[dream.id] == nil else { return }
+        guard dream.videoStoragePath != nil, players[dream.feedID] == nil else { return }
         Task { [weak self] in _ = await self?.build(for: dream, isMuted: true) }
     }
 
@@ -64,19 +64,20 @@ final class FeedVideoPreloader {
     // MARK: - Building (coalesced per dream)
 
     private func build(for dream: Dream, isMuted: Bool) async -> Prepared? {
-        if let prepared = players[dream.id] {
-            touch(dream.id)
+        let key = dream.feedID
+        if let prepared = players[key] {
+            touch(key)
             return prepared
         }
-        if let inFlight = building[dream.id] {
+        if let inFlight = building[key] {
             return await inFlight.value
         }
         let task = Task { [weak self] () -> Prepared? in
             await self?.makePrepared(for: dream, isMuted: isMuted)
         }
-        building[dream.id] = task
+        building[key] = task
         let result = await task.value
-        building[dream.id] = nil
+        building[key] = nil
         return result
     }
 
@@ -99,10 +100,10 @@ final class FeedVideoPreloader {
 
         // Prime the decode pipeline once the player is ready. `preroll` throws
         // if called before `.readyToPlay`, so gate it on the status observer.
-        primePrerollWhenReady(dream.id, queue)
+        primePrerollWhenReady(dream.feedID, queue)
 
         let prepared = Prepared(player: queue, looper: looper)
-        store(dream.id, prepared)
+        store(dream.feedID, prepared)
         return prepared
     }
 
@@ -118,11 +119,11 @@ final class FeedVideoPreloader {
 
     private func signedURL(for dream: Dream) async -> URL? {
         guard let path = dream.videoStoragePath else { return nil }
-        if let cached = signedURLs[dream.id], cached.expires > Date().addingTimeInterval(120) {
+        if let cached = signedURLs[dream.feedID], cached.expires > Date().addingTimeInterval(120) {
             return cached.url
         }
         guard let url = try? await VideoUploader.shared.signedVideoURL(storagePath: path) else { return nil }
-        signedURLs[dream.id] = (url, Date().addingTimeInterval(3600))
+        signedURLs[dream.feedID] = (url, Date().addingTimeInterval(3600))
         return url
     }
 

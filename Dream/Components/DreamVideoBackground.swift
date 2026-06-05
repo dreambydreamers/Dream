@@ -54,7 +54,7 @@ struct DreamVideoBackground: View {
             .contentShape(Rectangle())
             .onTapGesture { togglePlayback() }
         }
-        .task(id: dream.id) { await loadVideo() }
+        .task(id: dream.feedID) { await loadVideo() }
         .onChange(of: isMuted) { _, muted in player?.isMuted = muted }
         .onDisappear {
             // Just pause — the preloader owns the player's lifecycle so it

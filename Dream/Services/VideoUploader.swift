@@ -22,10 +22,13 @@ final class VideoUploader {
     ///   - localVideoURL: a file URL to the video on disk (e.g. from PHPickerViewController)
     ///   - dreamId: the dream this video belongs to
     ///   - markPrimary: whether to mark this as the primary/cover video
+    ///   - title: optional per-video heading (used by "update" clips); the cover
+    ///     video leaves this nil and inherits the dream's title in the feed.
     func upload(
         localVideoURL: URL,
         dreamId: UUID,
-        markPrimary: Bool = true
+        markPrimary: Bool = true,
+        title: String? = nil
     ) async throws -> UploadResult {
         guard let userId = try? await client.auth.session.user.id else {
             throw NSError(domain: "VideoUploader", code: 401,
@@ -44,25 +47,26 @@ final class VideoUploader {
         _ = try await client.storage
             .from("dream-videos")
             .upload(
-                path: videoPath,
-                file: videoData,
+                videoPath,
+                data: videoData,
                 options: FileOptions(contentType: "video/mp4", upsert: false)
             )
 
         // 2) Probe metadata + extract poster
         let asset = AVURLAsset(url: localVideoURL)
-        let durationMs = Int(CMTimeGetSeconds(asset.duration) * 1000)
+        let duration = (try? await asset.load(.duration)) ?? .zero
+        let durationMs = Int(CMTimeGetSeconds(duration) * 1000)
         let track = try? await asset.loadTracks(withMediaType: .video).first
         let size = (try? await track?.load(.naturalSize)) ?? .zero
 
         var posterPath: String? = nil
-        if let posterData = generatePoster(from: asset) {
+        if let posterData = await generatePoster(from: asset) {
             let path = "\(userFolder)/\(dreamId.uuidString.lowercased())/\(videoId.uuidString.lowercased()).jpg"
             _ = try? await client.storage
                 .from("dream-posters")
                 .upload(
-                    path: path,
-                    file: posterData,
+                    path,
+                    data: posterData,
                     options: FileOptions(contentType: "image/jpeg", upsert: false)
                 )
             posterPath = path
@@ -76,7 +80,8 @@ final class VideoUploader {
             duration_ms: durationMs > 0 ? durationMs : nil,
             width: Int(size.width) > 0 ? Int(size.width) : nil,
             height: Int(size.height) > 0 ? Int(size.height) : nil,
-            is_primary: markPrimary
+            is_primary: markPrimary,
+            title: title
         )
         _ = try await client.from("dream_videos").insert(payload).execute()
 
@@ -92,12 +97,12 @@ final class VideoUploader {
 
     // MARK: - Helpers
 
-    private func generatePoster(from asset: AVAsset) -> Data? {
+    private func generatePoster(from asset: AVAsset) async -> Data? {
         let generator = AVAssetImageGenerator(asset: asset)
         generator.appliesPreferredTrackTransform = true
         generator.maximumSize = CGSize(width: 1080, height: 1920)
         let time = CMTimeMake(value: 1, timescale: 2) // 0.5s in
-        guard let cgImage = try? generator.copyCGImage(at: time, actualTime: nil) else {
+        guard let cgImage = try? await generator.image(at: time).image else {
             return nil
         }
         let image = UIImage(cgImage: cgImage)

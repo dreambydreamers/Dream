@@ -65,14 +65,17 @@ struct DreamVideoDTO: Codable, Hashable {
     let width: Int?
     let height: Int?
     let isPrimary: Bool
+    let title: String?
+    let createdAt: Date
 
     enum CodingKeys: String, CodingKey {
-        case id, width, height
+        case id, width, height, title
         case dreamId = "dream_id"
         case storagePath = "storage_path"
         case posterPath = "poster_path"
         case durationMs = "duration_ms"
         case isPrimary = "is_primary"
+        case createdAt = "created_at"
     }
 }
 
@@ -163,6 +166,7 @@ struct NewVideoPayload: Encodable {
     let width: Int?
     let height: Int?
     let is_primary: Bool
+    let title: String?
 }
 
 // MARK: - Enum mapping helpers
