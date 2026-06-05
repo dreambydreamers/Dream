@@ -94,6 +94,49 @@ final class DreamRepository: ObservableObject {
         }
     }
 
+    /// Fetches every video for a dream (primary first, then newest), resolving
+    /// each poster's public URL. Used by the profile to show the main dream's clips.
+    func videos(forDream dreamId: UUID) async -> [DreamMedia] {
+        do {
+            let rows: [DreamVideoDTO] = try await client
+                .from("dream_videos")
+                .select()
+                .eq("dream_id", value: dreamId)
+                .order("is_primary", ascending: false)
+                .order("created_at", ascending: false)
+                .execute()
+                .value
+            return rows.map { v in
+                let posterURL = v.posterPath.flatMap { path in
+                    try? client.storage.from("dream-posters").getPublicURL(path: path)
+                }
+                return DreamMedia(id: v.id, storagePath: v.storagePath, posterURL: posterURL, isPrimary: v.isPrimary)
+            }
+        } catch {
+            print("[DreamRepository] videos(forDream:) failed: \(error)")
+            return []
+        }
+    }
+
+    // MARK: - Featured ("main") dream
+
+    /// Marks `dreamId` as the current user's single featured dream, clearing any
+    /// previously-featured dream first (a partial unique index allows only one).
+    func setFeatured(dreamId: UUID, ownerId: UUID) async throws {
+        try await client
+            .from("dreams")
+            .update(["is_featured": false])
+            .eq("owner_id", value: ownerId)
+            .eq("is_featured", value: true)
+            .execute()
+
+        try await client
+            .from("dreams")
+            .update(["is_featured": true])
+            .eq("id", value: dreamId)
+            .execute()
+    }
+
     // MARK: - Create
 
     /// Inserts a dream row owned by the current authed user and returns its UUID.
@@ -173,6 +216,7 @@ final class DreamRepository: ObservableObject {
             supporters: stats?.supportersCount ?? 0,
             offers: stats?.offersCount ?? 0,
             viewsLabel: formatCount(row.viewsCount),
+            isFeatured: row.isFeatured,
             videoURL: nil, // private bucket — fetch signed URL on demand
             posterURL: posterURL,
             videoStoragePath: video?.storagePath

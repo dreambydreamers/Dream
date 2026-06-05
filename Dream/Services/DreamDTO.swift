@@ -26,6 +26,7 @@ struct DreamDTO: Codable, Hashable {
     let location: String?
     let helpTags: [String]
     let viewsCount: Int
+    let isFeatured: Bool
     let createdAt: Date
 
     enum CodingKeys: String, CodingKey {
@@ -33,6 +34,7 @@ struct DreamDTO: Codable, Hashable {
         case ownerId = "owner_id"
         case helpTags = "help_tags"
         case viewsCount = "views_count"
+        case isFeatured = "is_featured"
         case createdAt = "created_at"
     }
 }
@@ -86,6 +88,22 @@ struct DreamStatsDTO: Codable, Hashable {
     }
 }
 
+struct ProfileStatsDTO: Codable, Hashable {
+    let profileId: UUID
+    let videosCount: Int
+    let followersCount: Int
+    let followingCount: Int
+    let offersCount: Int
+
+    enum CodingKeys: String, CodingKey {
+        case profileId = "profile_id"
+        case videosCount = "videos_count"
+        case followersCount = "followers_count"
+        case followingCount = "following_count"
+        case offersCount = "offers_count"
+    }
+}
+
 struct HelpOfferDTO: Codable, Hashable {
     let id: UUID
     let dreamId: UUID
@@ -113,6 +131,19 @@ struct NewDreamPayload: Encodable {
     let stage: String
     let location: String?
     let help_tags: [String]
+}
+
+/// Partial update of the current user's profile (edited fields only).
+struct ProfileUpdatePayload: Encodable {
+    let name: String?
+    let handle: String?
+    let location: String?
+    let skills: [String]
+}
+
+struct FollowPayload: Codable {
+    let follower_id: UUID
+    let followed_id: UUID
 }
 
 struct NewJourneyStepPayload: Encodable {

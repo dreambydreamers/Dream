@@ -1,12 +1,12 @@
 import Combine
 import SwiftUI
 
-/// A user's profile: header (avatar, name, handle, location, skills, stats) and a
-/// grid of their dreams. Reused for the current user (Profile tab) and for any
-/// author opened from the Discover feed.
+/// A user's profile: header (avatar, name, @handle, location, skills, stats),
+/// a featured "main" dream with its video, and that dream's other clips.
+/// Reused for the current user (Profile tab) and any author opened from Discover.
 struct ProfileScreen: View {
     let userId: UUID
-    /// When true, shows the sign-out control instead of a follow button.
+    /// When true, shows edit/sign-out controls instead of a follow button.
     var isCurrentUser: Bool = false
     /// When provided, a back chevron is shown (i.e. presented over the feed).
     var onBack: (() -> Void)? = nil
@@ -14,7 +14,8 @@ struct ProfileScreen: View {
     @StateObject private var model = ProfileViewModel()
     @ObservedObject private var auth = AuthService.shared
     @State private var presentedDream: Dream?
-    @State private var following = false
+    @State private var playingMedia: DreamMedia?
+    @State private var editing = false
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -27,7 +28,7 @@ struct ProfileScreen: View {
                         skills.padding(.top, 20)
                     }
                     stats.padding(.top, 22)
-                    dreamsSection.padding(.top, 26)
+                    mainDreamSection.padding(.top, 26)
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 120)
@@ -37,9 +38,27 @@ struct ProfileScreen: View {
                 topBar(onBack: onBack)
             }
         }
-        .task(id: userId) { await model.load(userId: userId) }
+        .task(id: userId) { await model.load(userId: userId, isCurrentUser: isCurrentUser) }
         .fullScreenCover(item: $presentedDream) { d in
             DreamDetailScreen(dream: d, onBack: { presentedDream = nil })
+        }
+        .fullScreenCover(item: $playingMedia) { m in
+            MediaVideoPlayer(media: m, onClose: { playingMedia = nil })
+        }
+        .sheet(isPresented: $editing) {
+            EditProfileScreen(
+                userId: userId,
+                name: model.name,
+                handle: model.handle,
+                location: model.location,
+                skills: model.skills,
+                dreams: model.dreams,
+                onSaved: {
+                    editing = false
+                    Task { await model.reload(userId: userId, isCurrentUser: isCurrentUser) }
+                },
+                onCancel: { editing = false }
+            )
         }
     }
 
@@ -80,25 +99,34 @@ struct ProfileScreen: View {
     @ViewBuilder
     private var actionButton: some View {
         if isCurrentUser {
-            Button {
-                Task { await auth.signOut() }
-            } label: {
-                Text("Sign out")
-                    .font(DreamTheme.Font.text(14, weight: .semibold))
-                    .foregroundStyle(DreamTheme.ink)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 11)
-                    .overlay(Capsule().stroke(DreamTheme.line, lineWidth: 1))
+            HStack(spacing: 10) {
+                Button { editing = true } label: {
+                    Text("Edit Profile")
+                        .font(DreamTheme.Font.text(14, weight: .semibold))
+                        .foregroundStyle(DreamTheme.ink)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 11)
+                        .overlay(Capsule().stroke(DreamTheme.line, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+
+                Button { Task { await auth.signOut() } } label: {
+                    Image(systemName: "rectangle.portrait.and.arrow.right")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(DreamTheme.ink2)
+                        .frame(width: 44, height: 44)
+                        .overlay(Circle().stroke(DreamTheme.line, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         } else {
-            Button { following.toggle() } label: {
-                Text(following ? "Following" : "Follow")
+            Button { Task { await model.toggleFollow(userId: userId) } } label: {
+                Text(model.isFollowing ? "Following" : "Follow")
                     .font(DreamTheme.Font.text(14, weight: .semibold))
-                    .foregroundStyle(following ? DreamTheme.blueDeep : .white)
+                    .foregroundStyle(model.isFollowing ? DreamTheme.blueDeep : .white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 11)
-                    .background(Capsule().fill(following ? Color.white : DreamTheme.blue))
+                    .background(Capsule().fill(model.isFollowing ? Color.white : DreamTheme.blue))
                     .overlay(Capsule().strokeBorder(DreamTheme.blue, lineWidth: 1.5))
             }
             .buttonStyle(.plain)
@@ -127,9 +155,9 @@ struct ProfileScreen: View {
 
     private var stats: some View {
         HStack(spacing: 10) {
-            statCell("\(model.dreams.count)", "Dreams")
-            statCell("\(model.totalSupporters)", "Supporters")
-            statCell("\(model.totalOffers)", "Offers")
+            statCell("\(model.videosCount)", "Videos")
+            statCell("\(model.followersCount)", "Followers")
+            statCell("\(model.offersCount)", "Offers")
         }
         .padding(.vertical, 16)
         .overlay(alignment: .top) { Rectangle().fill(DreamTheme.line).frame(height: 1) }
@@ -149,30 +177,122 @@ struct ProfileScreen: View {
         .frame(maxWidth: .infinity)
     }
 
-    // MARK: - Dreams grid
+    // MARK: - Main dream
 
-    private var dreamsSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            eyebrow(isCurrentUser ? "My Dreams" : "Dreams")
+    @ViewBuilder
+    private var mainDreamSection: some View {
+        if model.isLoading && model.featuredDream == nil {
+            ProgressView()
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 40)
+        } else if let dream = model.featuredDream {
+            VStack(alignment: .leading, spacing: 14) {
+                eyebrow(isCurrentUser ? "My Dream" : "Their Dream")
+                mainVideoCard(dream)
+                if !model.otherVideos.isEmpty {
+                    moreVideos
+                }
+            }
+        } else {
+            emptyState
+        }
+    }
 
-            if model.isLoading && model.dreams.isEmpty {
-                ProgressView()
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 40)
-            } else if model.dreams.isEmpty {
-                emptyState
-            } else {
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 12),
-                                    GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                    ForEach(model.dreams) { dream in
-                        Button { presentedDream = dream } label: {
-                            DreamGridCard(dream: dream)
+    private func mainVideoCard(_ dream: Dream) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ZStack(alignment: .bottomLeading) {
+                Group {
+                    if dream.videoStoragePath != nil {
+                        DreamVideoBackground(dream: dream, isMuted: true)
+                    } else if let url = dream.posterURL {
+                        AsyncImage(url: url) { phase in
+                            if let image = phase.image {
+                                image.resizable().scaledToFill()
+                            } else {
+                                ScenePoster(category: dream.category)
+                            }
+                        }
+                    } else {
+                        ScenePoster(category: dream.category)
+                    }
+                }
+                .frame(height: 440)
+                .frame(maxWidth: .infinity)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+
+                LinearGradient(
+                    colors: [.clear, .black.opacity(0.55)],
+                    startPoint: .center, endPoint: .bottom
+                )
+                .frame(height: 440)
+                .frame(maxWidth: .infinity)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .allowsHitTesting(false)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    CategoryBadge(category: dream.category, dark: true)
+                    Text(dream.title)
+                        .font(DreamTheme.Font.display(24, weight: .regular))
+                        .tracking(-0.4)
+                        .foregroundStyle(.white)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button { presentedDream = dream } label: {
+                        HStack(spacing: 6) {
+                            Text("View dream")
+                            Image(systemName: "arrow.right")
+                        }
+                        .font(DreamTheme.Font.text(13, weight: .semibold))
+                        .foregroundStyle(DreamTheme.ink)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Capsule().fill(.white))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(18)
+                .allowsHitTesting(true)
+            }
+        }
+    }
+
+    private var moreVideos: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            eyebrow("More from this dream")
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(model.otherVideos) { media in
+                        Button { playingMedia = media } label: {
+                            clipThumbnail(media, category: model.featuredDream?.category ?? .tech)
                         }
                         .buttonStyle(.plain)
                     }
                 }
             }
         }
+    }
+
+    private func clipThumbnail(_ media: DreamMedia, category: DreamCategory) -> some View {
+        ZStack {
+            if let url = media.posterURL {
+                AsyncImage(url: url) { phase in
+                    if let image = phase.image {
+                        image.resizable().scaledToFill()
+                    } else {
+                        ScenePoster(category: category)
+                    }
+                }
+            } else {
+                ScenePoster(category: category)
+            }
+            Image(systemName: "play.circle.fill")
+                .font(.system(size: 30))
+                .foregroundStyle(.white.opacity(0.9))
+                .shadow(color: .black.opacity(0.35), radius: 6)
+        }
+        .frame(width: 124, height: 200)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(DreamTheme.line, lineWidth: 0.5))
     }
 
     private var emptyState: some View {
@@ -216,49 +336,7 @@ struct ProfileScreen: View {
     }
 }
 
-/// Square dream thumbnail used in the profile grid.
-private struct DreamGridCard: View {
-    let dream: Dream
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ZStack(alignment: .topLeading) {
-                poster
-                CategoryBadge(category: dream.category, dark: true)
-                    .padding(8)
-            }
-            .frame(height: 150)
-            .frame(maxWidth: .infinity)
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-
-            Text(dream.title)
-                .font(DreamTheme.Font.display(15, weight: .regular))
-                .foregroundStyle(DreamTheme.ink)
-                .lineLimit(2)
-                .multilineTextAlignment(.leading)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 8)
-        }
-    }
-
-    @ViewBuilder
-    private var poster: some View {
-        if let url = dream.posterURL {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let image):
-                    image.resizable().scaledToFill()
-                default:
-                    ScenePoster(category: dream.category)
-                }
-            }
-        } else {
-            ScenePoster(category: dream.category)
-        }
-    }
-}
-
-/// Owns the loaded profile + dreams for a `ProfileScreen`.
+/// Owns the loaded profile + featured dream + stats for a `ProfileScreen`.
 @MainActor
 final class ProfileViewModel: ObservableObject {
     @Published var name = ""
@@ -267,22 +345,31 @@ final class ProfileViewModel: ObservableObject {
     @Published var avatarSeed = 0
     @Published var skills: [String] = []
     @Published var dreams: [Dream] = []
+    @Published var featuredDream: Dream?
+    @Published var otherVideos: [DreamMedia] = []
+    @Published var videosCount = 0
+    @Published var followersCount = 0
+    @Published var offersCount = 0
+    @Published var isFollowing = false
     @Published var isLoading = false
-
-    var totalSupporters: Int { dreams.reduce(0) { $0 + $1.supporters } }
-    var totalOffers: Int { dreams.reduce(0) { $0 + $1.offers } }
 
     private var loadedUserId: UUID?
 
-    func load(userId: UUID) async {
+    func load(userId: UUID, isCurrentUser: Bool) async {
         guard loadedUserId != userId else { return }
+        await reload(userId: userId, isCurrentUser: isCurrentUser)
+    }
+
+    func reload(userId: UUID, isCurrentUser: Bool) async {
         loadedUserId = userId
         isLoading = true
         defer { isLoading = false }
 
         async let profile = ProfileRepository.shared.profile(userId: userId)
         async let dreams = DreamRepository.shared.dreams(ownedBy: userId)
-        let (p, d) = await (profile, dreams)
+        async let stats = ProfileRepository.shared.stats(userId: userId)
+        async let following = isCurrentUser ? false : ProfileRepository.shared.isFollowing(userId)
+        let (p, d, s, f) = await (profile, dreams, stats, following)
 
         if let p {
             name = p.name ?? "Dreamer"
@@ -298,5 +385,37 @@ final class ProfileViewModel: ObservableObject {
             avatarSeed = first.avatarSeed
         }
         self.dreams = d
+        videosCount = s?.videosCount ?? 0
+        followersCount = s?.followersCount ?? 0
+        offersCount = s?.offersCount ?? 0
+        isFollowing = f
+
+        // Featured dream = the one the user pinned, else their most recent.
+        let featured = d.first(where: { $0.isFeatured }) ?? d.first
+        featuredDream = featured
+        await loadOtherVideos(for: featured)
+    }
+
+    private func loadOtherVideos(for dream: Dream?) async {
+        guard let dream else { otherVideos = []; return }
+        let videos = await DreamRepository.shared.videos(forDream: dream.id)
+        otherVideos = videos.filter { !$0.isPrimary }
+    }
+
+    func toggleFollow(userId: UUID) async {
+        let wasFollowing = isFollowing
+        isFollowing.toggle()
+        followersCount += wasFollowing ? -1 : 1
+        do {
+            if wasFollowing {
+                try await ProfileRepository.shared.unfollow(userId)
+            } else {
+                try await ProfileRepository.shared.follow(userId)
+            }
+        } catch {
+            // Revert on failure.
+            isFollowing = wasFollowing
+            followersCount += wasFollowing ? 1 : -1
+        }
     }
 }

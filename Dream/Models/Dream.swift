@@ -41,6 +41,8 @@ struct Dream: Identifiable, Hashable {
     let supporters: Int
     let offers: Int
     let viewsLabel: String
+    /// True if the owner picked this as their featured ("main") dream.
+    var isFeatured: Bool = false
     /// Optional URL for the primary uploaded video. `nil` for sample data.
     var videoURL: URL? = nil
     /// Optional URL for the video poster image.
