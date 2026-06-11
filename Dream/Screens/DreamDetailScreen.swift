@@ -3,9 +3,24 @@ import SwiftUI
 struct DreamDetailScreen: View {
     let dream: Dream
     var onBack: () -> Void = {}
-    var onHelp: () -> Void = {}
 
     @State private var following = false
+    /// The dream whose video the hero plays — the dream's *main* (primary/cover)
+    /// clip. Starts as the incoming `dream` and, for update-clip cards, is
+    /// refined to the primary video by `resolveMainVideo()`.
+    @State private var heroDream: Dream
+    /// Drives the "I can help" sheet, presented over this detail page.
+    @State private var helpForDream: Dream?
+    /// Drives navigation to the dream author's profile (tap avatar/name).
+    @State private var profileForUser: UUID?
+    /// Hero video mute state, toggled by the speaker button. Starts unmuted.
+    @State private var isMuted = false
+
+    init(dream: Dream, onBack: @escaping () -> Void = {}) {
+        self.dream = dream
+        self.onBack = onBack
+        _heroDream = State(initialValue: dream)
+    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -34,47 +49,70 @@ struct DreamDetailScreen: View {
 
             stickyCTA
         }
+        .task { await resolveMainVideo() }
+        .onAppear { FeedVideoPreloader.shared.pauseFeedPlayer() }
+        .onDisappear { FeedVideoPreloader.shared.resumeFeedPlayer() }
+        .sheet(item: $helpForDream) { d in
+            HelpSheet(dream: d, onClose: { helpForDream = nil })
+        }
+        .fullScreenCover(item: $profileForUser) { uid in
+            ProfileScreen(userId: uid, onBack: { profileForUser = nil })
+        }
+    }
+
+    /// When opened from a feed *update* card, the incoming `dream` points at the
+    /// update clip. Resolve the dream's primary (main) video so the hero plays
+    /// that instead. Cover cards / profile dreams (`videoTitle == nil`) already
+    /// carry the main video, so no fetch is needed.
+    private func resolveMainVideo() async {
+        guard dream.videoTitle != nil else { return }
+        let videos = await DreamRepository.shared.videos(forDream: dream.id)
+        guard let primary = videos.first(where: { $0.isPrimary }) ?? videos.first else { return }
+        var d = dream
+        d.videoStoragePath = primary.storagePath
+        d.videoId = primary.id
+        d.posterURL = primary.posterURL
+        d.videoTitle = nil
+        heroDream = d
     }
 
     // MARK: - Hero
 
     private var hero: some View {
         ZStack {
-            ScenePoster(category: dream.category)
-                .aspectRatio(16.0/11.0, contentMode: .fill)
-                .frame(maxWidth: .infinity)
-                .clipped()
-
-            Circle()
-                .fill(Color.black.opacity(0.45))
-                .background(.ultraThinMaterial, in: Circle())
-                .frame(width: 64, height: 64)
-                .overlay(
-                    Image(systemName: "play.fill")
-                        .font(.system(size: 24, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .offset(x: 2)
-                )
+            Group {
+                if heroDream.videoStoragePath != nil {
+                    DreamVideoBackground(dream: heroDream, isMuted: isMuted)
+                } else if let url = heroDream.posterURL {
+                    AsyncImage(url: url) { phase in
+                        if let image = phase.image {
+                            image.resizable().scaledToFill()
+                        } else {
+                            ScenePoster(category: heroDream.category)
+                        }
+                    }
+                } else {
+                    ScenePoster(category: heroDream.category)
+                }
+            }
+            .aspectRatio(16.0/11.0, contentMode: .fill)
+            .frame(maxWidth: .infinity)
+            .clipped()
 
             VStack {
                 HStack {
                     glassCircleButton(systemName: "chevron.left", action: onBack)
                     Spacer()
+                    if heroDream.videoStoragePath != nil {
+                        glassCircleButton(systemName: isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill") {
+                            isMuted.toggle()
+                        }
+                    }
                     glassCircleButton(systemName: "square.and.arrow.up") {}
                 }
                 .padding(.horizontal, 14)
                 .padding(.top, 56)
                 Spacer()
-                HStack {
-                    Text("0:42")
-                        .font(DreamTheme.Font.text(12, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(Color.black.opacity(0.55), in: Capsule())
-                    Spacer()
-                }
-                .padding(14)
             }
         }
     }
@@ -95,15 +133,20 @@ struct DreamDetailScreen: View {
 
     private var profileRow: some View {
         HStack(spacing: 12) {
-            Avatar(name: dream.name, seed: dream.avatarSeed, size: 44)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(dream.name)
-                    .font(DreamTheme.Font.text(15, weight: .semibold))
-                    .foregroundStyle(DreamTheme.ink)
-                Text("\(dream.location) · Dreamer")
-                    .font(DreamTheme.Font.text(12))
-                    .foregroundStyle(DreamTheme.ink2)
+            Button { profileForUser = dream.ownerId } label: {
+                HStack(spacing: 12) {
+                    Avatar(name: dream.name, seed: dream.avatarSeed, size: 44)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(dream.name)
+                            .font(DreamTheme.Font.text(15, weight: .semibold))
+                            .foregroundStyle(DreamTheme.ink)
+                        Text("\(dream.location) · Dreamer")
+                            .font(DreamTheme.Font.text(12))
+                            .foregroundStyle(DreamTheme.ink2)
+                    }
+                }
             }
+            .buttonStyle(.plain)
             Spacer()
             Button { following.toggle() } label: {
                 Text(following ? "Following" : "Follow")
@@ -211,7 +254,9 @@ struct DreamDetailScreen: View {
     private var stickyCTA: some View {
         VStack(spacing: 0) {
             Rectangle().fill(DreamTheme.line).frame(height: 1)
-            PrimaryButton(title: "I can help", icon: "heart.fill", background: dream.category.palette.fg, action: onHelp)
+            PrimaryButton(title: "I can help", icon: "heart.fill", background: dream.category.palette.fg) {
+                helpForDream = dream
+            }
                 .padding(.horizontal, 20)
                 .padding(.top, 14)
                 .padding(.bottom, 32)

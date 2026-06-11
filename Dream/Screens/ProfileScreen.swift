@@ -40,6 +40,10 @@ struct ProfileScreen: View {
             }
         }
         .task(id: userId) { await model.load(userId: userId, isCurrentUser: isCurrentUser) }
+        // When pushed over the discover feed (onBack != nil), pause the feed
+        // video so it doesn't keep playing behind this profile; resume on close.
+        .onAppear { if onBack != nil { FeedVideoPreloader.shared.pauseFeedPlayer() } }
+        .onDisappear { if onBack != nil { FeedVideoPreloader.shared.resumeFeedPlayer() } }
         .fullScreenCover(item: $presentedDream) { d in
             DreamDetailScreen(dream: d, onBack: { presentedDream = nil })
         }
