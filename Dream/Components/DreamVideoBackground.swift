@@ -74,6 +74,10 @@ struct DreamVideoBackground: View {
 
     private func loadVideo() async {
         isPlaying = true
+        // Pause any previous player before swapping in a new one — e.g. when
+        // `feedID` changes (the detail hero resolving an update clip to the
+        // dream's primary), so the old clip doesn't keep playing underneath.
+        if let existing = player { existing.pause() }
         guard let queue = await FeedVideoPreloader.shared.player(for: dream, isMuted: isMuted) else {
             player = nil
             return

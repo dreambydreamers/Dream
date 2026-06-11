@@ -26,21 +26,29 @@ struct DiscoverScreen: View {
         .task {
             if repo.dreams.isEmpty { await repo.loadFeed() }
             FeedVideoPreloader.shared.prefetchNeighbors(of: dreams, around: index)
+            markFeedActive()
         }
         .onChange(of: index) { _, newIndex in
             FeedVideoPreloader.shared.prefetchNeighbors(of: dreams, around: newIndex)
+            markFeedActive()
         }
         .onChange(of: repo.dreams.count) { _, _ in
             FeedVideoPreloader.shared.prefetchNeighbors(of: dreams, around: index)
+            markFeedActive()
+        }
+        .onChange(of: isMuted) { _, muted in
+            FeedVideoPreloader.shared.feedMuted = muted
+        }
+        .onDisappear {
+            // The feed has left the screen (tab switch) — not merely covered by a
+            // detail/profile sheet, which doesn't fire onDisappear. Stop driving
+            // the feed player so a covering screen never resumes an off-screen feed.
+            FeedVideoPreloader.shared.feedActiveID = nil
         }
         .fullScreenCover(item: $presentedDream) { d in
             DreamDetailScreen(
                 dream: d,
-                onBack: { presentedDream = nil },
-                onHelp: {
-                    presentedDream = nil
-                    helpForDream = d
-                }
+                onBack: { presentedDream = nil }
             )
         }
         .sheet(item: $helpForDream) { d in
@@ -49,6 +57,14 @@ struct DiscoverScreen: View {
         .fullScreenCover(item: $profileForUser) { userId in
             ProfileScreen(userId: userId, onBack: { profileForUser = nil })
         }
+    }
+
+    /// Tell the preloader which feed card is on screen so a covering detail/
+    /// profile page can pause + resume it (see `FeedVideoPreloader.feedActiveID`).
+    private func markFeedActive() {
+        guard !dreams.isEmpty else { return }
+        FeedVideoPreloader.shared.feedActiveID = dream.feedID
+        FeedVideoPreloader.shared.feedMuted = isMuted
     }
 
     // MARK: - Feed
