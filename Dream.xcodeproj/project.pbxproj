@@ -20,6 +20,7 @@
 		4CA7A0682FD2090700266FF0 /* Dream.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Dream.xcodeproj; sourceTree = "<group>"; };
 		4CA7A0BA2FD2FB8F00266FF0 /* Dream.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Dream.xcodeproj; sourceTree = "<group>"; };
 		4CC9C7CA2FC34B6F002221B1 /* Dream.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Dream.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		4CE9F4142FDC6CA00097A4AC /* Dream.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Dream.xcodeproj; sourceTree = "<group>"; };
 		4CF5339B2FD310D6002B4089 /* Dream.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Dream.xcodeproj; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -96,6 +97,11 @@
 			children = (
 				4CC9C7CA2FC34B6F002221B1 /* Dream.app */,
 			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		4CE9F4172FDC6CA00097A4AC /* Products */ = {
+			isa = PBXGroup;
 			name = Products;
 			sourceTree = "<group>";
 		};
@@ -196,6 +202,10 @@
 				{
 					ProductGroup = 4CA79F912FD1C06900266FF0 /* Products */;
 					ProjectRef = 4CA79F8E2FD1C06900266FF0 /* Dream.xcodeproj */;
+				},
+				{
+					ProductGroup = 4CE9F4172FDC6CA00097A4AC /* Products */;
+					ProjectRef = 4CE9F4142FDC6CA00097A4AC /* Dream.xcodeproj */;
 				},
 			);
 			projectRoot = "";

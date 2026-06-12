@@ -2,6 +2,8 @@ import SwiftUI
 
 struct DiscoverScreen: View {
     @StateObject private var repo = DreamRepository.shared
+    /// Shrinks the floating tab bar while the user pages through the feed.
+    var tabBarCollapsed: Binding<Bool> = .constant(false)
     @State private var index: Int = 0
     @State private var supporterMode: Bool = true
     @State private var supporterSkills: [String] = ["Design", "Funding"]
@@ -28,6 +30,10 @@ struct DiscoverScreen: View {
             FeedVideoPreloader.shared.prefetchNeighbors(of: dreams, around: index)
             markFeedActive()
         }
+        // The feed view persists inside the paged TabView, so `.task` won't fire
+        // again when paging back here — re-mark the feed active on every appear
+        // so its video resumes after a tab switch.
+        .onAppear { markFeedActive() }
         .onChange(of: index) { _, newIndex in
             FeedVideoPreloader.shared.prefetchNeighbors(of: dreams, around: newIndex)
             markFeedActive()
@@ -53,6 +59,7 @@ struct DiscoverScreen: View {
         }
         .sheet(item: $helpForDream) { d in
             HelpSheet(dream: d, onClose: { helpForDream = nil })
+                .pausesDiscoverFeed()
         }
         .fullScreenCover(item: $profileForUser) { userId in
             ProfileScreen(userId: userId, onBack: { profileForUser = nil })
@@ -104,14 +111,19 @@ struct DiscoverScreen: View {
             }
         }
         .contentShape(Rectangle())
-        .gesture(
+        // Simultaneous + vertical-guarded so horizontal swipes pass through to
+        // the paged TabView (tab switching) while vertical swipes page the feed.
+        .simultaneousGesture(
             DragGesture(minimumDistance: 30)
                 .onEnded { value in
+                    guard abs(value.translation.height) > abs(value.translation.width) else { return }
                     if value.translation.height < -60 {
+                        tabBarCollapsed.wrappedValue = true
                         withAnimation(.easeInOut(duration: 0.35)) {
                             index = (index + 1) % dreams.count
                         }
                     } else if value.translation.height > 60 {
+                        tabBarCollapsed.wrappedValue = true
                         withAnimation(.easeInOut(duration: 0.35)) {
                             index = (index - 1 + dreams.count) % dreams.count
                         }

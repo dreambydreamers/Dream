@@ -58,6 +58,7 @@ struct DreamDetailScreen: View {
         .fullScreenCover(item: $profileForUser) { uid in
             ProfileScreen(userId: uid, onBack: { profileForUser = nil })
         }
+        .interactiveBackSwipe { onBack() }
     }
 
     /// When opened from a feed *update* card, the incoming `dream` points at the

@@ -43,14 +43,16 @@ Plain MVVM-ish SwiftUI. Singletons for services, `ObservableObject` repositories
 DreamApp (@main)
 └─ ContentView → RootView
    ├─ OnboardingScreen          (shown until AuthService.isSignedIn)
-   └─ MainShell (tab container) → DreamTabBar
+   └─ MainShell                 → paged TabView (swipeable) + floating DreamTabBar overlay
       ├─ DiscoverScreen         (the video feed — the heart of the app)
       ├─ Explore/Activity placeholders
       ├─ ProfileScreen          (current user, or any author opened from the feed)
       └─ "+" → CreateDreamScreen (new dream)  ·  PostUpdateScreen (update clip)
 ```
 
-The **"+" tab button** routes based on whether the user already has a dream (`DreamRepository.myDream()`): no dream → `CreateDreamScreen`; has a dream → a confirmation dialog offering **"Post an update"** (`PostUpdateScreen`) or **"Start a new dream"** (`CreateDreamScreen`). The same `PostUpdateScreen` is also reachable from the "Post an update" button on the owner's `ProfileScreen`.
+`MainShell` lays out the four tab screens in a **horizontally-paged `TabView`** (`.tabViewStyle(.page(indexDisplayMode: .never))`, selection bound to `activeTab`), with the floating `DreamTabBar` overlaid at the bottom of a `ZStack`. So tabs are reachable **both** by tapping the bar and by **swiping left/right** between adjacent tabs (order: Discover → Explore → Activity → Profile). See **Navigation & gestures** below.
+
+The **"+" tab button** routes based on whether the user already has a dream (`DreamRepository.myDream()`): no dream → `CreateDreamScreen`; has a dream → a confirmation dialog offering **"Post an update"** (`PostUpdateScreen`) or **"Start a new dream"** (`CreateDreamScreen`). The same `PostUpdateScreen` is also reachable from the "Post an update" button on the owner's `ProfileScreen`. "+" is an **action, not a page** — it is not a TabView tag, just a button in the bar.
 
 ### Directory layout (`Dream/`)
 - **`DreamApp.swift`** — entry point; calls `AuthService.shared.ensureSignedIn()` on launch.
@@ -58,7 +60,7 @@ The **"+" tab button** routes based on whether the user already has a dream (`Dr
 - **`Models/Dream.swift`** — `Dream`, `JourneyStep` view models; `DreamStage` enum. `Dream` is one *video card* (see `feedID`, `displayTitle`, `videoId`, `videoTitle`).
 - **`Theme/DreamTheme.swift`** — all colors, fonts, `DreamCategory` + per-category palettes, `Color(hex:)`.
 - **`Screens/`** — full screens (Discover, CreateDream, **PostUpdate**, DreamDetail, HelpSheet, Profile, EditProfile, Auth, Onboarding, placeholders).
-- **`Components/`** — reusable views (ActionButton, Avatar, CategoryBadge, DreamTabBar, DreamVideoBackground, FlowLayout, JourneyTimeline, MediaVideoPlayer, PrimaryButton, ScenePoster, VideoPicker, **VideoCompose**). `VideoCompose.swift` holds the shared compose pieces (`loadVideoThumbnail`, `VideoSourceCard`, `VideoPreviewCard`, `.videoSourcePicker(...)`) used by **both** CreateDream and PostUpdate — keep new compose UI here rather than duplicating it.
+- **`Components/`** — reusable views (ActionButton, Avatar, CategoryBadge, **DreamTabBar**, DreamVideoBackground, FlowLayout, **InteractiveBackSwipe**, JourneyTimeline, MediaVideoPlayer, PrimaryButton, ScenePoster, VideoPicker, **VideoCompose**). `VideoCompose.swift` holds the shared compose pieces (`loadVideoThumbnail`, `VideoSourceCard`, `VideoPreviewCard`, `.videoSourcePicker(...)`) used by **both** CreateDream and PostUpdate — keep new compose UI here rather than duplicating it. `DreamTabBar` is a **floating translucent capsule** (icon-only, animated active highlight via `matchedGeometryEffect`, blue accent "+"); `InteractiveBackSwipe.swift` holds the `.interactiveBackSwipe(...)` / `ConditionalBackSwipe` edge-swipe-back modifiers — see **Navigation & gestures**.
 - **`Services/`** — Supabase client, repos (`DreamRepository`, `ProfileRepository`), DTOs, uploaders, auth, video preloader.
 - **`Config/SupabaseConfig.swift`** — Supabase URL + publishable (anon) key. Safe to ship; security is enforced by RLS.
 
@@ -72,7 +74,7 @@ The **"+" tab button** routes based on whether the user already has a dream (`Dr
 - **`ProfileRepository.shared`** — profile fetch, `stats` (`profile_stats` view), profile edit, follow/unfollow.
 - **`DreamDTO.swift`** — `Codable` row types with `snake_case` ⇄ camelCase `CodingKeys`, plus `DreamCategory.dbValue` / `.from(dbValue:)` and `DreamStage` mappings. `DreamVideoDTO` carries `title` (per-video heading) and `createdAt`.
 - **`VideoUploader.shared`** — `upload(localVideoURL:dreamId:markPrimary:title:)` uploads the video to private `dream-videos`, generates + uploads a poster to public `dream-posters`, and inserts a `dream_videos` row. `markPrimary: false` + a `title` is how an **update clip** is posted; the cover video uses `markPrimary: true` and `title: nil`. Also mints signed playback URLs (`signedVideoURL`).
-- **`FeedVideoPreloader.shared`** — see Video playback below.
+- **`FeedVideoPreloader.shared`** — warm-player pool + signed-URL cache **and** the cross-screen feed pause/resume API (`feedActiveID`, `pauseFeedPlayer()`/`resumeFeedPlayer()` with `feedCoverDepth`, `feedMuted`, `.pausesDiscoverFeed()`). See Video playback below.
 
 ## Backend (Supabase)
 
@@ -122,6 +124,20 @@ Because one dream can produce several feed cards (cover + updates), all **video-
 
 When touching feed/video code, preserve these invariants: **per-video `feedID` keying**, bounds-pinning in `DreamVideoBackground`, status-gated preroll, build coalescing, and pause-don't-destroy on disappear.
 
+### Feed pause/resume across covering screens
+A screen presented **over** the feed (detail, profile, help sheet, create/update) freezes the presenter, so the feed view can't pause itself. The preloader exposes **`pauseFeedPlayer()` / `resumeFeedPlayer()`**, balanced by an internal **`feedCoverDepth`** counter so the feed only resumes once the **outermost** cover closes (nested covers are safe). `resumeFeedPlayer()` defers a runloop tick (so it lands after the covering view's own `onDisappear`) and restores `feedMuted`.
+- `DiscoverScreen` publishes which card is on screen via **`feedActiveID`** (the `feedID`), set in `.task`, on index/feed-count change, **and on `.onAppear`** — the `onAppear` re-mark is required because the feed view now persists inside the paged `TabView` (so `.task` won't re-fire when you page back). On the feed's own `onDisappear` it sets `feedActiveID = nil`.
+- Any screen presented over the feed adopts **`.pausesDiscoverFeed()`** (a one-liner modifier in `FeedVideoPreloader.swift` that calls pause on appear / resume on disappear). Applied to `HelpSheet` and the "+" `CreateDreamScreen`/`PostUpdateScreen` covers; `DreamDetailScreen` and the pushed `ProfileScreen` call pause/resume directly in their own `onAppear`/`onDisappear`.
+
+## Navigation & gestures
+
+Three cooperating gesture systems sit on top of the feed — when editing any of them, keep the others working:
+
+- **Horizontal tab paging.** `MainShell`'s content is a paged `TabView(selection: $activeTab)`. Because the feed needs its **own vertical** swipe (card-to-card paging), `DiscoverScreen`'s feed drag is a **`.simultaneousGesture`** guarded to vertical-only (`abs(height) > abs(width)`) so horizontal swipes fall through to the `TabView` for tab switching while vertical swipes page the feed. Don't convert it back to `.gesture` or drop the axis guard or horizontal tab swipes break on Discover.
+- **Tab bar collapse.** `DreamTabBar` takes a `collapsed: Binding<Bool>`; when true it scales down (`scaleEffect(... anchor: .bottom)`) and dims. `DiscoverScreen` sets `tabBarCollapsed = true` on a vertical feed swipe; any tap on the bar (a tab **or** "+") sets it back to false, and `MainShell` resets it on `activeTab` change. **All** collapse/expand transitions route through a single `.animation(.smooth(...), value: collapsed)` modifier — set `collapsed` *outside* `withAnimation` so taps animate with the same smooth curve (don't wrap it in a separate spring). **Scale must wrap the fully-assembled pill** (after `.background`/`.clipShape`/`.shadow`), not the inner `HStack`, or only the icons shrink and the capsule background stays full size.
+- **Edge-swipe back.** Covers have no native interactive dismiss, so `.interactiveBackSwipe(slideOff:_:)` (in `InteractiveBackSwipe.swift`) adds a left-edge strip that tracks a rightward drag and dismisses past a distance/velocity threshold. The strip is inset top/bottom so it never swallows a top-left back button or bottom CTA, and is narrow (24pt) so it doesn't block interior vertical scrolling. `slideOff: true` (default) slides the screen off-screen before `onBack` (native cover-dismiss feel); **`slideOff: false`** springs back in place and is for **popping a step within a still-mounted screen**. Applied to `DreamDetailScreen` (always) and `ProfileScreen` (only when pushed over the feed, via `ConditionalBackSwipe` keyed on `onBack != nil`).
+  - **Multi-step sheets own their back logic.** `HelpSheet` ("I can help" / "Offer your help") is a multi-step flow driven by an internal `mode` (`.pick` → `.configure`/`.review`). Its back-swipe lives **inside** the sheet (`.interactiveBackSwipe(slideOff: false) { goBack() }`) so it **steps back to `.pick` before closing** the sheet, mirroring the in-flow "Back" button — not bolted on at the presentation site (which would always dismiss the whole sheet). When a presented screen has its own internal navigation, give it `slideOff: false` and let it decide pop-vs-dismiss.
+
 ## Conventions
 
 - **Colors/fonts:** always use `DreamTheme` (`DreamTheme.blue`, `DreamTheme.Font.display/text`, `Color(hex:)`). Don't hardcode `Color(red:…)`.
@@ -129,6 +145,7 @@ When touching feed/video code, preserve these invariants: **per-video `feedID` k
 - **Concurrency:** services/repos that touch UI state are `@MainActor`. Use `async let` for independent Supabase fetches (see `loadFeed`).
 - **Singletons:** `*.shared` for services; inject nothing — call directly.
 - **Compose UI:** the new-dream and update flows (`CreateDreamScreen`, `PostUpdateScreen`) share their source cards, preview, thumbnail and pickers via `Components/VideoCompose.swift`. Reuse those rather than re-implementing — only each screen's unique fields (full dream form vs. a single heading) live in the screen.
+- **Tab bar:** the bottom nav is the floating `DreamTabBar` capsule, overlaid by `MainShell` (it does **not** push content up). New tabs go through it + a new `TabView` page/tag in `MainShell.tabContent`. Any screen presented over the feed should pause the feed video (`.pausesDiscoverFeed()` or direct pause/resume) and, if dismissable, use `.interactiveBackSwipe`.
 - **Auth note:** `RootView` gates the onboarding screen on `AuthService.isSignedIn` (the real Supabase session). The Supabase **anonymous** session is established at launch (`ensureSignedIn()`) regardless, so the user is authed even before Apple Sign-In.
 
 ## Git

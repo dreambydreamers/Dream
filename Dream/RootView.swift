@@ -33,13 +33,15 @@ private struct MainShell: View {
     @State private var chooseCreateKind = false
     @State private var postingUpdate = false
     @State private var publishedMessage = "Dream published"
+    /// Shrinks the floating tab bar while the user scrolls the feed.
+    @State private var tabBarCollapsed = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
             tabContent
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            DreamTabBar(active: $activeTab, dark: activeTab == .discover, onCreate: { Task { await handleCreateTap() } })
+            DreamTabBar(active: $activeTab, collapsed: $tabBarCollapsed, dark: activeTab == .discover, onCreate: { Task { await handleCreateTap() } })
 
             if showPublishedToast {
                 publishedToast
@@ -48,6 +50,7 @@ private struct MainShell: View {
             }
         }
         .ignoresSafeArea(edges: .bottom)
+        .onChange(of: activeTab) { _, _ in tabBarCollapsed = false }
         .confirmationDialog("Create", isPresented: $chooseCreateKind, titleVisibility: .visible) {
             Button("Post an update") { postingUpdate = true }
             Button("Start a new dream") { creating = true }
@@ -63,6 +66,7 @@ private struct MainShell: View {
                     flashToast("Dream published")
                 }
             )
+            .pausesDiscoverFeed()
         }
         .fullScreenCover(isPresented: $postingUpdate) {
             if let updateTarget {
@@ -74,6 +78,7 @@ private struct MainShell: View {
                         flashToast("Update posted")
                     }
                 )
+                .pausesDiscoverFeed()
             }
         }
     }
@@ -113,18 +118,30 @@ private struct MainShell: View {
         .shadow(color: .black.opacity(0.25), radius: 12, y: 6)
     }
 
-    @ViewBuilder
+    /// Horizontally swipeable pages, one per tab, in tab-bar order. Swiping
+    /// left/right moves between adjacent tabs; the tab bar drives the same
+    /// `activeTab` selection.
     private var tabContent: some View {
-        switch activeTab {
-        case .discover: DiscoverScreen()
-        case .explore:  ExplorePlaceholder()
-        case .activity: ActivityPlaceholder()
-        case .profile:
-            if let userId = AuthService.shared.userId {
-                ProfileScreen(userId: userId, isCurrentUser: true)
-            } else {
-                ProfilePlaceholder()
-            }
+        TabView(selection: $activeTab) {
+            DiscoverScreen(tabBarCollapsed: $tabBarCollapsed)
+                .tag(DreamTab.discover)
+            ExplorePlaceholder()
+                .tag(DreamTab.explore)
+            ActivityPlaceholder()
+                .tag(DreamTab.activity)
+            profilePage
+                .tag(DreamTab.profile)
+        }
+        .tabViewStyle(.page(indexDisplayMode: .never))
+        .ignoresSafeArea()
+    }
+
+    @ViewBuilder
+    private var profilePage: some View {
+        if let userId = AuthService.shared.userId {
+            ProfileScreen(userId: userId, isCurrentUser: true)
+        } else {
+            ProfilePlaceholder()
         }
     }
 }

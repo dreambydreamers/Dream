@@ -77,6 +77,9 @@ struct ProfileScreen: View {
                 onCancel: { editing = false }
             )
         }
+        // Only the pushed-over-feed profile (onBack != nil) gets edge-swipe back;
+        // the root profile tab is reached by tab/page swipe instead.
+        .modifier(ConditionalBackSwipe(onBack: onBack))
     }
 
     // MARK: - Header

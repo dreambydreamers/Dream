@@ -191,3 +191,17 @@ final class FeedVideoPreloader {
         try? session.setActive(true)
     }
 }
+
+import SwiftUI
+
+extension View {
+    /// Pauses the discover feed's video while this presented screen (a sheet or
+    /// cover shown over the feed) is on screen, and resumes it — once the last
+    /// cover closes — when the screen is dismissed. Balanced via the preloader's
+    /// cover-depth counter, so it nests safely with other paused covers.
+    func pausesDiscoverFeed() -> some View {
+        self
+            .onAppear { FeedVideoPreloader.shared.pauseFeedPlayer() }
+            .onDisappear { FeedVideoPreloader.shared.resumeFeedPlayer() }
+    }
+}

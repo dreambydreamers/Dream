@@ -90,6 +90,19 @@ struct HelpSheet: View {
                 }
             }
         }
+        // Swipe back steps within the flow (configure → pick) before closing the
+        // whole sheet, mirroring the in-flow "Back" button.
+        .interactiveBackSwipe(slideOff: false) { goBack() }
+    }
+
+    /// Left-edge swipe-back: pop to the offer picker if we're deeper in the
+    /// flow, otherwise dismiss the sheet.
+    private func goBack() {
+        if mode == .pick {
+            onClose()
+        } else {
+            mode = .pick
+        }
     }
 
     // MARK: - Pick
