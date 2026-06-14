@@ -147,6 +147,8 @@ enum VideoTranscoder {
         on queue: DispatchQueue
     ) async {
         await withCheckedContinuation { continuation in
+            nonisolated(unsafe) let input = input
+            nonisolated(unsafe) let output = output
             input.requestMediaDataWhenReady(on: queue) {
                 while input.isReadyForMoreMediaData {
                     if let sample = output.copyNextSampleBuffer() {
