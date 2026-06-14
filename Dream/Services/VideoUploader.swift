@@ -42,8 +42,17 @@ final class VideoUploader {
         let userFolder = userId.uuidString.lowercased()
         let videoPath = "\(userFolder)/\(dreamId.uuidString.lowercased())/\(videoId.uuidString.lowercased()).mp4"
 
+        // 0) Transcode to a sane mobile bitrate (~6 Mbps) before upload. Camera
+        // captures are ~15 Mbps full-HD — far more than the feed shows — so this
+        // cuts stored size and every byte of playback egress by ~60%. Falls back
+        // to the original on failure; a temp file is cleaned up after upload.
+        let encoded = (try? await VideoTranscoder.transcode(localVideoURL)) ?? localVideoURL
+        defer {
+            if encoded != localVideoURL { try? FileManager.default.removeItem(at: encoded) }
+        }
+
         // 1) Upload the video
-        let videoData = try Data(contentsOf: localVideoURL)
+        let videoData = try Data(contentsOf: encoded)
         _ = try await client.storage
             .from("dream-videos")
             .upload(
@@ -52,8 +61,9 @@ final class VideoUploader {
                 options: FileOptions(contentType: "video/mp4", upsert: false)
             )
 
-        // 2) Probe metadata + extract poster
-        let asset = AVURLAsset(url: localVideoURL)
+        // 2) Probe metadata + extract poster (from the encoded file, so the
+        //    stored width/height/duration match what was uploaded)
+        let asset = AVURLAsset(url: encoded)
         let duration = (try? await asset.load(.duration)) ?? .zero
         let durationMs = Int(CMTimeGetSeconds(duration) * 1000)
         let track = try? await asset.loadTracks(withMediaType: .video).first
@@ -106,6 +116,6 @@ final class VideoUploader {
             return nil
         }
         let image = UIImage(cgImage: cgImage)
-        return image.jpegData(compressionQuality: 0.8)
+        return image.jpegData(compressionQuality: 0.7)
     }
 }

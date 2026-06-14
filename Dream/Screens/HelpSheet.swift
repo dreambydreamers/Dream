@@ -461,6 +461,7 @@ struct HelpSheet: View {
             eyebrow("Who's the intro").padding(.bottom, 12)
             TextField("e.g. Lila, who runs Sparrow Café", text: $introWho, axis: .vertical)
                 .font(DreamTheme.Font.text(15))
+                .foregroundStyle(DreamTheme.ink)
                 .padding(14)
                 .background(RoundedRectangle(cornerRadius: 12).fill(DreamTheme.bg))
                 .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(DreamTheme.line, lineWidth: 1))
@@ -469,6 +470,7 @@ struct HelpSheet: View {
             eyebrow("Why they'd be helpful").padding(.bottom, 12)
             TextField("Their relevance...", text: $introWhy, axis: .vertical)
                 .font(DreamTheme.Font.text(14))
+                .foregroundStyle(DreamTheme.ink)
                 .lineLimit(4...8)
                 .padding(14)
                 .background(RoundedRectangle(cornerRadius: 12).fill(DreamTheme.bg))
@@ -486,6 +488,7 @@ struct HelpSheet: View {
     private func noteField(placeholder: String, minHeight: CGFloat = 90) -> some View {
         TextField(placeholder, text: $note, axis: .vertical)
             .font(DreamTheme.Font.text(14))
+            .foregroundStyle(DreamTheme.ink)
             .lineLimit(4...10)
             .padding(14)
             .frame(minHeight: minHeight, alignment: .topLeading)

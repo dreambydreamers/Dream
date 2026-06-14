@@ -90,7 +90,10 @@ final class FeedVideoPreloader {
     func prefetchNeighbors(of dreams: [Dream], around index: Int) {
         guard !dreams.isEmpty else { return }
         let count = dreams.count
-        for offset in [0, 1, -1, 2] {
+        // Current + immediate neighbours only. Each prefetch eagerly buffers
+        // ~1s of video, so a tighter window means less wasted egress on cards
+        // the user may never reach.
+        for offset in [0, 1, -1] {
             let i = ((index + offset) % count + count) % count
             prefetch(dreams[i])
         }

@@ -74,6 +74,7 @@ final class ActivityRepository: ObservableObject {
     private let client = SupabaseService.shared.client
     private var channel: RealtimeChannelV2?
     private var streamTask: Task<Void, Never>?
+    private var reloadTask: Task<Void, Never>?
     private var startedFor: UUID?
 
     private init() {}
@@ -96,9 +97,22 @@ final class ActivityRepository: ObservableObject {
 
     func stop() async {
         streamTask?.cancel(); streamTask = nil
+        reloadTask?.cancel(); reloadTask = nil
         if let channel { await channel.unsubscribe(); await client.removeChannel(channel) }
         channel = nil
         startedFor = nil
+    }
+
+    /// Coalesces a burst of Realtime notification events into a single reload.
+    /// Each event resets a short timer, so N events that land together trigger
+    /// one `load()` (8–10 queries) instead of N.
+    private func scheduleReload() {
+        reloadTask?.cancel()
+        reloadTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            guard !Task.isCancelled else { return }
+            await self?.load()
+        }
     }
 
     // MARK: - Load
@@ -110,12 +124,18 @@ final class ActivityRepository: ObservableObject {
         do {
             // Phase 1: independent fetches.
             async let notifRows: [NotificationDTO] = client
-                .from("notifications").select().eq("user_id", value: me)
+                .from("notifications")
+                .select("id,type,preview,user_id,actor_id,dream_id,offer_id,conversation_id,read_at,created_at")
+                .eq("user_id", value: me)
                 .order("created_at", ascending: false).limit(60).execute().value
             async let myParts: [ConversationParticipantDTO] = client
-                .from("conversation_participants").select().eq("user_id", value: me).execute().value
+                .from("conversation_participants")
+                .select("conversation_id,user_id,role,last_read_at")
+                .eq("user_id", value: me).execute().value
             async let made: [HelpOfferRow] = client
-                .from("help_offers").select().eq("supporter_id", value: me)
+                .from("help_offers")
+                .select("id,dream_id,supporter_id,skill,message,status,conversation_id,created_at")
+                .eq("supporter_id", value: me)
                 .order("created_at", ascending: false).execute().value
             async let myDreams: [DreamLite] = client
                 .from("dreams").select("id,title,owner_id").eq("owner_id", value: me).execute().value
@@ -127,24 +147,33 @@ final class ActivityRepository: ObservableObject {
             let myDreamIds = dreamsOwned.map(\.id)
 
             async let convRows: [ConversationDTO] = convIds.isEmpty ? [] : client
-                .from("conversations").select().in("id", values: convIds).execute().value
+                .from("conversations")
+                .select("id,dream_id,last_message_at,last_message_preview,created_at")
+                .in("id", values: convIds).execute().value
             async let allPartRows: [ConversationParticipantDTO] = convIds.isEmpty ? [] : client
-                .from("conversation_participants").select().in("conversation_id", values: convIds).execute().value
+                .from("conversation_participants")
+                .select("conversation_id,user_id,role,last_read_at")
+                .in("conversation_id", values: convIds).execute().value
             async let received: [HelpOfferRow] = myDreamIds.isEmpty ? [] : client
-                .from("help_offers").select().in("dream_id", values: myDreamIds)
+                .from("help_offers")
+                .select("id,dream_id,supporter_id,skill,message,status,conversation_id,created_at")
+                .in("dream_id", values: myDreamIds)
                 .order("created_at", ascending: false).execute().value
 
             let (convs, allParts, offersReceivedRows) = try await (convRows, allPartRows, received)
 
             // Phase 3: resolve every referenced profile + dream title in one go.
             let offerDreamIds = Set(offersMadeRows.map(\.dreamId) + offersReceivedRows.map(\.dreamId))
-            var profileIds = Set<UUID>()
-            notifs.forEach { if let a = $0.actorId { profileIds.insert(a) } }
-            allParts.forEach { if $0.userId != me { profileIds.insert($0.userId) } }
-            offersReceivedRows.forEach { profileIds.insert($0.supporterId) }
+            var mutableProfileIds = Set<UUID>()
+            notifs.forEach { if let a = $0.actorId { mutableProfileIds.insert(a) } }
+            allParts.forEach { if $0.userId != me { mutableProfileIds.insert($0.userId) } }
+            offersReceivedRows.forEach { mutableProfileIds.insert($0.supporterId) }
+            let profileIds = mutableProfileIds
 
             async let profileRows: [ProfileDTO] = profileIds.isEmpty ? [] : client
-                .from("profiles").select().in("id", values: Array(profileIds)).execute().value
+                .from("profiles")
+                .select("id,handle,name,location,skills,avatar_seed")
+                .in("id", values: Array(profileIds)).execute().value
             async let offerDreamRows: [DreamLite] = offerDreamIds.isEmpty ? [] : client
                 .from("dreams").select("id,title,owner_id").in("id", values: Array(offerDreamIds)).execute().value
 
@@ -215,9 +244,19 @@ final class ActivityRepository: ObservableObject {
     }
 
     func markAllRead() async {
+        // Optimistic local update — no need for a full reload (8–10 queries)
+        // just to flip read flags we already hold.
+        guard unreadCount > 0 else { return }
+        notifications = notifications.map { n in
+            n.isRead ? n : ActivityNotification(
+                id: n.id, type: n.type, preview: n.preview,
+                actorName: n.actorName, actorSeed: n.actorSeed,
+                actorId: n.actorId, conversationId: n.conversationId,
+                createdAt: n.createdAt, isRead: true)
+        }
+        unreadCount = 0
         do {
             try await client.rpc("mark_all_notifications_read").execute()
-            await load()
         } catch {
             print("[ActivityRepository] markAllRead failed: \(error)")
         }
@@ -232,11 +271,11 @@ final class ActivityRepository: ObservableObject {
                                         filter: .eq("user_id", value: me))
         let updates = ch.postgresChange(UpdateAction.self, schema: "public", table: "notifications",
                                         filter: .eq("user_id", value: me))
-        await ch.subscribe()
+        try? await ch.subscribeWithError()
         streamTask = Task { [weak self] in
             await withTaskGroup(of: Void.self) { group in
-                group.addTask { for await _ in inserts { await self?.load() } }
-                group.addTask { for await _ in updates { await self?.load() } }
+                group.addTask { for await _ in inserts { await self?.scheduleReload() } }
+                group.addTask { for await _ in updates { await self?.scheduleReload() } }
             }
         }
     }

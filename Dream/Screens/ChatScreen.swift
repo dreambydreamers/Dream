@@ -121,6 +121,7 @@ struct ChatScreen: View {
         HStack(spacing: 10) {
             TextField("Message…", text: $model.draft, axis: .vertical)
                 .font(DreamTheme.Font.text(15))
+                .foregroundStyle(DreamTheme.ink)
                 .lineLimit(1...5)
                 .focused($composerFocused)
                 .padding(.horizontal, 14).padding(.vertical, 10)

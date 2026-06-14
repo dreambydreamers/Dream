@@ -27,6 +27,7 @@ final class ChatRepository: ObservableObject {
     private var channel: RealtimeChannelV2?
     private var streamTasks: [Task<Void, Never>] = []
     private var typingResetTask: Task<Void, Never>?
+    private var markReadTask: Task<Void, Never>?
     private var lastTypingSentAt: Date = .distantPast
     private var onlineUserIds: Set<String> = []
 
@@ -48,6 +49,7 @@ final class ChatRepository: ObservableObject {
 
     func stop() async {
         typingResetTask?.cancel()
+        markReadTask?.cancel(); markReadTask = nil
         streamTasks.forEach { $0.cancel() }
         streamTasks.removeAll()
         if let channel {
@@ -117,10 +119,22 @@ final class ChatRepository: ObservableObject {
         }
     }
 
-    /// Throttled typing ping (broadcast is ephemeral; ~1.5s between sends).
+    /// Coalesces read receipts. A rapid burst of incoming messages otherwise
+    /// fires one `mark_conversation_read` RPC per message; debouncing collapses
+    /// the burst into ~1 RPC.
+    private func scheduleMarkRead() {
+        markReadTask?.cancel()
+        markReadTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            guard let self, !Task.isCancelled else { return }
+            await self.markRead()
+        }
+    }
+
+    /// Throttled typing ping (broadcast is ephemeral; ~3s between sends).
     func notifyTyping() {
         let now = Date()
-        guard now.timeIntervalSince(lastTypingSentAt) > 1.5, let channel else { return }
+        guard now.timeIntervalSince(lastTypingSentAt) > 3.0, let channel else { return }
         lastTypingSentAt = now
         Task { await channel.broadcast(event: "typing", message: ["user_id": .string(me.uuidString)]) }
     }
@@ -138,7 +152,7 @@ final class ChatRepository: ObservableObject {
         let typing = ch.broadcastStream(event: "typing")
         let presence = ch.presenceChange()
 
-        await ch.subscribe()
+        try? await ch.subscribeWithError()
         await ch.track(state: ["user_id": .string(me.uuidString)])
 
         streamTasks = [
@@ -147,7 +161,7 @@ final class ChatRepository: ObservableObject {
                     guard let self else { break }
                     if let msg = try? change.decodeRecord(as: MessageDTO.self, decoder: self.decoder) {
                         self.append(msg)
-                        if msg.senderId != self.me { await self.markRead() }
+                        if msg.senderId != self.me { self.scheduleMarkRead() }
                     }
                 }
             },

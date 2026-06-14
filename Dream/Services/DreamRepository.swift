@@ -46,6 +46,7 @@ final class DreamRepository: ObservableObject {
                 .select()
                 .eq("owner_id", value: ownerId)
                 .order("created_at", ascending: false)
+                .limit(50)
                 .execute()
                 .value
             return try await enrich(dreamRows)
@@ -147,6 +148,7 @@ final class DreamRepository: ObservableObject {
                 .eq("dream_id", value: dreamId)
                 .order("is_primary", ascending: false)
                 .order("created_at", ascending: false)
+                .limit(50)
                 .execute()
                 .value
             return rows.map { v in
