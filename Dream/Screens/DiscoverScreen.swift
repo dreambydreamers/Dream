@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DiscoverScreen: View {
     @StateObject private var repo = DreamRepository.shared
+    @ObservedObject private var auth = AuthService.shared
     /// Shrinks the floating tab bar while the user pages through the feed.
     var tabBarCollapsed: Binding<Bool> = .constant(false)
     @State private var index: Int = 0
@@ -9,9 +10,15 @@ struct DiscoverScreen: View {
     @State private var supporterSkills: [String] = ["Design", "Funding"]
     @State private var presentedDream: Dream?
     @State private var helpForDream: Dream?
+    @State private var shareDream: Dream?
     @State private var profileForUser: UUID?
     @State private var isMuted: Bool = false
     @StateObject private var videoActions = VideoActionsModel()
+    @State private var followedOwners: Set<UUID> = []
+    @State private var loadedFollowOwners: Set<UUID> = []
+    @State private var followBusyOwners: Set<UUID> = []
+    @State private var shareToast: String?
+    @State private var shareToastTask: Task<Void, Never>?
 
     private var dreams: [Dream] { repo.dreams }
     private var dream: Dream { dreams[index % dreams.count] }
@@ -30,6 +37,7 @@ struct DiscoverScreen: View {
             if repo.dreams.isEmpty { await repo.loadFeed() }
             FeedVideoPreloader.shared.prefetchNeighbors(of: dreams, around: index)
             markFeedActive()
+            if !dreams.isEmpty { await refreshFollowState(for: dream) }
         }
         // The feed view persists inside the paged TabView, so `.task` won't fire
         // again when paging back here — re-mark the feed active on every appear
@@ -38,10 +46,12 @@ struct DiscoverScreen: View {
         .onChange(of: index) { _, newIndex in
             FeedVideoPreloader.shared.prefetchNeighbors(of: dreams, around: newIndex)
             markFeedActive()
+            if !dreams.isEmpty { Task { await refreshFollowState(for: dream) } }
         }
         .onChange(of: repo.dreams.count) { _, _ in
             FeedVideoPreloader.shared.prefetchNeighbors(of: dreams, around: index)
             markFeedActive()
+            if !dreams.isEmpty { Task { await refreshFollowState(for: dream) } }
         }
         .onChange(of: isMuted) { _, muted in
             FeedVideoPreloader.shared.feedMuted = muted
@@ -62,10 +72,35 @@ struct DiscoverScreen: View {
             HelpSheet(dream: d, onClose: { helpForDream = nil })
                 .pausesDiscoverFeed()
         }
+        .sheet(item: $shareDream) { d in
+            InAppShareSheet(
+                dream: d,
+                onClose: { shareDream = nil },
+                onSent: { name in showShareToast("Sent to \(name)") }
+            )
+            .pausesDiscoverFeed()
+        }
         .fullScreenCover(item: $profileForUser) { userId in
             ProfileScreen(userId: userId, onBack: { profileForUser = nil })
         }
         .videoActions(videoActions)
+        .overlay(alignment: .bottom) {
+            if let shareToast {
+                HStack(spacing: 8) {
+                    Image(systemName: "paperplane.fill")
+                        .font(.system(size: 13, weight: .bold))
+                    Text(shareToast)
+                        .font(DreamTheme.Font.text(14, weight: .semibold))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(Color.black.opacity(0.74), in: Capsule())
+                .padding(.bottom, 118)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.spring(response: 0.38, dampingFraction: 0.86), value: shareToast)
     }
 
     /// Tell the preloader which feed card is on screen so a covering detail/
@@ -280,18 +315,7 @@ struct DiscoverScreen: View {
                 .overlay(Capsule().strokeBorder(Color.white.opacity(0.3), lineWidth: 0.5))
             }
 
-            HStack(spacing: 8) {
-                Button { profileForUser = dream.ownerId } label: {
-                    Text("@\(dream.handle)")
-                        .font(DreamTheme.Font.text(14, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.92))
-                }
-                .buttonStyle(.plain)
-                Circle().fill(.white.opacity(0.5)).frame(width: 3, height: 3)
-                Text(dream.distance)
-                    .font(DreamTheme.Font.text(14))
-                    .foregroundStyle(.white.opacity(0.8))
-            }
+            authorRow
 
             Button { presentedDream = dream } label: {
                 Text(dream.displayTitle)
@@ -340,27 +364,117 @@ struct DiscoverScreen: View {
                 highlight: matched,
                 action: { helpForDream = dream }
             )
-            ActionButton(systemImage: "arrowshape.turn.up.right.fill", label: "Share") {
-                videoActions.share(storagePath: dream.videoStoragePath)
+            ActionButton(systemImage: "paperplane.fill", label: "Send") {
+                shareDream = dream
             }
             ActionButton(systemImage: "bookmark.fill", label: "Save") {
                 videoActions.save(storagePath: dream.videoStoragePath)
             }
-
-            Button { profileForUser = dream.ownerId } label: {
-                Avatar(name: dream.name, seed: dream.avatarSeed, size: 40, url: dream.avatarURL)
-                    .padding(2)
-                    .overlay(
-                        Circle().strokeBorder(
-                            matched ? Color(hex: 0x8AD3A7) : .white,
-                            lineWidth: matched ? 2.5 : 2
-                        )
-                    )
-                    .shadow(color: matched ? Color(hex: 0x8AD3A7).opacity(0.7) : .clear, radius: 8)
-            }
-            .buttonStyle(.plain)
         }
         .frame(width: 64)
+    }
+
+    private var authorRow: some View {
+        HStack(spacing: 8) {
+            Button { profileForUser = dream.ownerId } label: {
+                Avatar(name: dream.name, seed: dream.avatarSeed, size: 34, url: dream.avatarURL)
+                    .overlay(Circle().strokeBorder(.white.opacity(0.9), lineWidth: 1.5))
+                    .shadow(color: .black.opacity(0.28), radius: 7, y: 2)
+            }
+            .buttonStyle(.plain)
+
+            Button { profileForUser = dream.ownerId } label: {
+                Text("@\(dream.handle)")
+                    .font(DreamTheme.Font.text(14, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.94))
+                    .lineLimit(1)
+            }
+            .buttonStyle(.plain)
+
+            if !isOwnDream {
+                Button { toggleFollow() } label: {
+                    Text(isFollowingOwner ? "Following" : "Follow")
+                        .font(DreamTheme.Font.text(12, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule().fill(Color.white.opacity(0.18))
+                        )
+                        .overlay(Capsule().strokeBorder(Color.white.opacity(0.3), lineWidth: 0.5))
+                }
+                .buttonStyle(.plain)
+                .disabled(followBusyOwners.contains(dream.ownerId))
+            }
+
+            if !dream.distance.isEmpty {
+                Circle().fill(.white.opacity(0.5)).frame(width: 3, height: 3)
+                Text(dream.distance)
+                    .font(DreamTheme.Font.text(14))
+                    .foregroundStyle(.white.opacity(0.8))
+                    .lineLimit(1)
+            }
+        }
+    }
+
+    private var isOwnDream: Bool {
+        auth.userId == dream.ownerId
+    }
+
+    private var isFollowingOwner: Bool {
+        followedOwners.contains(dream.ownerId)
+    }
+
+    private func refreshFollowState(for dream: Dream) async {
+        guard auth.userId != dream.ownerId, !loadedFollowOwners.contains(dream.ownerId) else { return }
+        let following = await ProfileRepository.shared.isFollowing(dream.ownerId)
+        loadedFollowOwners.insert(dream.ownerId)
+        if following {
+            followedOwners.insert(dream.ownerId)
+        } else {
+            followedOwners.remove(dream.ownerId)
+        }
+    }
+
+    private func toggleFollow() {
+        guard !isOwnDream, !followBusyOwners.contains(dream.ownerId) else { return }
+        let ownerId = dream.ownerId
+        let wasFollowing = followedOwners.contains(ownerId)
+        followBusyOwners.insert(ownerId)
+        if wasFollowing {
+            followedOwners.remove(ownerId)
+        } else {
+            followedOwners.insert(ownerId)
+        }
+        loadedFollowOwners.insert(ownerId)
+
+        Task {
+            do {
+                if wasFollowing {
+                    try await ProfileRepository.shared.unfollow(ownerId)
+                } else {
+                    try await ProfileRepository.shared.follow(ownerId)
+                }
+            } catch {
+                if wasFollowing {
+                    followedOwners.insert(ownerId)
+                } else {
+                    followedOwners.remove(ownerId)
+                }
+                print("[DiscoverScreen] toggle follow failed: \(error)")
+            }
+            followBusyOwners.remove(ownerId)
+        }
+    }
+
+    private func showShareToast(_ message: String) {
+        shareToastTask?.cancel()
+        shareToast = message
+        shareToastTask = Task {
+            try? await Task.sleep(nanoseconds: 2_400_000_000)
+            guard !Task.isCancelled else { return }
+            shareToast = nil
+        }
     }
 }
 

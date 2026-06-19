@@ -47,7 +47,7 @@ DreamApp (@main)                (.preferredColorScheme(.light) — app is light-
       ├─ DiscoverScreen         (the video feed — the heart of the app)
       ├─ ExplorePlaceholder     (still a placeholder)
       ├─ ActivityScreen         (notifications + conversations + help offers, live over Realtime)
-      │   └─ ChatScreen         (1:1 live chat — typing, presence, read receipts)
+      │   └─ ChatScreen         (1:1 live chat — typing, presence, read receipts, video shares)
       ├─ ProfileScreen          (current user, or any author opened from the feed)
       └─ "+" → CreateDreamScreen (new dream)  ·  PostUpdateScreen (update clip)
 ```
@@ -62,8 +62,8 @@ The **"+" tab button** routes based on whether the user already has a dream (`Dr
 - **`Models/Dream.swift`** — `Dream`, `JourneyStep` view models; `DreamStage` enum. `Dream` is one *video card* (see `feedID`, `displayTitle`, `videoId`, `videoTitle`).
 - **`Theme/DreamTheme.swift`** — all colors, fonts, `DreamCategory` + per-category palettes, `Color(hex:)`. **All theme colors are fixed (non-adaptive) light-mode values.**
 - **`Screens/`** — full screens (Discover, CreateDream, **PostUpdate**, DreamDetail, HelpSheet, Profile, EditProfile, Auth, Onboarding, **Activity**, **Chat**, placeholders).
-- **`Components/`** — reusable views (ActionButton, Avatar, CategoryBadge, **DreamTabBar**, DreamVideoBackground, FlowLayout, **InteractiveBackSwipe**, JourneyTimeline, MediaVideoPlayer, PrimaryButton, ScenePoster, VideoPicker, **VideoCompose**). `VideoCompose.swift` holds the shared compose pieces (`loadVideoThumbnail`, `VideoSourceCard`, `VideoPreviewCard`, `.videoSourcePicker(...)`) used by **both** CreateDream and PostUpdate — keep new compose UI here rather than duplicating it. `DreamTabBar` is a **floating translucent capsule** (icon-only, animated active highlight via `matchedGeometryEffect`, blue accent "+", optional unread `badge`); `InteractiveBackSwipe.swift` holds the `.interactiveBackSwipe(...)` / `ConditionalBackSwipe` edge-swipe-back modifiers — see **Navigation & gestures**.
-- **`Services/`** — Supabase client, repos (`DreamRepository`, `ProfileRepository`, `ActivityRepository`, `ChatRepository`, `HelpOfferRepository`), DTOs (`DreamDTO`, `MessagingDTO`), uploaders (`VideoUploader`, `VideoTranscoder`), auth, video preloader.
+- **`Components/`** — reusable views (ActionButton, Avatar, CategoryBadge, **DreamTabBar**, DreamVideoBackground, FlowLayout, **InAppShareSheet**, **InteractiveBackSwipe**, JourneyTimeline, MediaVideoPlayer, PrimaryButton, ScenePoster, **ShareSheet**, VideoPicker, **VideoCompose**). `VideoCompose.swift` holds the shared compose pieces (`loadVideoThumbnail`, `VideoSourceCard`, `VideoPreviewCard`, `.videoSourcePicker(...)`) used by **both** CreateDream and PostUpdate — keep new compose UI here rather than duplicating it. `InAppShareSheet` is the Instagram-style send-to-friend sheet for sharing feed videos into direct chats. `DreamTabBar` is a **floating translucent capsule** (icon-only, animated active highlight via `matchedGeometryEffect`, blue accent "+", optional unread `badge`); `InteractiveBackSwipe.swift` holds the `.interactiveBackSwipe(...)` / `ConditionalBackSwipe` edge-swipe-back modifiers — see **Navigation & gestures**.
+- **`Services/`** — Supabase client, repos (`DreamRepository`, `ProfileRepository`, `ActivityRepository`, `ChatRepository`, `HelpOfferRepository`, `VideoShareRepository`), DTOs (`DreamDTO`, `MessagingDTO`), uploaders/exporters (`AvatarUploader`, `VideoUploader`, `VideoTranscoder`, `VideoExporter`), auth, video preloader.
 - **`Config/SupabaseConfig.swift`** — Supabase URL + publishable (anon) key. Safe to ship; security is enforced by RLS.
 - **`scripts/shrink_existing_videos.sh`** — one-off backfill that re-encodes already-uploaded `dream-videos` to ~6 Mbps in place (mirrors `VideoTranscoder`). Needs a `service_role` key (env `SUPABASE_SERVICE_ROLE_KEY` or `/tmp/sb_service_key`). See Bandwidth & cost below.
 
@@ -74,14 +74,17 @@ The **"+" tab button** routes based on whether the user already has a dream (`Dr
   - `loadFeed()` → `enrichFeed(...)` emits **one card per video** (cover + updates), interleaved across dreams by the video's `created_at` desc; dreams with no video still emit one (gradient) card.
   - `dreams(ownedBy:)` → `enrich(...)` emits **one card per dream** using its primary video (used by the profile).
   - Also: `createDream(...)`, `myDream()` (the user's featured-or-latest dream, the update target), `setFeatured(...)`, `videos(forDream:)` → `[DreamMedia]`.
-- **`ProfileRepository.shared`** — profile fetch, `stats` (`profile_stats` view), profile edit, follow/unfollow.
+- **`ProfileRepository.shared`** — profile fetch, `stats` (`profile_stats` view), profile edit, avatar URL update, follow/unfollow, and `followingProfiles()` for in-app share recipients.
 - **`ActivityRepository.shared`** — `@MainActor ObservableObject`, **app-wide singleton** (`start()` once signed in; keep it alive — the tab-bar badge depends on it, do **not** `stop()` on tab leave). Aggregates `notifications` + `conversations` + `offersMade`/`offersReceived` and a live `unreadCount` via a `notifications` Realtime channel. See Messaging & Activity below.
-- **`ChatRepository`** — **one instance per open `ChatScreen`** (`start()` on appear, `stop()` on disappear). Drives a single conversation: history, send, and a `conversation:{id}` Realtime channel (message inserts, read-receipt updates, typing broadcast, presence). See Messaging & Activity below.
+- **`ChatRepository`** — **one instance per open `ChatScreen`** (`start()` on appear, `stop()` on disappear). Drives a single conversation: history, send, share-preview hydration for `dream_share` messages, and a `conversation:{id}` Realtime channel (message inserts, read-receipt updates, typing broadcast, presence). See Messaging & Activity below.
 - **`HelpOfferRepository.shared`** — thin RPC client for the help-offer workflow: `createOffer` (`create_help_offer`), `respond` (`respond_to_help_offer`), `cancel` (`cancel_help_offer`). All are `SECURITY DEFINER` RPCs.
+- **`VideoShareRepository.shared`** — thin RPC client for in-app video sharing. Calls `share_dream_video(recipient,dream,video,note)`, which creates/reuses a direct chat and inserts a structured `dream_share` message.
 - **`DreamDTO.swift`** — `Codable` row types with `snake_case` ⇄ camelCase `CodingKeys`, plus `DreamCategory.dbValue` / `.from(dbValue:)` and `DreamStage` mappings. `DreamVideoDTO` carries `title` (per-video heading) and `createdAt`.
-- **`MessagingDTO.swift`** — `HelpOfferStatus` enum (mirrors the `help_offer_status` Postgres enum; maps legacy `declined`/`withdrawn` → `rejected`/`cancelled`) + row DTOs (`ConversationDTO`, `ConversationParticipantDTO`, `MessageDTO`, `NotificationDTO`, `HelpOfferRow`) and RPC payloads.
+- **`MessagingDTO.swift`** — `HelpOfferStatus` enum (mirrors the `help_offer_status` Postgres enum; maps legacy `declined`/`withdrawn` → `rejected`/`cancelled`) + row DTOs (`ConversationDTO`, `ConversationParticipantDTO`, `MessageDTO`, `NotificationDTO`, `HelpOfferRow`), share DTOs (`ShareDreamVideoResult`, `SharedVideoPreview`), and RPC payloads. `MessageDTO.kind` can be `text`, `system`, or `dream_share`; share messages carry `sharedDreamId` / `sharedVideoId`.
+- **`AvatarUploader.shared`** — compresses/crops profile images to a square JPEG, uploads to the public `avatars` bucket at `{user_id}/avatar.jpg`, and returns a cache-busted public URL for `profiles.avatar_url`. Uses lowercased user-id paths for storage RLS.
 - **`VideoUploader.shared`** — `upload(localVideoURL:dreamId:markPrimary:title:)` **transcodes via `VideoTranscoder` first** (step 0; falls back to the original on failure), then uploads the video to private `dream-videos`, generates + uploads a poster (JPEG 0.7) to public `dream-posters`, and inserts a `dream_videos` row (metadata probed from the *encoded* file). `markPrimary: false` + a `title` is how an **update clip** is posted; the cover video uses `markPrimary: true` and `title: nil`. Also mints signed playback URLs (`signedVideoURL`).
 - **`VideoTranscoder`** — plain (non-`@MainActor`) `enum`; `transcode(_:targetBitrate:maxLongEdge:)` re-encodes a local clip via `AVAssetReader`/`AVAssetWriter` to H.264 ~6 Mbps, long-edge ≤1920, AAC 128k, preserving the source's `preferredTransform` (orientation). Has a **skip-guard** (returns the source unchanged if it's already ≤1.2× target bitrate and within the resolution cap). Uses Reader/Writer, **not** `AVAssetExportSession`, because export presets can't set a target bitrate. See Bandwidth & cost below.
+- **`VideoExporter` / `VideoActionsModel`** — downloads private videos to local temp files for native system sharing or saving to Photos. Attach via `.videoActions(model)`. This is separate from in-app sharing (`VideoShareRepository`).
 - **`FeedVideoPreloader.shared`** — warm-player pool + signed-URL cache **and** the cross-screen feed pause/resume API (`feedActiveID`, `pauseFeedPlayer()`/`resumeFeedPlayer()` with `feedCoverDepth`, `feedMuted`, `.pausesDiscoverFeed()`). See Video playback below.
 
 ## Backend (Supabase)
@@ -99,17 +102,21 @@ Project ref `qlrqcymqtxrrpekdzgxx`. MCP server configured in `.mcp.json` (use th
 - `0010_help_offer_rpc.sql` — `SECURITY DEFINER` RPCs `create_help_offer` / `respond_to_help_offer` / `cancel_help_offer` (+ `mark_conversation_read`, `mark_all_notifications_read`) that drive offers→conversations→notifications atomically.
 - `0011_harden_messaging_functions.sql` — locks down `search_path` / permissions on the messaging functions (security-advisor fixes).
 - `0012_revoke_anon_messaging_functions.sql` — revokes `anon` EXECUTE on the messaging RPCs (authenticated-only).
+- `0013_profile_avatar.sql` — adds `profiles.avatar_url` and avatar delete/read RLS support.
+- `0014_avatar_storage_rls.sql` — repair migration for avatar overwrite/remove RLS on already-migrated projects.
+- `0015_video_shares.sql` — adds `messages.shared_dream_id` / `shared_video_id`, `dream_share` notifications, and `share_dream_video`.
+- `0016_harden_video_share_trigger.sql` — revokes direct RPC execution on trigger-only `on_message_insert()`.
 
 ### Tables (all have RLS enabled)
-- **`profiles`** (1:1 with `auth.users`, auto-created via `handle_new_user` trigger) — handle, name, avatar_seed, location, skills.
+- **`profiles`** (1:1 with `auth.users`, auto-created via `handle_new_user` trigger) — handle, name, avatar_seed, `avatar_url`, location, skills.
 - **`dreams`** — owner_id, title, description, `category` (enum), `stage` (enum), location, help_tags[], views_count, `is_featured` (one pinned "main" dream per owner; partial-unique).
 - **`journey_steps`** — per-dream timeline (stage, date_label, note, done, sort_order).
 - **`dream_videos`** — storage_path, poster_path, duration/width/height, `is_primary` (unique per dream — the cover clip), `title` (per-video heading; null on the cover clip), created_at. A dream has **many** videos (cover + updates).
 - **`follows`** — follower_id / followed_id.
 - **`supporters`**, **`help_offers`** — backing + "I can help" offers. `help_offers.status` is the `help_offer_status` enum; rows carry a `conversation_id` link (added in 0008/0009).
-- **`conversations`** — 1:1 thread tied to a help offer (`dream_id`, `last_message_at`, `last_message_preview`).
+- **`conversations`** — 1:1 thread tied to a help offer (`dream_id`, `last_message_at`, `last_message_preview`) or a direct in-app share chat (`dream_id` null).
 - **`conversation_participants`** — membership + per-user `last_read_at` (drives read receipts / unread).
-- **`messages`** — `conversation_id`, `sender_id`, `body`, `kind` (`text`/`system`), `created_at`.
+- **`messages`** — `conversation_id`, `sender_id`, `body`, `kind` (`text`/`system`/`dream_share`), optional `shared_dream_id` / `shared_video_id`, `created_at`.
 - **`notifications`** — per-user activity feed (`type`, `actor_id`, `dream_id`, `offer_id`, `conversation_id`, `preview`, `read_at`); the source of the tab-bar unread badge.
 - **`dream_stats`** (view) — derived supporters_count / offers_count. **`profile_stats`** (view) — videos/followers/following/offers counts.
 
@@ -157,10 +164,16 @@ Three cooperating gesture systems sit on top of the feed — when editing any of
 
 ## Messaging & Activity (Realtime)
 
-The "I can help" action creates a **help offer** which spawns a **1:1 conversation** and **notifications**, all via `SECURITY DEFINER` RPCs (so the workflow is atomic and RLS-safe). Two repos own the live surface:
+The "I can help" action creates a **help offer** which spawns a **1:1 conversation** and **notifications**, all via `SECURITY DEFINER` RPCs (so the workflow is atomic and RLS-safe). The Discover **Send** action opens `InAppShareSheet`, which lists `ProfileRepository.followingProfiles()` and calls `share_dream_video` through `VideoShareRepository`; that RPC creates/reuses a direct 1:1 chat (`conversations.dream_id is null`), inserts a `dream_share` message, and relies on the normal message trigger to notify the recipient. Two repos own the live surface:
 
 - **`ActivityRepository.shared`** (app-wide singleton) aggregates notifications + conversations + offers and keeps `unreadCount` live over one `activity:{userId}` channel subscribed to the user's `notifications` (INSERT + UPDATE). Its `load()` is an intentionally batched 3-phase fan-out (`async let`) that resolves ids → rows → referenced profiles/dreams. **Keep the channel alive even when the user leaves the Activity tab** — the tab-bar badge depends on it.
-- **`ChatRepository`** (one per `ChatScreen`) owns a `conversation:{conversationId}` channel with **four** streams: message INSERTs, `conversation_participants` UPDATEs (read receipts), a `typing` **broadcast**, and **presence**. It `track`s its own presence on subscribe and **must `stop()` on screen disappear** (`ChatScreen.onDisappear`) to tear the channel down.
+- **`ChatRepository`** (one per `ChatScreen`) owns a `conversation:{conversationId}` channel with **four** streams: message INSERTs, `conversation_participants` UPDATEs (read receipts), a `typing` **broadcast**, and **presence**. It also hydrates `dream_share` messages into `SharedVideoPreview` cards by fetching referenced dreams/videos. It `track`s its own presence on subscribe and **must `stop()` on screen disappear** (`ChatScreen.onDisappear`) to tear the channel down.
+
+**In-app sharing conventions:**
+- Use `VideoShareRepository.share(dream:recipientId:note:)` for sending a feed video to another user inside Dream. Do not insert share rows directly from Swift.
+- Direct share chats are deliberately separate from help-offer chats: they reuse only conversations where `dream_id is null` and exactly two participants exist.
+- Shared video messages use `kind = 'dream_share'` plus `shared_dream_id` and `shared_video_id`; keep `MessageBubble` rendering distinct from plain text/system messages.
+- Native export/share (`VideoExporter`, `VideoActionsModel`, `ShareSheet`) is only for outside-the-app system sharing or saving to Photos.
 
 **Realtime cost conventions (don't regress these):**
 - **Debounce realtime-driven reloads.** A burst of notification events must coalesce into **one** `ActivityRepository.load()` (it uses a ~400 ms `scheduleReload`), not one reload per event.
@@ -185,6 +198,7 @@ Video is ~99% of the byte cost, so the rules here matter:
 - **Concurrency:** services/repos that touch UI state are `@MainActor`. Use `async let` for independent Supabase fetches (see `loadFeed`).
 - **Singletons:** `*.shared` for services; inject nothing — call directly.
 - **Compose UI:** the new-dream and update flows (`CreateDreamScreen`, `PostUpdateScreen`) share their source cards, preview, thumbnail and pickers via `Components/VideoCompose.swift`. Reuse those rather than re-implementing — only each screen's unique fields (full dream form vs. a single heading) live in the screen.
+- **Discover author row:** show the creator avatar beside `@handle`; the Follow/Following button sits immediately to the right of the handle and should match the compact translucent capsule treatment of the category/stage tags.
 - **Tab bar:** the bottom nav is the floating `DreamTabBar` capsule, overlaid by `MainShell` (it does **not** push content up). New tabs go through it + a new `TabView` page/tag in `MainShell.tabContent`. Any screen presented over the feed should pause the feed video (`.pausesDiscoverFeed()` or direct pause/resume) and, if dismissable, use `.interactiveBackSwipe`.
 - **Auth note:** `RootView` gates the onboarding screen on `AuthService.isSignedIn` (the real Supabase session). Auth is **email + password** (`AuthScreen` → `AuthService.signIn`/`signUp`); `restoreSession()` runs at launch to restore a persisted session. Sign-up may land in `awaitingEmailConfirmation` if the project requires email confirmation (no session returned).
 

@@ -11,6 +11,7 @@ import Supabase
 @MainActor
 final class ChatRepository: ObservableObject {
     @Published private(set) var messages: [MessageDTO] = []
+    @Published private(set) var sharedPreviews: [UUID: SharedVideoPreview] = [:]
     @Published private(set) var otherLastReadAt: Date?
     @Published private(set) var isOtherOnline = false
     @Published private(set) var isOtherTyping = false
@@ -38,6 +39,23 @@ final class ChatRepository: ObservableObject {
     }
 
     private struct PresencePayload: Codable { let user_id: String }
+    private struct SharedDreamRow: Codable {
+        let id: UUID
+        let title: String
+        let category: String
+    }
+    private struct SharedVideoRow: Codable {
+        let id: UUID
+        let dreamId: UUID
+        let posterPath: String?
+        let title: String?
+
+        enum CodingKeys: String, CodingKey {
+            case id, title
+            case dreamId = "dream_id"
+            case posterPath = "poster_path"
+        }
+    }
 
     // MARK: - Lifecycle
 
@@ -80,6 +98,7 @@ final class ChatRepository: ObservableObject {
             let (m, p) = try await (msgs, parts)
             self.messages = m
             self.otherLastReadAt = p.first(where: { $0.userId == otherUserId })?.lastReadAt
+            await loadSharePreviews(for: m)
         } catch {
             print("[ChatRepository] loadMessages failed: \(error)")
         }
@@ -161,6 +180,7 @@ final class ChatRepository: ObservableObject {
                     guard let self else { break }
                     if let msg = try? change.decodeRecord(as: MessageDTO.self, decoder: self.decoder) {
                         self.append(msg)
+                        if msg.isDreamShare { await self.loadSharePreviews(for: [msg]) }
                         if msg.senderId != self.me { self.scheduleMarkRead() }
                     }
                 }
@@ -201,6 +221,52 @@ final class ChatRepository: ObservableObject {
         guard !messages.contains(where: { $0.id == msg.id }) else { return }
         messages.append(msg)
         messages.sort { $0.createdAt < $1.createdAt }
+    }
+
+    private func loadSharePreviews(for messages: [MessageDTO]) async {
+        let shareMessages = messages.filter(\.isDreamShare)
+        let dreamIds = Array(Set(shareMessages.compactMap(\.sharedDreamId)))
+        let videoIds = Array(Set(shareMessages.compactMap(\.sharedVideoId)))
+        guard !dreamIds.isEmpty else { return }
+
+        do {
+            async let dreams: [SharedDreamRow] = client
+                .from("dreams")
+                .select("id,title,category")
+                .in("id", values: dreamIds)
+                .execute()
+                .value
+            async let videos: [SharedVideoRow] = videoIds.isEmpty ? [] : client
+                .from("dream_videos")
+                .select("id,dream_id,poster_path,title")
+                .in("id", values: videoIds)
+                .execute()
+                .value
+
+            let (dreamRows, videoRows) = try await (dreams, videos)
+            let dreamById = Dictionary(dreamRows.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+            let videoById = Dictionary(videoRows.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+
+            var next = sharedPreviews
+            for message in shareMessages {
+                guard let dreamId = message.sharedDreamId, let dream = dreamById[dreamId] else { continue }
+                let video = message.sharedVideoId.flatMap { videoById[$0] }
+                let key = message.sharedVideoId ?? dreamId
+                let posterURL = video?.posterPath.flatMap { path in
+                    try? client.storage.from("dream-posters").getPublicURL(path: path)
+                }
+                next[key] = SharedVideoPreview(
+                    dreamId: dreamId,
+                    videoId: message.sharedVideoId,
+                    title: video?.title ?? dream.title,
+                    category: DreamCategory.from(dbValue: dream.category),
+                    posterURL: posterURL
+                )
+            }
+            sharedPreviews = next
+        } catch {
+            print("[ChatRepository] loadSharePreviews failed: \(error)")
+        }
     }
 
     private func flashTyping() {

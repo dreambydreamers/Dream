@@ -68,6 +68,7 @@ struct MessageBubble: View {
     let message: MessageDTO
     let isMine: Bool
     var showSeen: Bool = false
+    var sharePreview: SharedVideoPreview? = nil
 
     var body: some View {
         if message.isSystem {
@@ -79,6 +80,17 @@ struct MessageBubble: View {
                 .background(Capsule().fill(DreamTheme.cream))
                 .frame(maxWidth: .infinity, alignment: .center)
                 .padding(.vertical, 2)
+        } else if message.isDreamShare {
+            VStack(alignment: isMine ? .trailing : .leading, spacing: 5) {
+                sharedVideoCard
+                if showSeen {
+                    Text("Seen")
+                        .font(DreamTheme.Font.text(10, weight: .medium))
+                        .foregroundStyle(DreamTheme.ink3)
+                        .padding(.trailing, 4)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: isMine ? .trailing : .leading)
         } else {
             VStack(alignment: isMine ? .trailing : .leading, spacing: 3) {
                 Text(message.body)
@@ -98,5 +110,60 @@ struct MessageBubble: View {
             }
             .frame(maxWidth: .infinity, alignment: isMine ? .trailing : .leading)
         }
+    }
+
+    private var sharedVideoCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ZStack(alignment: .bottomLeading) {
+                if let posterURL = sharePreview?.posterURL {
+                    AsyncImage(url: posterURL) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image.resizable().scaledToFill()
+                        default:
+                            shareFallback
+                        }
+                    }
+                } else {
+                    shareFallback
+                }
+
+                HStack(spacing: 6) {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 10, weight: .bold))
+                    Text("Dream video")
+                        .font(DreamTheme.Font.text(11, weight: .bold))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 6)
+                .background(Color.black.opacity(0.45), in: Capsule())
+                .padding(10)
+            }
+            .frame(width: 220, height: 132)
+            .clipped()
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(sharePreview?.title ?? message.body)
+                    .font(DreamTheme.Font.text(14, weight: .semibold))
+                    .foregroundStyle(DreamTheme.ink)
+                    .lineLimit(2)
+                Text(message.body)
+                    .font(DreamTheme.Font.text(12))
+                    .foregroundStyle(DreamTheme.ink2)
+                    .lineLimit(2)
+            }
+            .padding(12)
+            .frame(width: 220, alignment: .leading)
+            .background(Color.white)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(DreamTheme.line, lineWidth: 1))
+        .shadow(color: .black.opacity(0.08), radius: 12, y: 5)
+    }
+
+    private var shareFallback: some View {
+        ScenePoster(category: sharePreview?.category ?? .tech)
+            .frame(width: 220, height: 132)
     }
 }

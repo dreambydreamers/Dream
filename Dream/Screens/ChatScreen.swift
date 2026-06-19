@@ -92,7 +92,8 @@ struct ChatScreen: View {
                 LazyVStack(spacing: 8) {
                     ForEach(model.messages) { msg in
                         MessageBubble(message: msg, isMine: msg.senderId == me,
-                                      showSeen: msg.id == lastMineSeenId)
+                                      showSeen: msg.id == lastMineSeenId,
+                                      sharePreview: sharePreview(for: msg))
                             .id(msg.id)
                     }
                     if model.isOtherTyping {
@@ -116,6 +117,11 @@ struct ChatScreen: View {
                 proxy.scrollTo("bottom", anchor: .bottom)
             }
         }
+    }
+
+    private func sharePreview(for message: MessageDTO) -> SharedVideoPreview? {
+        guard message.isDreamShare, let key = message.sharedVideoId ?? message.sharedDreamId else { return nil }
+        return model.sharedPreviews[key]
     }
 
     // MARK: - Composer

@@ -98,14 +98,19 @@ struct MessageDTO: Codable, Hashable, Identifiable {
     let senderId: UUID
     let body: String
     let kind: String        // "text" | "system"
+    let sharedDreamId: UUID?
+    let sharedVideoId: UUID?
     let createdAt: Date
 
     var isSystem: Bool { kind == "system" }
+    var isDreamShare: Bool { kind == "dream_share" }
 
     enum CodingKeys: String, CodingKey {
         case id, body, kind
         case conversationId = "conversation_id"
         case senderId = "sender_id"
+        case sharedDreamId = "shared_dream_id"
+        case sharedVideoId = "shared_video_id"
         case createdAt = "created_at"
     }
 }
@@ -173,4 +178,23 @@ struct NewMessagePayload: Encodable {
     let conversation_id: UUID
     let sender_id: UUID
     let body: String
+}
+
+struct ShareDreamVideoResult: Decodable {
+    let conversationId: UUID
+    let messageId: UUID
+
+    enum CodingKeys: String, CodingKey {
+        case conversationId = "conversation_id"
+        case messageId = "message_id"
+    }
+}
+
+struct SharedVideoPreview: Identifiable, Hashable {
+    var id: UUID { videoId ?? dreamId }
+    let dreamId: UUID
+    let videoId: UUID?
+    let title: String
+    let category: DreamCategory
+    let posterURL: URL?
 }

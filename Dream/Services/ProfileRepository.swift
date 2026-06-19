@@ -94,6 +94,32 @@ final class ProfileRepository {
         }
     }
 
+    /// Profiles the current user follows. Used as the in-app share recipient
+    /// list: people you follow are treated as friends.
+    func followingProfiles(limit: Int = 80) async -> [ProfileDTO] {
+        guard let me = try? await client.auth.session.user.id else { return [] }
+        do {
+            let follows: [FollowPayload] = try await client
+                .from("follows")
+                .select("follower_id, followed_id")
+                .eq("follower_id", value: me)
+                .limit(limit)
+                .execute()
+                .value
+            let ids = follows.map(\.followed_id)
+            guard !ids.isEmpty else { return [] }
+            return try await client
+                .from("profiles")
+                .select("id,handle,name,location,skills,avatar_seed,avatar_url")
+                .in("id", values: ids)
+                .execute()
+                .value
+        } catch {
+            print("[ProfileRepository] followingProfiles failed: \(error)")
+            return []
+        }
+    }
+
     func follow(_ userId: UUID) async throws {
         let me = try await client.auth.session.user.id
         try await client
