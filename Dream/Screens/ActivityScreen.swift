@@ -6,6 +6,7 @@ struct ChatRoute: Identifiable, Hashable {
     let otherUserId: UUID
     let otherName: String
     let otherSeed: Int
+    var otherAvatarURL: URL? = nil
 }
 
 /// The Activity tab: notifications, live chats, and help offers (received &
@@ -53,6 +54,7 @@ struct ActivityScreen: View {
                 ChatScreen(
                     conversationId: route.id, me: me, otherUserId: route.otherUserId,
                     otherName: route.otherName, otherSeed: route.otherSeed,
+                    otherAvatarURL: route.otherAvatarURL,
                     onOpenProfile: { uid in chat = nil; profileForUser = uid },
                     onBack: { chat = nil })
             }
@@ -106,7 +108,7 @@ struct ActivityScreen: View {
     private func notificationRow(_ n: ActivityNotification) -> some View {
         HStack(spacing: 12) {
             ZStack(alignment: .topTrailing) {
-                Avatar(name: n.actorName, seed: n.actorSeed, size: 44)
+                Avatar(name: n.actorName, seed: n.actorSeed, size: 44, url: n.actorAvatarURL)
                 Image(systemName: n.icon)
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(.white)
@@ -146,7 +148,8 @@ struct ActivityScreen: View {
             ForEach(repo.conversations) { c in
                 Button {
                     chat = ChatRoute(id: c.id, otherUserId: c.otherUserId,
-                                     otherName: c.otherName, otherSeed: c.otherSeed)
+                                     otherName: c.otherName, otherSeed: c.otherSeed,
+                                     otherAvatarURL: c.otherAvatarURL)
                 } label: { conversationRow(c) }
                 .buttonStyle(.plain)
             }
@@ -155,7 +158,7 @@ struct ActivityScreen: View {
 
     private func conversationRow(_ c: ConversationSummary) -> some View {
         HStack(spacing: 12) {
-            Avatar(name: c.otherName, seed: c.otherSeed, size: 48)
+            Avatar(name: c.otherName, seed: c.otherSeed, size: 48, url: c.otherAvatarURL)
             VStack(alignment: .leading, spacing: 2) {
                 Text(c.otherName)
                     .font(DreamTheme.Font.text(15, weight: .semibold))
@@ -200,7 +203,7 @@ struct ActivityScreen: View {
     private func offerRow(_ o: OfferSummary) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
-                Avatar(name: o.counterpartName, seed: o.counterpartSeed, size: 40)
+                Avatar(name: o.counterpartName, seed: o.counterpartSeed, size: 40, url: o.counterpartAvatarURL)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(o.incoming ? "\(o.counterpartName) offered \(o.skill)" : "You offered \(o.skill)")
                         .font(DreamTheme.Font.text(14, weight: .semibold))
@@ -248,7 +251,8 @@ struct ActivityScreen: View {
             if let cid = o.conversationId {
                 actionButton("Message") {
                     chat = ChatRoute(id: cid, otherUserId: o.counterpartId,
-                                     otherName: o.counterpartName, otherSeed: o.counterpartSeed)
+                                     otherName: o.counterpartName, otherSeed: o.counterpartSeed,
+                                     otherAvatarURL: o.counterpartAvatarURL)
                 }
             }
             Spacer(minLength: 0)
@@ -301,7 +305,8 @@ struct ActivityScreen: View {
 
     private func open(notification n: ActivityNotification) {
         guard let cid = n.conversationId, let actor = n.actorId else { return }
-        chat = ChatRoute(id: cid, otherUserId: actor, otherName: n.actorName, otherSeed: n.actorSeed)
+        chat = ChatRoute(id: cid, otherUserId: actor, otherName: n.actorName, otherSeed: n.actorSeed,
+                         otherAvatarURL: n.actorAvatarURL)
     }
 
     private func respond(_ o: OfferSummary, _ status: HelpOfferStatus) {

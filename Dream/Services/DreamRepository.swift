@@ -262,6 +262,7 @@ final class DreamRepository: ObservableObject {
             stage: DreamStage.from(dbValue: row.stage),
             help: row.helpTags,
             avatarSeed: profile?.avatarSeed ?? 0,
+            avatarURL: profile?.avatarURL.flatMap(URL.init(string:)),
             location: row.location ?? profile?.location ?? "",
             distance: "",
             desc: row.description,

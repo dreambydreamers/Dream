@@ -7,6 +7,7 @@ struct ChatScreen: View {
     let me: UUID
     let otherName: String
     let otherSeed: Int
+    let otherAvatarURL: URL?
     var onOpenProfile: (UUID) -> Void = { _ in }
     var onBack: () -> Void
 
@@ -14,10 +15,12 @@ struct ChatScreen: View {
     @FocusState private var composerFocused: Bool
 
     init(conversationId: UUID, me: UUID, otherUserId: UUID, otherName: String, otherSeed: Int,
+         otherAvatarURL: URL? = nil,
          onOpenProfile: @escaping (UUID) -> Void = { _ in }, onBack: @escaping () -> Void) {
         self.me = me
         self.otherName = otherName
         self.otherSeed = otherSeed
+        self.otherAvatarURL = otherAvatarURL
         self.onOpenProfile = onOpenProfile
         self.onBack = onBack
         _model = StateObject(wrappedValue: ChatRepository(
@@ -53,7 +56,7 @@ struct ChatScreen: View {
             Button { onOpenProfile(model.otherUserId) } label: {
                 HStack(spacing: 10) {
                     ZStack(alignment: .bottomTrailing) {
-                        Avatar(name: otherName, seed: otherSeed, size: 38)
+                        Avatar(name: otherName, seed: otherSeed, size: 38, url: otherAvatarURL)
                         OnlineDot(online: model.isOtherOnline)
                             .offset(x: 1, y: 1)
                     }

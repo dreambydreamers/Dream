@@ -11,6 +11,7 @@ struct DiscoverScreen: View {
     @State private var helpForDream: Dream?
     @State private var profileForUser: UUID?
     @State private var isMuted: Bool = false
+    @StateObject private var videoActions = VideoActionsModel()
 
     private var dreams: [Dream] { repo.dreams }
     private var dream: Dream { dreams[index % dreams.count] }
@@ -64,6 +65,7 @@ struct DiscoverScreen: View {
         .fullScreenCover(item: $profileForUser) { userId in
             ProfileScreen(userId: userId, onBack: { profileForUser = nil })
         }
+        .videoActions(videoActions)
     }
 
     /// Tell the preloader which feed card is on screen so a covering detail/
@@ -338,11 +340,15 @@ struct DiscoverScreen: View {
                 highlight: matched,
                 action: { helpForDream = dream }
             )
-            ActionButton(systemImage: "arrowshape.turn.up.right.fill", label: "124")
-            ActionButton(systemImage: "bookmark.fill", label: "Save")
+            ActionButton(systemImage: "arrowshape.turn.up.right.fill", label: "Share") {
+                videoActions.share(storagePath: dream.videoStoragePath)
+            }
+            ActionButton(systemImage: "bookmark.fill", label: "Save") {
+                videoActions.save(storagePath: dream.videoStoragePath)
+            }
 
             Button { profileForUser = dream.ownerId } label: {
-                Avatar(name: dream.name, seed: dream.avatarSeed, size: 40)
+                Avatar(name: dream.name, seed: dream.avatarSeed, size: 40, url: dream.avatarURL)
                     .padding(2)
                     .overlay(
                         Circle().strokeBorder(

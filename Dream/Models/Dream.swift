@@ -34,6 +34,8 @@ struct Dream: Identifiable, Hashable {
     let stage: DreamStage
     let help: [String]
     let avatarSeed: Int
+    /// Author's uploaded profile picture, or nil (falls back to the seed avatar).
+    var avatarURL: URL? = nil
     let location: String
     let distance: String
     let desc: String

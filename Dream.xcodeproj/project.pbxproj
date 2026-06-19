@@ -23,6 +23,8 @@
 		4CE9F4142FDC6CA00097A4AC /* Dream.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Dream.xcodeproj; sourceTree = "<group>"; };
 		4CE9F4722FDDF7F70097A4AC /* Dream.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Dream.xcodeproj; sourceTree = "<group>"; };
 		4CE9F4E52FDEB5800097A4AC /* Dream.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Dream.xcodeproj; sourceTree = "<group>"; };
+		4CE9F5552FE5943E0097A4AC /* Dream.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Dream.xcodeproj; sourceTree = "<group>"; };
+		4CE9F5CB2FE59A360097A4AC /* Dream.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Dream.xcodeproj; sourceTree = "<group>"; };
 		4CF5339B2FD310D6002B4089 /* Dream.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Dream.xcodeproj; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -117,6 +119,16 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		4CE9F5582FE5943E0097A4AC /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
+		4CE9F5CE2FE59A360097A4AC /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
 		4CF5339E2FD310D6002B4089 /* Products */ = {
 			isa = PBXGroup;
 			name = Products;
@@ -188,6 +200,10 @@
 					ProjectRef = 4C74FAFB2FCB0A0E00F1713A /* Dream.xcodeproj */;
 				},
 				{
+					ProductGroup = 4CE9F5CE2FE59A360097A4AC /* Products */;
+					ProjectRef = 4CE9F5CB2FE59A360097A4AC /* Dream.xcodeproj */;
+				},
+				{
 					ProductGroup = 4CA7A0BD2FD2FB8F00266FF0 /* Products */;
 					ProjectRef = 4CA7A0BA2FD2FB8F00266FF0 /* Dream.xcodeproj */;
 				},
@@ -206,6 +222,10 @@
 				{
 					ProductGroup = 4C74FC462FCB22F500F1713A /* Products */;
 					ProjectRef = 4C74FC432FCB22F500F1713A /* Dream.xcodeproj */;
+				},
+				{
+					ProductGroup = 4CE9F5582FE5943E0097A4AC /* Products */;
+					ProjectRef = 4CE9F5552FE5943E0097A4AC /* Dream.xcodeproj */;
 				},
 				{
 					ProductGroup = 4CE9F4E82FDEB5800097A4AC /* Products */;
@@ -387,6 +407,8 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Dream uses the camera so you can record a video of your dream.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Dream uses the microphone to record sound for your dream video.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Dream saves dream videos to your Photos library.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Dream lets you choose photos for your profile picture and videos to share.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -421,6 +443,8 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Dream uses the camera so you can record a video of your dream.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Dream uses the microphone to record sound for your dream video.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Dream saves dream videos to your Photos library.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Dream lets you choose photos for your profile picture and videos to share.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

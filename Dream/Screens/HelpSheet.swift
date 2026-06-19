@@ -151,7 +151,7 @@ struct HelpSheet: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 10) {
-                    Avatar(name: dream.name, seed: dream.avatarSeed, size: 36)
+                    Avatar(name: dream.name, seed: dream.avatarSeed, size: 36, url: dream.avatarURL)
                     VStack(alignment: .leading, spacing: 1) {
                         Text("You're offering to help")
                             .font(DreamTheme.Font.text(13))

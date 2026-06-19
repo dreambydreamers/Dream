@@ -10,6 +10,7 @@ struct ActivityNotification: Identifiable, Hashable {
     let preview: String
     let actorName: String
     let actorSeed: Int
+    let actorAvatarURL: URL?
     let actorId: UUID?
     let conversationId: UUID?
     let createdAt: Date
@@ -34,6 +35,7 @@ struct ConversationSummary: Identifiable, Hashable {
     let otherUserId: UUID
     let otherName: String
     let otherSeed: Int
+    let otherAvatarURL: URL?
     let dreamId: UUID?
     let preview: String
     let lastMessageAt: Date?
@@ -47,6 +49,7 @@ struct OfferSummary: Identifiable, Hashable {
     let counterpartId: UUID
     let counterpartName: String
     let counterpartSeed: Int
+    let counterpartAvatarURL: URL?
     let skill: String
     let message: String
     let status: HelpOfferStatus
@@ -172,7 +175,7 @@ final class ActivityRepository: ObservableObject {
 
             async let profileRows: [ProfileDTO] = profileIds.isEmpty ? [] : client
                 .from("profiles")
-                .select("id,handle,name,location,skills,avatar_seed")
+                .select("id,handle,name,location,skills,avatar_seed,avatar_url")
                 .in("id", values: Array(profileIds)).execute().value
             async let offerDreamRows: [DreamLite] = offerDreamIds.isEmpty ? [] : client
                 .from("dreams").select("id,title,owner_id").in("id", values: Array(offerDreamIds)).execute().value
@@ -189,6 +192,7 @@ final class ActivityRepository: ObservableObject {
                 return ActivityNotification(
                     id: n.id, type: n.type, preview: n.preview,
                     actorName: p?.name ?? "Someone", actorSeed: p?.avatarSeed ?? 0,
+                    actorAvatarURL: p?.avatarURL.flatMap(URL.init(string:)),
                     actorId: n.actorId, conversationId: n.conversationId,
                     createdAt: n.createdAt, isRead: n.readAt != nil)
             }
@@ -210,6 +214,7 @@ final class ActivityRepository: ObservableObject {
                     otherUserId: other?.userId ?? me,
                     otherName: op?.name ?? "Someone",
                     otherSeed: op?.avatarSeed ?? 0,
+                    otherAvatarURL: op?.avatarURL.flatMap(URL.init(string:)),
                     dreamId: conv.dreamId,
                     preview: conv.lastMessagePreview ?? "",
                     lastMessageAt: conv.lastMessageAt,
@@ -224,6 +229,7 @@ final class ActivityRepository: ObservableObject {
                     id: row.id, dreamId: row.dreamId, dreamTitle: d?.title ?? "a dream",
                     counterpartId: d?.ownerId ?? row.supporterId,
                     counterpartName: owner?.name ?? "Dreamer", counterpartSeed: owner?.avatarSeed ?? 0,
+                    counterpartAvatarURL: owner?.avatarURL.flatMap(URL.init(string:)),
                     skill: row.skill, message: row.message,
                     status: .from(dbValue: row.status), conversationId: row.conversationId,
                     createdAt: row.createdAt, incoming: false)
@@ -234,6 +240,7 @@ final class ActivityRepository: ObservableObject {
                     id: row.id, dreamId: row.dreamId, dreamTitle: dreamById[row.dreamId]?.title ?? "your dream",
                     counterpartId: row.supporterId,
                     counterpartName: sup?.name ?? "Someone", counterpartSeed: sup?.avatarSeed ?? 0,
+                    counterpartAvatarURL: sup?.avatarURL.flatMap(URL.init(string:)),
                     skill: row.skill, message: row.message,
                     status: .from(dbValue: row.status), conversationId: row.conversationId,
                     createdAt: row.createdAt, incoming: true)
@@ -251,6 +258,7 @@ final class ActivityRepository: ObservableObject {
             n.isRead ? n : ActivityNotification(
                 id: n.id, type: n.type, preview: n.preview,
                 actorName: n.actorName, actorSeed: n.actorSeed,
+                actorAvatarURL: n.actorAvatarURL,
                 actorId: n.actorId, conversationId: n.conversationId,
                 createdAt: n.createdAt, isRead: true)
         }

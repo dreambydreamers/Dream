@@ -65,6 +65,16 @@ final class ProfileRepository {
             .execute()
     }
 
+    /// Sets or clears the current user's profile picture URL. Passing nil clears
+    /// it (falls back to the procedural avatar).
+    func updateAvatar(userId: UUID, avatarURL: String?) async throws {
+        try await client
+            .from("profiles")
+            .update(AvatarUpdatePayload(avatar_url: avatarURL))
+            .eq("id", value: userId)
+            .execute()
+    }
+
     // MARK: - Follows
 
     /// Whether the signed-in user follows `userId`.

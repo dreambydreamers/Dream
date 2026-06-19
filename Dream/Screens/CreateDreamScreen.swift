@@ -21,6 +21,7 @@ struct CreateDreamScreen: View {
     @State private var showLibrary: Bool = false
     @State private var isPublishing: Bool = false
     @State private var publishError: String?
+    @StateObject private var videoActions = VideoActionsModel()
 
     private let helps = ["Coding", "Design", "Funding", "Mentorship", "Marketing", "Legal"]
 
@@ -55,6 +56,7 @@ struct CreateDreamScreen: View {
             }
             .videoSourcePicker(showCamera: $showCamera, showLibrary: $showLibrary, onPick: handlePicked)
         }
+        .videoActions(videoActions)
     }
 
     private func handlePicked(_ url: URL) {
@@ -245,7 +247,8 @@ struct CreateDreamScreen: View {
             thumbnail: videoThumbnail,
             category: category ?? .tech,
             rePickLabel: "Re-record",
-            onRePick: { step = .source }
+            onRePick: { step = .source },
+            onSave: selectedVideoURL.map { url in { videoActions.save(localURL: url) } }
         )
     }
 
