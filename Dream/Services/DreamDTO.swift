@@ -7,12 +7,16 @@ struct ProfileDTO: Codable, Hashable {
     let handle: String?
     let name: String?
     let avatarSeed: Int
+    /// Full public URL of an uploaded profile picture, or nil (falls back to the
+    /// procedural seed-gradient avatar). See `avatars` bucket / `AvatarUploader`.
+    let avatarURL: String?
     let location: String?
     let skills: [String]
 
     enum CodingKeys: String, CodingKey {
         case id, handle, name, location, skills
         case avatarSeed = "avatar_seed"
+        case avatarURL = "avatar_url"
     }
 }
 
@@ -142,6 +146,12 @@ struct ProfileUpdatePayload: Encodable {
     let handle: String?
     let location: String?
     let skills: [String]
+}
+
+/// Updates only the avatar URL (set/clear a profile picture), decoupled from the
+/// text-field profile save so picking an image takes effect immediately.
+struct AvatarUpdatePayload: Encodable {
+    let avatar_url: String?
 }
 
 struct FollowPayload: Codable {

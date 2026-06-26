@@ -15,6 +15,7 @@ struct DreamDetailScreen: View {
     @State private var profileForUser: UUID?
     /// Hero video mute state, toggled by the speaker button. Starts unmuted.
     @State private var isMuted = false
+    @StateObject private var videoActions = VideoActionsModel()
 
     init(dream: Dream, onBack: @escaping () -> Void = {}) {
         self.dream = dream
@@ -59,6 +60,7 @@ struct DreamDetailScreen: View {
             ProfileScreen(userId: uid, onBack: { profileForUser = nil })
         }
         .interactiveBackSwipe { onBack() }
+        .videoActions(videoActions)
     }
 
     /// When opened from a feed *update* card, the incoming `dream` points at the
@@ -108,8 +110,13 @@ struct DreamDetailScreen: View {
                         glassCircleButton(systemName: isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill") {
                             isMuted.toggle()
                         }
+                        glassCircleButton(systemName: "arrow.down.to.line") {
+                            videoActions.save(storagePath: heroDream.videoStoragePath)
+                        }
+                        glassCircleButton(systemName: "square.and.arrow.up") {
+                            videoActions.share(storagePath: heroDream.videoStoragePath)
+                        }
                     }
-                    glassCircleButton(systemName: "square.and.arrow.up") {}
                 }
                 .padding(.horizontal, 14)
                 .padding(.top, 56)
@@ -136,7 +143,7 @@ struct DreamDetailScreen: View {
         HStack(spacing: 12) {
             Button { profileForUser = dream.ownerId } label: {
                 HStack(spacing: 12) {
-                    Avatar(name: dream.name, seed: dream.avatarSeed, size: 44)
+                    Avatar(name: dream.name, seed: dream.avatarSeed, size: 44, url: dream.avatarURL)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(dream.name)
                             .font(DreamTheme.Font.text(15, weight: .semibold))

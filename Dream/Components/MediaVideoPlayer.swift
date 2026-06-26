@@ -17,6 +17,7 @@ struct MediaVideoPlayer: View {
     var onClose: () -> Void = {}
 
     @State private var player: AVPlayer?
+    @StateObject private var videoActions = VideoActionsModel()
 
     var body: some View {
         ZStack {
@@ -31,17 +32,15 @@ struct MediaVideoPlayer: View {
             }
 
             VStack {
-                HStack {
+                HStack(spacing: 12) {
                     Spacer()
-                    Button(action: onClose) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 15, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 38, height: 38)
-                            .background(Color.black.opacity(0.45), in: Circle())
-                            .background(.ultraThinMaterial, in: Circle())
+                    circleButton("arrow.down.to.line") {
+                        videoActions.save(storagePath: media.storagePath)
                     }
-                    .buttonStyle(.plain)
+                    circleButton("square.and.arrow.up") {
+                        videoActions.share(storagePath: media.storagePath)
+                    }
+                    circleButton("xmark", action: onClose)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 56)
@@ -50,6 +49,19 @@ struct MediaVideoPlayer: View {
         }
         .task(id: media.id) { await start() }
         .onDisappear { player?.pause() }
+        .videoActions(videoActions)
+    }
+
+    private func circleButton(_ systemName: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 38, height: 38)
+                .background(Color.black.opacity(0.45), in: Circle())
+                .background(.ultraThinMaterial, in: Circle())
+        }
+        .buttonStyle(.plain)
     }
 
     private func start() async {

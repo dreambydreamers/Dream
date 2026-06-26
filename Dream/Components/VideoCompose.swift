@@ -71,6 +71,9 @@ struct VideoPreviewCard: View {
     let category: DreamCategory
     var rePickLabel: String = "Re-record"
     let onRePick: () -> Void
+    /// Optional "Save to Photos" affordance for the picked clip. When nil, the
+    /// save pill is hidden (e.g. previews where saving doesn't apply).
+    var onSave: (() -> Void)? = nil
 
     var body: some View {
         ZStack {
@@ -97,8 +100,22 @@ struct VideoPreviewCard: View {
                 )
 
             VStack {
-                HStack {
+                HStack(spacing: 8) {
                     Spacer()
+                    if let onSave {
+                        Button(action: onSave) {
+                            HStack(spacing: 5) {
+                                Image(systemName: "arrow.down.to.line")
+                                Text("Save")
+                            }
+                            .font(DreamTheme.Font.text(12, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color.black.opacity(0.5), in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
                     Button(rePickLabel, action: onRePick)
                         .font(DreamTheme.Font.text(12, weight: .semibold))
                         .foregroundStyle(.white)

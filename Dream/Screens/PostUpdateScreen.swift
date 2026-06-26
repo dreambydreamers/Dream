@@ -20,6 +20,7 @@ struct PostUpdateScreen: View {
     @State private var showLibrary = false
     @State private var isPosting = false
     @State private var postError: String?
+    @StateObject private var videoActions = VideoActionsModel()
 
     var body: some View {
         NavigationStack {
@@ -52,6 +53,7 @@ struct PostUpdateScreen: View {
             }
             .videoSourcePicker(showCamera: $showCamera, showLibrary: $showLibrary, onPick: handlePicked)
         }
+        .videoActions(videoActions)
     }
 
     private func handlePicked(_ url: URL) {
@@ -169,7 +171,8 @@ struct PostUpdateScreen: View {
             thumbnail: videoThumbnail,
             category: dream.category,
             rePickLabel: "Re-pick",
-            onRePick: { step = .source }
+            onRePick: { step = .source },
+            onSave: selectedVideoURL.map { url in { videoActions.save(localURL: url) } }
         )
     }
 }

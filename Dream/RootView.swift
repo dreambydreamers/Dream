@@ -35,13 +35,16 @@ private struct MainShell: View {
     @State private var publishedMessage = "Dream published"
     /// Shrinks the floating tab bar while the user scrolls the feed.
     @State private var tabBarCollapsed = false
+    /// App-wide activity feed — drives the tab bar's unread badge and keeps it
+    /// live over Realtime even when the user isn't on the Activity tab.
+    @ObservedObject private var activity = ActivityRepository.shared
 
     var body: some View {
         ZStack(alignment: .bottom) {
             tabContent
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            DreamTabBar(active: $activeTab, collapsed: $tabBarCollapsed, dark: activeTab == .discover, onCreate: { Task { await handleCreateTap() } })
+            DreamTabBar(active: $activeTab, collapsed: $tabBarCollapsed, dark: activeTab == .discover, badgeCount: activity.unreadCount, onCreate: { Task { await handleCreateTap() } })
 
             if showPublishedToast {
                 publishedToast
@@ -50,6 +53,7 @@ private struct MainShell: View {
             }
         }
         .ignoresSafeArea(edges: .bottom)
+        .task { await activity.start() }
         .onChange(of: activeTab) { _, _ in tabBarCollapsed = false }
         .confirmationDialog("Create", isPresented: $chooseCreateKind, titleVisibility: .visible) {
             Button("Post an update") { postingUpdate = true }
@@ -127,7 +131,7 @@ private struct MainShell: View {
                 .tag(DreamTab.discover)
             ExplorePlaceholder()
                 .tag(DreamTab.explore)
-            ActivityPlaceholder()
+            ActivityScreen()
                 .tag(DreamTab.activity)
             profilePage
                 .tag(DreamTab.profile)

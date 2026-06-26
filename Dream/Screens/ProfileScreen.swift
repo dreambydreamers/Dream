@@ -69,12 +69,19 @@ struct ProfileScreen: View {
                 handle: model.handle,
                 location: model.location,
                 skills: model.skills,
+                avatarSeed: model.avatarSeed,
+                avatarURL: model.avatarURL,
                 dreams: model.dreams,
                 onSaved: {
                     editing = false
                     Task { await model.reload(userId: userId, isCurrentUser: isCurrentUser) }
                 },
-                onCancel: { editing = false }
+                onCancel: {
+                    editing = false
+                    // The avatar persists immediately (independent of the text save),
+                    // so reflect any change even when the user cancels the form.
+                    Task { await model.reload(userId: userId, isCurrentUser: isCurrentUser) }
+                }
             )
         }
         // Only the pushed-over-feed profile (onBack != nil) gets edge-swipe back;
@@ -87,7 +94,7 @@ struct ProfileScreen: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top, spacing: 16) {
-                Avatar(name: model.name, seed: model.avatarSeed, size: 76)
+                Avatar(name: model.name, seed: model.avatarSeed, size: 76, url: model.avatarURL)
                     .overlay(Circle().strokeBorder(DreamTheme.line, lineWidth: 1))
 
                 VStack(alignment: .leading, spacing: 3) {
@@ -382,6 +389,7 @@ final class ProfileViewModel: ObservableObject {
     @Published var handle = ""
     @Published var location = ""
     @Published var avatarSeed = 0
+    @Published var avatarURL: URL?
     @Published var skills: [String] = []
     @Published var dreams: [Dream] = []
     @Published var featuredDream: Dream?
@@ -415,6 +423,7 @@ final class ProfileViewModel: ObservableObject {
             handle = p.handle ?? "anon"
             location = p.location ?? ""
             avatarSeed = p.avatarSeed
+            avatarURL = p.avatarURL.flatMap(URL.init(string:))
             skills = p.skills
         } else if let first = d.first {
             // Fall back to the author info embedded in their dreams.
@@ -422,6 +431,7 @@ final class ProfileViewModel: ObservableObject {
             handle = first.handle
             location = first.location
             avatarSeed = first.avatarSeed
+            avatarURL = first.avatarURL
         }
         self.dreams = d
         videosCount = s?.videosCount ?? 0

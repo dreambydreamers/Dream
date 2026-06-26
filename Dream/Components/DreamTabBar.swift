@@ -13,6 +13,8 @@ struct DreamTabBar: View {
     /// way; any tap on the bar restores it to full size.
     @Binding var collapsed: Bool
     var dark: Bool = false
+    /// Unread-notification count shown as a badge on the Activity (bell) tab.
+    var badgeCount: Int = 0
     var onCreate: () -> Void
 
     @Namespace private var highlight
@@ -22,7 +24,7 @@ struct DreamTabBar: View {
             tabButton(.discover, icon: "house.fill")
             tabButton(.explore,  icon: "play.rectangle")
             createButton
-            tabButton(.activity, icon: "bell")
+            tabButton(.activity, icon: "bell", badge: badgeCount)
             tabButton(.profile,  icon: "person.crop.circle")
         }
         .padding(.horizontal, 8)
@@ -46,7 +48,7 @@ struct DreamTabBar: View {
         .padding(.bottom, 28)
     }
 
-    private func tabButton(_ tab: DreamTab, icon: String) -> some View {
+    private func tabButton(_ tab: DreamTab, icon: String, badge: Int = 0) -> some View {
         let isActive = active == tab
         return Button {
             collapsed = false   // driven by the smooth .animation(value:) modifier
@@ -62,6 +64,18 @@ struct DreamTabBar: View {
                 Image(systemName: icon)
                     .font(.system(size: 22, weight: isActive ? .semibold : .regular))
                     .foregroundStyle(isActive ? .white : Color.white.opacity(0.6))
+                    .overlay(alignment: .topTrailing) {
+                        if badge > 0 {
+                            Text(badge > 9 ? "9+" : "\(badge)")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, badge > 9 ? 4 : 0)
+                                .frame(minWidth: 16, minHeight: 16)
+                                .background(Circle().fill(DreamTheme.blue))
+                                .overlay(Circle().strokeBorder(.white.opacity(0.9), lineWidth: 1.5))
+                                .offset(x: 12, y: -10)
+                        }
+                    }
             }
             .frame(maxWidth: .infinity)
             .frame(height: 48)

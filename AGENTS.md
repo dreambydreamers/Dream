@@ -1,4 +1,4 @@
-# CLAUDE.md
+# AGENTS.md
 
 Guidance for working in this repository. Read this before building features so changes match the existing architecture and conventions.
 
