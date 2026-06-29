@@ -129,7 +129,7 @@ private struct MainShell: View {
         TabView(selection: $activeTab) {
             DiscoverScreen(tabBarCollapsed: $tabBarCollapsed)
                 .tag(DreamTab.discover)
-            ExplorePlaceholder()
+            ExploreScreen()
                 .tag(DreamTab.explore)
             ActivityScreen()
                 .tag(DreamTab.activity)

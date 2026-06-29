@@ -112,9 +112,10 @@ struct MessageBubble: View {
         }
     }
 
+    // Instagram-style video share card: portrait thumbnail, rounded, full-bubble width.
     private var sharedVideoCard: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ZStack(alignment: .bottomLeading) {
+            ZStack(alignment: .center) {
                 if let posterURL = sharePreview?.posterURL {
                     AsyncImage(url: posterURL) { phase in
                         switch phase {
@@ -128,42 +129,38 @@ struct MessageBubble: View {
                     shareFallback
                 }
 
-                HStack(spacing: 6) {
-                    Image(systemName: "play.fill")
-                        .font(.system(size: 10, weight: .bold))
-                    Text("Dream video")
-                        .font(DreamTheme.Font.text(11, weight: .bold))
-                }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 9)
-                .padding(.vertical, 6)
-                .background(Color.black.opacity(0.45), in: Capsule())
-                .padding(10)
+                // Play button overlay (Instagram-style)
+                Circle()
+                    .fill(Color.black.opacity(0.35))
+                    .frame(width: 48, height: 48)
+                    .overlay(
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundStyle(.white)
+                            .offset(x: 2)
+                    )
             }
-            .frame(width: 220, height: 132)
+            .frame(width: 200, height: 260)
             .clipped()
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(sharePreview?.title ?? message.body)
-                    .font(DreamTheme.Font.text(14, weight: .semibold))
+            if let title = sharePreview?.title {
+                Text(title)
+                    .font(DreamTheme.Font.text(13, weight: .semibold))
                     .foregroundStyle(DreamTheme.ink)
                     .lineLimit(2)
-                Text(message.body)
-                    .font(DreamTheme.Font.text(12))
-                    .foregroundStyle(DreamTheme.ink2)
-                    .lineLimit(2)
+                    .padding(.horizontal, 12)
+                    .padding(.top, 10)
+                    .padding(.bottom, 10)
+                    .frame(width: 200, alignment: .leading)
+                    .background(Color.white)
             }
-            .padding(12)
-            .frame(width: 220, alignment: .leading)
-            .background(Color.white)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(DreamTheme.line, lineWidth: 1))
-        .shadow(color: .black.opacity(0.08), radius: 12, y: 5)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .shadow(color: .black.opacity(0.12), radius: 14, y: 6)
     }
 
     private var shareFallback: some View {
         ScenePoster(category: sharePreview?.category ?? .tech)
-            .frame(width: 220, height: 132)
+            .frame(width: 200, height: 260)
     }
 }

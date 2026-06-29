@@ -17,8 +17,7 @@ struct ActivityScreen: View {
     @ObservedObject private var auth = AuthService.shared
 
     @State private var section: Section = .notifications
-    @State private var chat: ChatRoute?
-    @State private var profileForUser: UUID?
+    @State private var navPath = NavigationPath()
 
     enum Section: String, CaseIterable, Identifiable {
         case notifications = "Activity"
@@ -28,43 +27,48 @@ struct ActivityScreen: View {
     }
 
     var body: some View {
-        ZStack(alignment: .top) {
-            DreamTheme.paper.ignoresSafeArea()
+        NavigationStack(path: $navPath) {
+            ZStack(alignment: .top) {
+                DreamTheme.paper.ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                headerBar
-                picker
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 10) {
-                        switch section {
-                        case .notifications: notificationsContent
-                        case .messages:      messagesContent
-                        case .offers:        offersContent
+                VStack(spacing: 0) {
+                    headerBar
+                    tabPills
+                    Divider().background(DreamTheme.line)
+                    ScrollView(showsIndicators: false) {
+                        VStack(alignment: .leading, spacing: 0) {
+                            switch section {
+                            case .notifications: notificationsContent
+                            case .messages:      messagesContent
+                            case .offers:        offersContent
+                            }
                         }
+                        .padding(.top, 4)
+                        .padding(.bottom, 130)
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 14)
-                    .padding(.bottom, 130)
                 }
+            }
+            .navigationBarHidden(true)
+            .navigationDestination(for: Bool.self) { _ in DemoChatScreen() }
+            .navigationDestination(for: ChatRoute.self) { route in
+                if let me = auth.userId {
+                    ChatScreen(
+                        conversationId: route.id, me: me,
+                        otherUserId: route.otherUserId,
+                        otherName: route.otherName, otherSeed: route.otherSeed,
+                        otherAvatarURL: route.otherAvatarURL,
+                        onOpenProfile: { uid in navPath.append(uid) }
+                    )
+                }
+            }
+            .navigationDestination(for: UUID.self) { uid in
+                ProfileScreen(userId: uid, onBack: { navPath.removeLast() })
             }
         }
         .task { await repo.start() }
-        .fullScreenCover(item: $chat) { route in
-            if let me = auth.userId {
-                ChatScreen(
-                    conversationId: route.id, me: me, otherUserId: route.otherUserId,
-                    otherName: route.otherName, otherSeed: route.otherSeed,
-                    otherAvatarURL: route.otherAvatarURL,
-                    onOpenProfile: { uid in chat = nil; profileForUser = uid },
-                    onBack: { chat = nil })
-            }
-        }
-        .fullScreenCover(item: $profileForUser) { uid in
-            ProfileScreen(userId: uid, onBack: { profileForUser = nil })
-        }
     }
 
-    // MARK: - Header & picker
+    // MARK: - Header
 
     private var headerBar: some View {
         HStack(alignment: .firstTextBaseline) {
@@ -80,137 +84,203 @@ struct ActivityScreen: View {
         }
         .padding(.horizontal, 20)
         .padding(.top, 64)
-        .padding(.bottom, 8)
+        .padding(.bottom, 12)
     }
 
-    private var picker: some View {
-        Picker("", selection: $section) {
-            ForEach(Section.allCases) { s in Text(s.rawValue).tag(s) }
+    private var tabPills: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(Section.allCases) { s in
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { section = s }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text(s.rawValue)
+                                .font(DreamTheme.Font.text(14, weight: section == s ? .semibold : .regular))
+                                .foregroundStyle(section == s ? .white : DreamTheme.ink2)
+                            let unreadMsgs = repo.conversations.filter(\.unread).count
+                            if s == .messages, unreadMsgs > 0 {
+                                Text("\(unreadMsgs)")
+                                    .font(DreamTheme.Font.text(11, weight: .bold))
+                                    .foregroundStyle(section == s ? DreamTheme.blue : .white)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Capsule().fill(section == s ? .white : DreamTheme.blue))
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Capsule().fill(section == s ? DreamTheme.blue : DreamTheme.bg))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 10)
         }
-        .pickerStyle(.segmented)
-        .padding(.horizontal, 20)
-        .padding(.bottom, 4)
     }
 
     // MARK: - Notifications
 
     @ViewBuilder private var notificationsContent: some View {
         if repo.notifications.isEmpty {
-            emptyState("No activity yet", "Offers, replies and updates will show up here.")
+            emptyState(
+                icon: "bell",
+                title: "No activity yet",
+                subtitle: "Offers, replies and updates will show up here."
+            )
         } else {
-            ForEach(repo.notifications) { n in
+            ForEach(Array(repo.notifications.enumerated()), id: \.element.id) { i, n in
                 Button { open(notification: n) } label: { notificationRow(n) }
                     .buttonStyle(.plain)
+                if i < repo.notifications.count - 1 {
+                    Divider().padding(.leading, 76).background(DreamTheme.line)
+                }
             }
         }
     }
 
     private func notificationRow(_ n: ActivityNotification) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 14) {
             ZStack(alignment: .topTrailing) {
-                Avatar(name: n.actorName, seed: n.actorSeed, size: 44, url: n.actorAvatarURL)
+                Avatar(name: n.actorName, seed: n.actorSeed, size: 48, url: n.actorAvatarURL)
                 Image(systemName: n.icon)
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(.white)
                     .frame(width: 20, height: 20)
                     .background(Circle().fill(DreamTheme.blue))
                     .overlay(Circle().strokeBorder(.white, lineWidth: 1.5))
-                    .offset(x: 6, y: -4)
+                    .offset(x: 5, y: -3)
             }
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(n.actorName)
                     .font(DreamTheme.Font.text(15, weight: .semibold))
                     .foregroundStyle(DreamTheme.ink)
                 Text(n.preview)
-                    .font(DreamTheme.Font.text(13))
+                    .font(DreamTheme.Font.text(14))
                     .foregroundStyle(DreamTheme.ink2)
                     .lineLimit(2)
             }
             Spacer(minLength: 6)
             VStack(alignment: .trailing, spacing: 6) {
                 Text(relativeTimeLabel(n.createdAt))
-                    .font(DreamTheme.Font.text(11))
+                    .font(DreamTheme.Font.text(12))
                     .foregroundStyle(DreamTheme.ink3)
-                if !n.isRead { Circle().fill(DreamTheme.blue).frame(width: 8, height: 8) }
+                if !n.isRead {
+                    Circle().fill(DreamTheme.blue).frame(width: 9, height: 9)
+                }
             }
         }
-        .padding(14)
-        .background(RoundedRectangle(cornerRadius: 16).fill(n.isRead ? Color.white : DreamTheme.blueTint))
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(DreamTheme.line, lineWidth: 1))
+        .padding(.horizontal, 20)
+        .padding(.vertical, 14)
+        .background(n.isRead ? Color.clear : DreamTheme.blueTint.opacity(0.4))
     }
 
     // MARK: - Messages
 
     @ViewBuilder private var messagesContent: some View {
         if repo.conversations.isEmpty {
-            emptyState("No conversations", "When you offer help or get an offer, your chat opens here.")
+            VStack(spacing: 16) {
+                emptyState(
+                    icon: "bubble.left.and.bubble.right",
+                    title: "No conversations",
+                    subtitle: "Offer help on a dream to start chatting."
+                )
+                Button { navPath.append(true) } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "eye.fill")
+                            .font(.system(size: 13))
+                        Text("Preview chat UI")
+                            .font(DreamTheme.Font.text(14, weight: .semibold))
+                    }
+                    .foregroundStyle(DreamTheme.blue)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 10)
+                    .background(DreamTheme.blue.opacity(0.08), in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
         } else {
-            ForEach(repo.conversations) { c in
+            ForEach(Array(repo.conversations.enumerated()), id: \.element.id) { i, c in
                 Button {
-                    chat = ChatRoute(id: c.id, otherUserId: c.otherUserId,
-                                     otherName: c.otherName, otherSeed: c.otherSeed,
-                                     otherAvatarURL: c.otherAvatarURL)
+                    navPath.append(ChatRoute(
+                        id: c.id, otherUserId: c.otherUserId,
+                        otherName: c.otherName, otherSeed: c.otherSeed,
+                        otherAvatarURL: c.otherAvatarURL
+                    ))
                 } label: { conversationRow(c) }
                 .buttonStyle(.plain)
+                if i < repo.conversations.count - 1 {
+                    Divider().padding(.leading, 82).background(DreamTheme.line)
+                }
             }
         }
     }
 
     private func conversationRow(_ c: ConversationSummary) -> some View {
-        HStack(spacing: 12) {
-            Avatar(name: c.otherName, seed: c.otherSeed, size: 48, url: c.otherAvatarURL)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(c.otherName)
-                    .font(DreamTheme.Font.text(15, weight: .semibold))
-                    .foregroundStyle(DreamTheme.ink)
-                Text(c.preview)
-                    .font(DreamTheme.Font.text(13, weight: c.unread ? .semibold : .regular))
-                    .foregroundStyle(c.unread ? DreamTheme.ink : DreamTheme.ink2)
-                    .lineLimit(1)
-            }
-            Spacer(minLength: 6)
-            VStack(alignment: .trailing, spacing: 6) {
-                if let at = c.lastMessageAt {
-                    Text(relativeTimeLabel(at))
-                        .font(DreamTheme.Font.text(11))
-                        .foregroundStyle(DreamTheme.ink3)
+        HStack(spacing: 14) {
+            Avatar(name: c.otherName, seed: c.otherSeed, size: 52, url: c.otherAvatarURL)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(c.otherName)
+                        .font(DreamTheme.Font.text(15, weight: .semibold))
+                        .foregroundStyle(DreamTheme.ink)
+                    Spacer()
+                    if let at = c.lastMessageAt {
+                        Text(relativeTimeLabel(at))
+                            .font(DreamTheme.Font.text(12))
+                            .foregroundStyle(DreamTheme.ink3)
+                    }
                 }
-                if c.unread { Circle().fill(DreamTheme.blue).frame(width: 9, height: 9) }
+                HStack(spacing: 6) {
+                    Text(c.preview)
+                        .font(DreamTheme.Font.text(14, weight: c.unread ? .semibold : .regular))
+                        .foregroundStyle(c.unread ? DreamTheme.ink : DreamTheme.ink2)
+                        .lineLimit(1)
+                    if c.unread {
+                        Spacer(minLength: 4)
+                        Circle().fill(DreamTheme.blue).frame(width: 9, height: 9)
+                    }
+                }
             }
         }
-        .padding(14)
-        .background(RoundedRectangle(cornerRadius: 16).fill(Color.white))
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(DreamTheme.line, lineWidth: 1))
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
     }
 
     // MARK: - Offers
 
     @ViewBuilder private var offersContent: some View {
         if repo.offersReceived.isEmpty && repo.offersMade.isEmpty {
-            emptyState("No offers yet", "Tap “I can help” on a dream to start, or wait for offers on yours.")
+            emptyState(
+                icon: "hands.sparkles",
+                title: "No offers yet",
+                subtitle: "Tap 'I can help' on a dream to start, or wait for offers on yours."
+            )
         } else {
             if !repo.offersReceived.isEmpty {
                 sectionHeader("Offers on your dreams")
                 ForEach(repo.offersReceived) { offerRow($0) }
             }
             if !repo.offersMade.isEmpty {
-                sectionHeader("Offers you made").padding(.top, repo.offersReceived.isEmpty ? 0 : 10)
+                sectionHeader("Offers you made")
+                    .padding(.top, repo.offersReceived.isEmpty ? 0 : 16)
                 ForEach(repo.offersMade) { offerRow($0) }
             }
         }
     }
 
     private func offerRow(_ o: OfferSummary) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                Avatar(name: o.counterpartName, seed: o.counterpartSeed, size: 40, url: o.counterpartAvatarURL)
-                VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                Avatar(name: o.counterpartName, seed: o.counterpartSeed, size: 42, url: o.counterpartAvatarURL)
+                VStack(alignment: .leading, spacing: 3) {
                     Text(o.incoming ? "\(o.counterpartName) offered \(o.skill)" : "You offered \(o.skill)")
                         .font(DreamTheme.Font.text(14, weight: .semibold))
                         .foregroundStyle(DreamTheme.ink)
                         .lineLimit(2)
-                    Text("on “\(o.dreamTitle)”")
-                        .font(DreamTheme.Font.text(12))
+                    Text("on \"\(o.dreamTitle)\"")
+                        .font(DreamTheme.Font.text(13))
                         .foregroundStyle(DreamTheme.ink2)
                         .lineLimit(1)
                 }
@@ -225,9 +295,11 @@ struct ActivityScreen: View {
             }
             offerActions(o)
         }
-        .padding(14)
+        .padding(16)
         .background(RoundedRectangle(cornerRadius: 16).fill(Color.white))
         .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(DreamTheme.line, lineWidth: 1))
+        .padding(.horizontal, 20)
+        .padding(.top, 8)
     }
 
     @ViewBuilder private func offerActions(_ o: OfferSummary) -> some View {
@@ -250,9 +322,11 @@ struct ActivityScreen: View {
             }
             if let cid = o.conversationId {
                 actionButton("Message") {
-                    chat = ChatRoute(id: cid, otherUserId: o.counterpartId,
-                                     otherName: o.counterpartName, otherSeed: o.counterpartSeed,
-                                     otherAvatarURL: o.counterpartAvatarURL)
+                    navPath.append(ChatRoute(
+                        id: cid, otherUserId: o.counterpartId,
+                        otherName: o.counterpartName, otherSeed: o.counterpartSeed,
+                        otherAvatarURL: o.counterpartAvatarURL
+                    ))
                 }
             }
             Spacer(minLength: 0)
@@ -283,13 +357,18 @@ struct ActivityScreen: View {
             .tracking(1.2)
             .foregroundStyle(DreamTheme.ink3)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.bottom, 2)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 4)
+            .padding(.top, 8)
     }
 
-    private func emptyState(_ title: String, _ subtitle: String) -> some View {
-        VStack(spacing: 8) {
+    private func emptyState(icon: String, title: String, subtitle: String) -> some View {
+        VStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 32, weight: .light))
+                .foregroundStyle(DreamTheme.ink3)
             Text(title)
-                .font(DreamTheme.Font.display(22, weight: .regular, italic: true))
+                .font(DreamTheme.Font.display(20, weight: .regular, italic: true))
                 .foregroundStyle(DreamTheme.ink)
             Text(subtitle)
                 .font(DreamTheme.Font.text(14))
@@ -298,15 +377,18 @@ struct ActivityScreen: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 80)
-        .padding(.horizontal, 30)
+        .padding(.horizontal, 40)
     }
 
     // MARK: - Actions
 
     private func open(notification n: ActivityNotification) {
         guard let cid = n.conversationId, let actor = n.actorId else { return }
-        chat = ChatRoute(id: cid, otherUserId: actor, otherName: n.actorName, otherSeed: n.actorSeed,
-                         otherAvatarURL: n.actorAvatarURL)
+        navPath.append(ChatRoute(
+            id: cid, otherUserId: actor,
+            otherName: n.actorName, otherSeed: n.actorSeed,
+            otherAvatarURL: n.actorAvatarURL
+        ))
     }
 
     private func respond(_ o: OfferSummary, _ status: HelpOfferStatus) {

@@ -30,6 +30,9 @@ struct ProfileScreen: View {
                     }
                     stats.padding(.top, 22)
                     mainDreamSection.padding(.top, 26)
+                    Divider().background(DreamTheme.line).padding(.top, 28)
+                    DreamAchievementsView(dream: model.featuredDream)
+                        .padding(.top, 24)
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 120)
