@@ -35,6 +35,8 @@ private struct MainShell: View {
     @State private var publishedMessage = "Dream published"
     /// Shrinks the floating tab bar while the user scrolls the feed.
     @State private var tabBarCollapsed = false
+    /// Hides the tab bar while inside a pushed ChatScreen.
+    @State private var tabBarHidden = false
     /// App-wide activity feed — drives the tab bar's unread badge and keeps it
     /// live over Realtime even when the user isn't on the Activity tab.
     @ObservedObject private var activity = ActivityRepository.shared
@@ -45,6 +47,9 @@ private struct MainShell: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             DreamTabBar(active: $activeTab, collapsed: $tabBarCollapsed, dark: activeTab == .discover, badgeCount: activity.unreadCount, onCreate: { Task { await handleCreateTap() } })
+                .offset(y: tabBarHidden ? 150 : 0)
+                .animation(.easeInOut(duration: 0.22), value: tabBarHidden)
+                .allowsHitTesting(!tabBarHidden)
 
             if showPublishedToast {
                 publishedToast
@@ -54,7 +59,15 @@ private struct MainShell: View {
         }
         .ignoresSafeArea(edges: .bottom)
         .task { await activity.start() }
-        .onChange(of: activeTab) { _, _ in tabBarCollapsed = false }
+        .onChange(of: activeTab) { _, tab in
+            tabBarCollapsed = false
+            if tabBarHidden {
+                // Tab bar is hidden = user is inside a pushed screen (chat / dream detail).
+                // An accidental swipe to another tab would leave them stranded with no nav.
+                // Snap them back to Activity so they can continue where they were.
+                DispatchQueue.main.async { activeTab = .activity }
+            }
+        }
         .confirmationDialog("Create", isPresented: $chooseCreateKind, titleVisibility: .visible) {
             Button("Post an update") { postingUpdate = true }
             Button("Start a new dream") { creating = true }
@@ -127,11 +140,11 @@ private struct MainShell: View {
     /// `activeTab` selection.
     private var tabContent: some View {
         TabView(selection: $activeTab) {
-            DiscoverScreen(tabBarCollapsed: $tabBarCollapsed)
+            DiscoverScreen(tabBarCollapsed: $tabBarCollapsed, activeTab: $activeTab)
                 .tag(DreamTab.discover)
             ExploreScreen()
                 .tag(DreamTab.explore)
-            ActivityScreen()
+            ActivityScreen(isTabBarHidden: $tabBarHidden)
                 .tag(DreamTab.activity)
             profilePage
                 .tag(DreamTab.profile)

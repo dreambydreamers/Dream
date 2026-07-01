@@ -13,10 +13,16 @@ struct ProfileScreen: View {
 
     @StateObject private var model = ProfileViewModel()
     @ObservedObject private var auth = AuthService.shared
+    @ObservedObject private var feedRepo = DreamRepository.shared
+    @ObservedObject private var savedStore = SavedDreamsStore.shared
     @State private var presentedDream: Dream?
     @State private var playingMedia: DreamMedia?
     @State private var editing = false
     @State private var postingUpdate = false
+    @State private var profileTab: ProfileTab = .dreams
+    @State private var shareFromSaved: Dream?
+
+    enum ProfileTab { case dreams, updates, saved }
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -29,10 +35,20 @@ struct ProfileScreen: View {
                         skills.padding(.top, 20)
                     }
                     stats.padding(.top, 22)
-                    mainDreamSection.padding(.top, 26)
-                    Divider().background(DreamTheme.line).padding(.top, 28)
-                    DreamAchievementsView(dream: model.featuredDream)
-                        .padding(.top, 24)
+                    profileTabBar.padding(.top, 26)
+                    Divider().background(DreamTheme.line)
+
+                    switch profileTab {
+                    case .dreams:
+                        mainDreamSection.padding(.top, 20)
+                        Divider().background(DreamTheme.line).padding(.top, 28)
+                        DreamAchievementsView(dream: model.featuredDream)
+                            .padding(.top, 24)
+                    case .updates:
+                        updatesGrid.padding(.top, 12)
+                    case .saved:
+                        savedGrid.padding(.top, 12)
+                    }
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 120)
@@ -64,6 +80,9 @@ struct ProfileScreen: View {
                     }
                 )
             }
+        }
+        .sheet(item: $shareFromSaved) { d in
+            InAppShareSheet(dream: d, onClose: { shareFromSaved = nil })
         }
         .sheet(isPresented: $editing) {
             EditProfileScreen(
@@ -205,6 +224,153 @@ struct ProfileScreen: View {
                 .foregroundStyle(DreamTheme.ink2)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    // MARK: - Profile tab bar (Dreams / Updates)
+
+    private var profileTabBar: some View {
+        HStack(spacing: 0) {
+            tabBarButton("Dreams", icon: "play.square.stack", tab: .dreams)
+            tabBarButton("Updates", icon: "square.grid.2x2", tab: .updates)
+            tabBarButton("Saved", icon: "bookmark.fill", tab: .saved)
+        }
+    }
+
+    private func tabBarButton(_ label: String, icon: String, tab: ProfileTab) -> some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) { profileTab = tab }
+        } label: {
+            VStack(spacing: 6) {
+                HStack(spacing: 6) {
+                    Image(systemName: icon)
+                        .font(.system(size: 14, weight: profileTab == tab ? .semibold : .regular))
+                    Text(label)
+                        .font(DreamTheme.Font.text(14, weight: profileTab == tab ? .semibold : .regular))
+                }
+                .foregroundStyle(profileTab == tab ? DreamTheme.ink : DreamTheme.ink3)
+                Rectangle()
+                    .fill(profileTab == tab ? DreamTheme.ink : Color.clear)
+                    .frame(height: 1.5)
+            }
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
+    }
+
+    // MARK: - Updates grid (daily life posts from this user)
+
+    private var updatesGrid: some View {
+        let userPosts = ExplorePost.mock.filter { $0.handle == model.handle }
+        let cols = [GridItem(.flexible(), spacing: 2),
+                    GridItem(.flexible(), spacing: 2),
+                    GridItem(.flexible(), spacing: 2)]
+        let side = (UIScreen.main.bounds.width - 40 - 4) / 3
+
+        if userPosts.isEmpty {
+            return AnyView(
+                VStack(spacing: 10) {
+                    Image(systemName: "photo.on.rectangle.angled")
+                        .font(.system(size: 28, weight: .light))
+                        .foregroundStyle(DreamTheme.ink3)
+                    Text("No updates yet.")
+                        .font(DreamTheme.Font.text(14))
+                        .foregroundStyle(DreamTheme.ink2)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 48)
+            )
+        }
+
+        return AnyView(
+            LazyVGrid(columns: cols, spacing: 2) {
+                ForEach(userPosts) { post in
+                    PostGridCell(post: post, size: CGSize(width: side, height: side))
+                        .frame(height: side)
+                }
+            }
+        )
+    }
+
+    // MARK: - Saved grid
+
+    private var savedGrid: some View {
+        let saved = feedRepo.dreams.filter { savedStore.isSaved($0.feedID) }
+        let cols = [GridItem(.flexible(), spacing: 2),
+                    GridItem(.flexible(), spacing: 2),
+                    GridItem(.flexible(), spacing: 2)]
+        let side = (UIScreen.main.bounds.width - 40 - 4) / 3
+
+        if saved.isEmpty {
+            return AnyView(
+                VStack(spacing: 10) {
+                    Image(systemName: "bookmark")
+                        .font(.system(size: 28, weight: .light))
+                        .foregroundStyle(DreamTheme.ink3)
+                    Text("No saved videos yet.")
+                        .font(DreamTheme.Font.text(14))
+                        .foregroundStyle(DreamTheme.ink2)
+                    Text("Tap the bookmark on any video in the feed.")
+                        .font(DreamTheme.Font.text(13))
+                        .foregroundStyle(DreamTheme.ink3)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 48)
+                .padding(.horizontal, 20)
+            )
+        }
+
+        return AnyView(
+            LazyVGrid(columns: cols, spacing: 2) {
+                ForEach(saved) { dream in
+                    ZStack(alignment: .topTrailing) {
+                        savedCell(dream, side: side)
+                            .onTapGesture { presentedDream = dream }
+
+                        // Send button — shares the saved video like the feed Send button
+                        Button { shareFromSaved = dream } label: {
+                            Image(systemName: "paperplane.fill")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundStyle(.white)
+                                .padding(7)
+                                .background(DreamTheme.blue.opacity(0.85), in: Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .padding(5)
+                    }
+                }
+            }
+        )
+    }
+
+    private func savedCell(_ dream: Dream, side: CGFloat) -> some View {
+        ZStack(alignment: .bottomLeading) {
+            Group {
+                if let url = dream.posterURL {
+                    AsyncImage(url: url) { phase in
+                        if let image = phase.image {
+                            image.resizable().scaledToFill()
+                        } else {
+                            ScenePoster(category: dream.category)
+                        }
+                    }
+                } else {
+                    ScenePoster(category: dream.category)
+                }
+            }
+            .frame(width: side, height: side)
+            .clipped()
+
+            LinearGradient(colors: [.clear, .black.opacity(0.45)], startPoint: .center, endPoint: .bottom)
+
+            Image(systemName: "bookmark.fill")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(.white.opacity(0.85))
+                .padding(5)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+        }
+        .frame(width: side, height: side)
+        .clipped()
     }
 
     // MARK: - Main dream

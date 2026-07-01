@@ -9,6 +9,7 @@ struct ChatScreen: View {
     let otherSeed: Int
     let otherAvatarURL: URL?
     var onOpenProfile: (UUID) -> Void = { _ in }
+    var onOpenDream: (UUID) -> Void = { _ in }
     var onBack: () -> Void = {}
 
     @StateObject private var model: ChatRepository
@@ -18,12 +19,14 @@ struct ChatScreen: View {
     init(conversationId: UUID, me: UUID, otherUserId: UUID, otherName: String, otherSeed: Int,
          otherAvatarURL: URL? = nil,
          onOpenProfile: @escaping (UUID) -> Void = { _ in },
+         onOpenDream: @escaping (UUID) -> Void = { _ in },
          onBack: @escaping () -> Void = {}) {
         self.me = me
         self.otherName = otherName
         self.otherSeed = otherSeed
         self.otherAvatarURL = otherAvatarURL
         self.onOpenProfile = onOpenProfile
+        self.onOpenDream = onOpenDream
         self.onBack = onBack
         _model = StateObject(wrappedValue: ChatRepository(
             conversationId: conversationId, me: me, otherUserId: otherUserId))
@@ -106,7 +109,8 @@ struct ChatScreen: View {
                             message: msg,
                             isMine: msg.senderId == me,
                             showSeen: msg.id == lastMineSeenId,
-                            sharePreview: sharePreview(for: msg)
+                            sharePreview: sharePreview(for: msg),
+                            onOpenDream: { dreamId in onOpenDream(dreamId) }
                         )
                         .id(msg.id)
                     }

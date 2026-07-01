@@ -5,18 +5,21 @@ struct DiscoverScreen: View {
     @ObservedObject private var auth = AuthService.shared
     /// Shrinks the floating tab bar while the user pages through the feed.
     var tabBarCollapsed: Binding<Bool> = .constant(false)
+    /// Lets us snap back to Discover after any sheet/cover dismissal (fixes paged-TabView jump).
+    var activeTab: Binding<DreamTab> = .constant(.discover)
     @State private var index: Int = 0
     @State private var dragOffset: CGFloat = 0
     @State private var isAnimating: Bool = false
     @State private var cleanDisplay: Bool = false
-    @State private var supporterMode: Bool = true
-    @State private var supporterSkills: [String] = ["Design", "Funding"]
     @State private var presentedDream: Dream?
     @State private var helpForDream: Dream?
     @State private var shareDream: Dream?
     @State private var profileForUser: UUID?
     @State private var isMuted: Bool = false
     @StateObject private var videoActions = VideoActionsModel()
+    @StateObject private var savedStore = SavedDreamsStore.shared
+    @State private var moreMenuDream: Dream? = nil
+    @State private var expandedDesc: Set<UUID> = []
     @State private var followedOwners: Set<UUID> = []
     @State private var loadedFollowOwners: Set<UUID> = []
     @State private var followBusyOwners: Set<UUID> = []
@@ -94,14 +97,14 @@ struct DiscoverScreen: View {
         .onDisappear {
             FeedVideoPreloader.shared.feedActiveID = nil
         }
-        .fullScreenCover(item: $presentedDream) { d in
+        .fullScreenCover(item: $presentedDream, onDismiss: { activeTab.wrappedValue = .discover }) { d in
             DreamDetailScreen(dream: d, onBack: { presentedDream = nil })
         }
-        .sheet(item: $helpForDream) { d in
+        .sheet(item: $helpForDream, onDismiss: { activeTab.wrappedValue = .discover }) { d in
             HelpSheet(dream: d, onClose: { helpForDream = nil })
                 .pausesDiscoverFeed()
         }
-        .sheet(item: $shareDream) { d in
+        .sheet(item: $shareDream, onDismiss: { activeTab.wrappedValue = .discover }) { d in
             InAppShareSheet(
                 dream: d,
                 onClose: { shareDream = nil },
@@ -109,10 +112,24 @@ struct DiscoverScreen: View {
             )
             .pausesDiscoverFeed()
         }
-        .fullScreenCover(item: $profileForUser) { userId in
+        .fullScreenCover(item: $profileForUser, onDismiss: { activeTab.wrappedValue = .discover }) { userId in
             ProfileScreen(userId: userId, onBack: { profileForUser = nil })
         }
         .videoActions(videoActions)
+        .confirmationDialog("", isPresented: Binding(
+            get: { moreMenuDream != nil },
+            set: { if !$0 { moreMenuDream = nil } }
+        ), titleVisibility: .hidden) {
+            if let d = moreMenuDream {
+                Button("Save to Gallery") {
+                    videoActions.save(storagePath: d.videoStoragePath)
+                }
+                Button("Share outside Dream") {
+                    videoActions.share(storagePath: d.videoStoragePath)
+                }
+                Button("Cancel", role: .cancel) { }
+            }
+        }
         .overlay(alignment: .bottom) {
             if let shareToast {
                 HStack(spacing: 8) {
@@ -176,10 +193,11 @@ struct DiscoverScreen: View {
                         }
                         guard !isAnimating else { return }
                         let dy = value.translation.height
-                        let predicted = value.predictedEndTranslation.height
-                        if dy < -40 || predicted < -h * 0.4 {
+                        let vy = value.velocity.height
+                        // Commit if dragged > 30 % of screen height OR fast flick (>600 pt/s)
+                        if dy < -(h * 0.30) || (dy < -20 && vy < -600) {
                             snap(to: (index + 1) % dreams.count, distance: -h)
-                        } else if dy > 40 || predicted > h * 0.4 {
+                        } else if dy > (h * 0.30) || (dy > 20 && vy > 600) {
                             snap(to: (index - 1 + dreams.count) % dreams.count, distance: h)
                         } else {
                             withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { dragOffset = 0 }
@@ -193,16 +211,20 @@ struct DiscoverScreen: View {
     private func snap(to newIndex: Int, distance: CGFloat) {
         tabBarCollapsed.wrappedValue = true
         isAnimating = true
-        withAnimation(.spring(response: 0.38, dampingFraction: 0.88)) {
+        // easeInOut gives a smooth "fly off screen" feel without spring bounce.
+        // Fixed duration makes asyncAfter timing reliable — completion: closure
+        // fires too early on springs (logicallyComplete fires before visual end).
+        let dur = 0.30
+        withAnimation(.easeInOut(duration: dur)) {
             dragOffset = distance
-        } completion: {
-            // Disable animations for the instant state reset so cards don't spring back
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + dur) {
             var t = Transaction()
             t.disablesAnimations = true
             withTransaction(t) {
-                index = newIndex
-                dragOffset = 0
-                isAnimating = false
+                self.index = newIndex
+                self.dragOffset = 0
+                self.isAnimating = false
             }
         }
     }
@@ -329,65 +351,8 @@ struct DiscoverScreen: View {
         .buttonStyle(.plain)
     }
 
-    private var supporterBanner: some View {
-        HStack(spacing: 8) {
-            Circle()
-                .fill(Color(hex: 0x8AD3A7))
-                .frame(width: 8, height: 8)
-                .shadow(color: Color(hex: 0x8AD3A7), radius: 4)
-            Text("Supporter mode · matching")
-                .font(DreamTheme.Font.text(12))
-                .foregroundStyle(.white.opacity(0.9))
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
-            Spacer(minLength: 8)
-            HStack(spacing: 4) {
-                ForEach(supporterSkills, id: \.self) { s in
-                    Text(s)
-                        .font(DreamTheme.Font.text(11, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .background(Color.white.opacity(0.2), in: Capsule())
-                }
-            }
-            .fixedSize()
-            .layoutPriority(1)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(Color.white.opacity(0.14), in: RoundedRectangle(cornerRadius: 12))
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5)
-        )
-    }
-
-    private func matchBadge(_ skill: String) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: "star.fill")
-                .font(.system(size: 11, weight: .bold))
-            Text("\(skill) match")
-                .font(DreamTheme.Font.text(12, weight: .bold))
-        }
-        .foregroundStyle(Color(hex: 0x1F4731))
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(Color(hex: 0x8AD3A7), in: Capsule())
-        .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
     private func bottomInfo(for d: Dream, isActive: Bool) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            if supporterMode {
-                supporterBanner
-            }
-            if let matchedSkill = d.matched(against: supporterSkills), supporterMode {
-                matchBadge(matchedSkill)
-            }
-
             HStack(spacing: 8) {
                 CategoryBadge(category: d.category, dark: true)
                 HStack(spacing: 4) {
@@ -423,39 +388,60 @@ struct DiscoverScreen: View {
                 .shadow(color: d.category.palette.fg.opacity(0.7), radius: 6)
 
             if !d.desc.isEmpty {
-                Text(descriptionWithMore(for: d))
-                    .font(DreamTheme.Font.text(13))
-                    .foregroundStyle(.white.opacity(0.9))
-                    .lineSpacing(2)
-                    .lineLimit(2)
+                descriptionBlock(for: d)
             }
         }
     }
 
-    private func descriptionWithMore(for d: Dream) -> AttributedString {
-        let snippet = String(d.desc.prefix(90)) + "... "
-        var s = AttributedString(snippet)
-        s.foregroundColor = .white.opacity(0.9)
-        var more = AttributedString("more")
-        more.foregroundColor = .white.opacity(0.7)
-        more.font = DreamTheme.Font.text(13, weight: .semibold)
-        return s + more
+    private func descriptionBlock(for d: Dream) -> some View {
+        let expanded = expandedDesc.contains(d.feedID)
+        let long = d.desc.count > 90
+
+        if expanded || !long {
+            return AnyView(
+                Text(d.desc)
+                    .font(DreamTheme.Font.text(13))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .lineSpacing(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            )
+        }
+        let snippet = String(d.desc.prefix(90))
+        return AnyView(
+            (Text(snippet + "… ")
+                .font(DreamTheme.Font.text(13))
+                .foregroundStyle(Color.white.opacity(0.9))
+             + Text("more")
+                .font(DreamTheme.Font.text(13, weight: .semibold))
+                .foregroundStyle(Color.white.opacity(0.65))
+            )
+            .lineSpacing(2)
+            .onTapGesture {
+                let id = d.feedID
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    _ = expandedDesc.insert(id)
+                }
+            }
+        )
     }
 
     private func rightRail(for d: Dream, isActive: Bool) -> some View {
         VStack(spacing: 16) {
-            let matched = d.matched(against: supporterSkills) != nil && supporterMode
-            ActionButton(
-                systemImage: "heart.fill",
-                label: matched ? "Offer \(d.matched(against: supporterSkills) ?? "")" : "I can help",
-                highlight: matched,
-                action: { helpForDream = d }
-            )
+            ActionButton(systemImage: "heart.fill", label: "I can help") {
+                helpForDream = d
+            }
             ActionButton(systemImage: "paperplane.fill", label: "Send") {
                 shareDream = d
             }
-            ActionButton(systemImage: "bookmark.fill", label: "Save") {
-                videoActions.save(storagePath: d.videoStoragePath)
+            ActionButton(
+                systemImage: savedStore.isSaved(d.feedID) ? "bookmark.fill" : "bookmark",
+                label: savedStore.isSaved(d.feedID) ? "Saved" : "Save"
+            ) {
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                savedStore.toggle(d.feedID)
+            }
+            ActionButton(systemImage: "ellipsis", label: "More") {
+                moreMenuDream = d
             }
         }
         .frame(width: 64)

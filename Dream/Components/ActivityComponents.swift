@@ -69,6 +69,7 @@ struct MessageBubble: View {
     let isMine: Bool
     var showSeen: Bool = false
     var sharePreview: SharedVideoPreview? = nil
+    var onOpenDream: ((UUID) -> Void)? = nil
 
     var body: some View {
         if message.isSystem {
@@ -83,6 +84,18 @@ struct MessageBubble: View {
         } else if message.isDreamShare {
             VStack(alignment: isMine ? .trailing : .leading, spacing: 5) {
                 sharedVideoCard
+                // Show only the user's hand-typed note, stripped of the
+                // auto-generated 'Shared "title"' prefix the SQL RPC adds.
+                if let note = extractShareNote(from: message.body), !note.isEmpty {
+                    Text(note)
+                        .font(DreamTheme.Font.text(14))
+                        .foregroundStyle(isMine ? .white : DreamTheme.ink)
+                        .padding(.horizontal, 14).padding(.vertical, 9)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .fill(isMine ? DreamTheme.blue : DreamTheme.bg)
+                        )
+                }
                 if showSeen {
                     Text("Seen")
                         .font(DreamTheme.Font.text(10, weight: .medium))
@@ -157,10 +170,24 @@ struct MessageBubble: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .shadow(color: .black.opacity(0.12), radius: 14, y: 6)
+        .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .onTapGesture {
+            if let dreamId = sharePreview?.dreamId ?? message.sharedDreamId {
+                onOpenDream?(dreamId)
+            }
+        }
     }
 
     private var shareFallback: some View {
         ScenePoster(category: sharePreview?.category ?? .tech)
             .frame(width: 200, height: 260)
+    }
+
+    // The SQL RPC stores: Shared "title"  OR  Shared "title": user note
+    // Extract only the user note (part after '": '), return nil if no note.
+    private func extractShareNote(from body: String) -> String? {
+        guard let range = body.range(of: "\": ") else { return nil }
+        let note = String(body[range.upperBound...]).trimmingCharacters(in: .whitespaces)
+        return note.isEmpty ? nil : note
     }
 }

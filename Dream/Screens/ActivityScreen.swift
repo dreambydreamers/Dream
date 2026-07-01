@@ -9,15 +9,25 @@ struct ChatRoute: Identifiable, Hashable {
     var otherAvatarURL: URL? = nil
 }
 
+/// Wraps a dream id for NavigationPath destinations so it doesn't clash with UUID (profile).
+struct DreamDetailRoute: Hashable {
+    let dreamId: UUID
+}
+
 /// The Activity tab: notifications, live chats, and help offers (received &
 /// made) with their lifecycle status. Backed by the app-wide `ActivityRepository`
 /// so the data — and the tab-bar badge — stay live over Realtime.
 struct ActivityScreen: View {
     @ObservedObject private var repo = ActivityRepository.shared
     @ObservedObject private var auth = AuthService.shared
+    @Binding var isTabBarHidden: Bool
 
     @State private var section: Section = .notifications
     @State private var navPath = NavigationPath()
+
+    init(isTabBarHidden: Binding<Bool> = .constant(false)) {
+        self._isTabBarHidden = isTabBarHidden
+    }
 
     enum Section: String, CaseIterable, Identifiable {
         case notifications = "Activity"
@@ -57,15 +67,22 @@ struct ActivityScreen: View {
                         otherUserId: route.otherUserId,
                         otherName: route.otherName, otherSeed: route.otherSeed,
                         otherAvatarURL: route.otherAvatarURL,
-                        onOpenProfile: { uid in navPath.append(uid) }
+                        onOpenProfile: { uid in navPath.append(uid) },
+                        onOpenDream: { dreamId in navPath.append(DreamDetailRoute(dreamId: dreamId)) }
                     )
                 }
             }
             .navigationDestination(for: UUID.self) { uid in
                 ProfileScreen(userId: uid, onBack: { navPath.removeLast() })
             }
+            .navigationDestination(for: DreamDetailRoute.self) { route in
+                DreamDetailFromIdView(dreamId: route.dreamId, onBack: { navPath.removeLast() })
+            }
         }
         .task { await repo.start() }
+        .onChange(of: navPath.isEmpty) { _, isEmpty in
+            isTabBarHidden = !isEmpty
+        }
     }
 
     // MARK: - Header
@@ -402,6 +419,65 @@ struct ActivityScreen: View {
         Task {
             try? await HelpOfferRepository.shared.cancel(offerId: o.id)
             await repo.load()
+        }
+    }
+}
+
+// Resolves a dream ID to a Dream and shows DreamDetailScreen.
+// Looks up the feed cache first; shows a spinner while loading if not found.
+private struct DreamDetailFromIdView: View {
+    let dreamId: UUID
+    var onBack: () -> Void = {}
+
+    @ObservedObject private var repo = DreamRepository.shared
+    @State private var resolved: Dream? = nil
+    @State private var failed = false
+
+    var body: some View {
+        Group {
+            if let d = resolved {
+                DreamDetailScreen(dream: d, onBack: onBack)
+            } else if failed {
+                VStack(spacing: 16) {
+                    Image(systemName: "exclamationmark.circle")
+                        .font(.system(size: 36, weight: .light))
+                        .foregroundStyle(DreamTheme.ink3)
+                    Text("Dream not available")
+                        .font(DreamTheme.Font.display(22, weight: .regular, italic: true))
+                        .foregroundStyle(DreamTheme.ink)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(DreamTheme.paper.ignoresSafeArea())
+                .interactiveBackSwipe(onBack)
+            } else {
+                ProgressView()
+                    .tint(DreamTheme.blue)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(DreamTheme.paper.ignoresSafeArea())
+                    .task { resolve() }
+            }
+        }
+        // Hide the NavigationStack bar so it doesn't intercept touches on the
+        // DreamDetailScreen overlay buttons (mute, save, share) at the top.
+        .navigationBarHidden(true)
+    }
+
+    private func resolve() {
+        // Try local feed cache first (no network needed)
+        if let d = repo.dreams.first(where: { $0.id == dreamId || $0.feedID == dreamId }) {
+            resolved = d
+            return
+        }
+        // If the feed hasn't loaded yet, wait briefly then retry
+        Task {
+            if repo.dreams.isEmpty {
+                await repo.loadFeed()
+            }
+            if let d = repo.dreams.first(where: { $0.id == dreamId || $0.feedID == dreamId }) {
+                resolved = d
+            } else {
+                failed = true
+            }
         }
     }
 }

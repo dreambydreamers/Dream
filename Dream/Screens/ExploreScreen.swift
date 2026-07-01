@@ -1,411 +1,452 @@
 import SwiftUI
-import MapKit
 
-// MARK: - Mock data model
+// MARK: - Mock post model
 
-struct ExploreDream: Identifiable {
+struct ExplorePost: Identifiable {
     let id = UUID()
-    let title: String
-    let name: String
+    let authorName: String
     let handle: String
+    let avatarSeed: Int
     let category: DreamCategory
-    let stage: DreamStage
+    let caption: String
     let location: String
-    let supporters: Int
-    let desc: String
-    let coordinate: CLLocationCoordinate2D
+    let dreamTitle: String
 
-    static let mock: [ExploreDream] = [
-        .init(title: "Open-source climate risk API", name: "Ana Marić", handle: "amaric",
-              category: .tech, stage: .needs, location: "Zagreb, HR", supporters: 14,
-              desc: "Free API for startups to assess climate risks at any global location.",
-              coordinate: .init(latitude: 45.815, longitude: 15.982)),
-        .init(title: "Fermented foods market app", name: "Luka Horvat", handle: "lukaferment",
-              category: .food, stage: .early, location: "Ljubljana, SI", supporters: 8,
-              desc: "Connecting small batch fermenters with health-conscious buyers.",
-              coordinate: .init(latitude: 46.057, longitude: 14.506)),
-        .init(title: "AI music teacher for kids", name: "Mia Kovač", handle: "mia_music",
-              category: .music, stage: .idea, location: "Vienna, AT", supporters: 22,
-              desc: "Adaptive lessons that adjust to each child's learning style in real time.",
-              coordinate: .init(latitude: 48.208, longitude: 16.374)),
-        .init(title: "Outdoor sculpture walk", name: "David Balogh", handle: "dbalogh",
-              category: .art, stage: .almost, location: "Budapest, HU", supporters: 31,
-              desc: "Permanent art trail through the city with local artist commissions.",
-              coordinate: .init(latitude: 47.498, longitude: 19.040)),
-        .init(title: "Coding bootcamp for refugees", name: "Jana Novak", handle: "jana_code",
-              category: .education, stage: .early, location: "Prague, CZ", supporters: 19,
-              desc: "12-week intensive program leading to junior developer roles.",
-              coordinate: .init(latitude: 50.075, longitude: 14.438)),
-        .init(title: "Zero-waste packaging startup", name: "Erik Schmidt", handle: "erikzero",
-              category: .impact, stage: .needs, location: "Berlin, DE", supporters: 44,
-              desc: "Seaweed-based packaging that dissolves in water within 30 days.",
-              coordinate: .init(latitude: 52.520, longitude: 13.405)),
-        .init(title: "Remote mental health platform", name: "Sophie Visser", handle: "sophiev",
-              category: .health, stage: .early, location: "Amsterdam, NL", supporters: 37,
-              desc: "Matching rural patients with licensed therapists via video.",
-              coordinate: .init(latitude: 52.368, longitude: 4.904)),
-        .init(title: "Adaptive sports gear lab", name: "Carlos Vega", handle: "carlosvega",
-              category: .sport, stage: .idea, location: "Barcelona, ES", supporters: 6,
-              desc: "Custom equipment designed with para-athletes for para-athletes.",
-              coordinate: .init(latitude: 41.385, longitude: 2.173)),
-        .init(title: "AR museum for digital art", name: "Claire Dubois", handle: "claired",
-              category: .art, stage: .needs, location: "Paris, FR", supporters: 28,
-              desc: "Walk through holographic galleries in public spaces across the city.",
-              coordinate: .init(latitude: 48.857, longitude: 2.352)),
-        .init(title: "Sustainable fashion collective", name: "Giulia Rossi", handle: "giulia_r",
-              category: .art, stage: .early, location: "Milan, IT", supporters: 15,
-              desc: "Curated marketplace for slow-fashion designers with ethical supply chain.",
-              coordinate: .init(latitude: 45.464, longitude: 9.190)),
-        .init(title: "Live score community platform", name: "Tom Allen", handle: "tomallen",
-              category: .music, stage: .almost, location: "London, UK", supporters: 52,
-              desc: "Real-time score sharing so orchestras and bands can collaborate globally.",
-              coordinate: .init(latitude: 51.507, longitude: -0.128)),
-        .init(title: "AgriTech soil scanner", name: "Piotr Wiśniewski", handle: "piotrw",
-              category: .tech, stage: .needs, location: "Warsaw, PL", supporters: 11,
-              desc: "Pocket device that reads soil nutrient levels and gives crop recommendations.",
-              coordinate: .init(latitude: 52.230, longitude: 21.012)),
+    static let mock: [ExplorePost] = [
+        .init(authorName: "Ana Marić", handle: "amaric", avatarSeed: 12,
+              category: .tech, caption: "Late night lab sessions — testing our first drug candidate compound 🧬",
+              location: "Zagreb", dreamTitle: "AI-powered drug discovery engine"),
+        .init(authorName: "Erik Schmidt", handle: "erikbci", avatarSeed: 27,
+              category: .tech, caption: "First successful signal from the neural array. Can't believe this is working.",
+              location: "Berlin", dreamTitle: "Brain-computer interface for paralysis"),
+        .init(authorName: "Mia Kovač", handle: "mia_music", avatarSeed: 5,
+              category: .music, caption: "Teaching my first group of 7-year-olds with the AI system 🎹",
+              location: "Vienna", dreamTitle: "AI music teacher for kids"),
+        .init(authorName: "Sophie Visser", handle: "sophiev", avatarSeed: 33,
+              category: .health, caption: "Biosensor array under electron microscope — beautiful and terrifying at once",
+              location: "Amsterdam", dreamTitle: "Nanotech cancer early detection"),
+        .init(authorName: "David Balogh", handle: "dbalogh", avatarSeed: 8,
+              category: .sport, caption: "Training session with the national swim team today. The EEG data is incredible.",
+              location: "Budapest", dreamTitle: "Neurofeedback training for athletes"),
+        .init(authorName: "Tom Allen", handle: "tomallen", avatarSeed: 41,
+              category: .music, caption: "First live rehearsal between London and Tokyo via the platform. Zero latency 🎻",
+              location: "London", dreamTitle: "Live score collaboration network"),
+        .init(authorName: "Jana Novak", handle: "jana_code", avatarSeed: 19,
+              category: .education, caption: "Our quantum simulator just ran its first entanglement demo for high schoolers 🤯",
+              location: "Prague", dreamTitle: "Quantum computing education platform"),
+        .init(authorName: "Carlos Vega", handle: "carlosvega", avatarSeed: 56,
+              category: .sport, caption: "Patient walked 3 meters today with the exoskeleton. First time in 4 years.",
+              location: "Barcelona", dreamTitle: "Exoskeleton for motor rehabilitation"),
+        .init(authorName: "Giulia Rossi", handle: "giulia_r", avatarSeed: 3,
+              category: .impact, caption: "Sent 40 prosthetic hand designs to makers in rural Kenya this week 🤝",
+              location: "Milan", dreamTitle: "Open-source prosthetics lab"),
+        .init(authorName: "Luka Horvat", handle: "lukaferment", avatarSeed: 22,
+              category: .health, caption: "CRISPR edit confirmed in vitro — the gene correction is holding 💉",
+              location: "Ljubljana", dreamTitle: "Gene therapy for rare childhood diseases"),
+        .init(authorName: "Claire Dubois", handle: "claired", avatarSeed: 37,
+              category: .art, caption: "First public test of our black hole AR installation in Place du Palais-Royal",
+              location: "Paris", dreamTitle: "Holographic science museum"),
+        .init(authorName: "Piotr Wiśniewski", handle: "piotrw", avatarSeed: 14,
+              category: .tech, caption: "Drone sensor grid over 200 hectares. Yield prediction is 94% accurate now.",
+              location: "Warsaw", dreamTitle: "Precision agriculture AI"),
+        .init(authorName: "Ana Marić", handle: "amaric", avatarSeed: 12,
+              category: .tech, caption: "Paper submitted to Nature Methods. Two years of work in 14 pages 📄",
+              location: "Zagreb", dreamTitle: "AI-powered drug discovery engine"),
+        .init(authorName: "David Balogh", handle: "dbalogh", avatarSeed: 8,
+              category: .sport, caption: "Alpha meditation state in under 90 seconds. New personal best for the team.",
+              location: "Budapest", dreamTitle: "Neurofeedback training for athletes"),
+        .init(authorName: "Mia Kovač", handle: "mia_music", avatarSeed: 5,
+              category: .music, caption: "A student who couldn't read notes 3 months ago just played Chopin 🎶",
+              location: "Vienna", dreamTitle: "AI music teacher for kids"),
     ]
 }
 
 // MARK: - Screen
 
 struct ExploreScreen: View {
-    @State private var viewMode: ViewMode = .map
-    @State private var selectedDream: ExploreDream? = nil
     @State private var searchText = ""
-    @State private var selectedCategory: DreamCategory? = nil
-    @State private var cameraPosition = MapCameraPosition.region(
-        MKCoordinateRegion(
-            center: CLLocationCoordinate2D(latitude: 48.0, longitude: 12.0),
-            span: MKCoordinateSpan(latitudeDelta: 22, longitudeDelta: 22)
-        )
-    )
+    @State private var selectedPost: ExplorePost? = nil
+    @State private var profileForUser: UUID? = nil
+    @StateObject private var searchRepo = SearchRepository.shared
 
-    enum ViewMode { case map, list }
-
-    private var filtered: [ExploreDream] {
-        ExploreDream.mock.filter {
-            (searchText.isEmpty ||
-                $0.title.localizedCaseInsensitiveContains(searchText) ||
-                $0.name.localizedCaseInsensitiveContains(searchText) ||
-                $0.location.localizedCaseInsensitiveContains(searchText))
-            && (selectedCategory == nil || $0.category == selectedCategory)
-        }
-    }
+    private var isSearching: Bool { !searchText.trimmingCharacters(in: .whitespaces).isEmpty }
 
     var body: some View {
         ZStack(alignment: .top) {
-            switch viewMode {
-            case .map:  mapContent
-            case .list: listContent
+            DreamTheme.paper.ignoresSafeArea()
+
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 0) {
+                    Color.clear.frame(height: 130)
+                    if isSearching {
+                        searchResultsContent
+                    } else {
+                        exploreGrid
+                    }
+                    Color.clear.frame(height: 120)
+                }
             }
+
             headerOverlay
         }
         .ignoresSafeArea(edges: .top)
+        .onChange(of: searchText) { _, new in searchRepo.search(new) }
+        .sheet(item: $selectedPost) { post in
+            PostDetailSheet(post: post, onOpenProfile: { selectedPost = nil })
+        }
+        .fullScreenCover(item: $profileForUser) { uid in
+            ProfileScreen(userId: uid, onBack: { profileForUser = nil })
+        }
+    }
+
+    // MARK: - Search results
+
+    @ViewBuilder private var searchResultsContent: some View {
+        if searchRepo.isSearching {
+            ProgressView().tint(DreamTheme.blue).padding(.top, 60)
+        } else if searchRepo.profileResults.isEmpty && searchRepo.dreamResults.isEmpty {
+            emptySearch
+        } else {
+            VStack(alignment: .leading, spacing: 0) {
+                if !searchRepo.profileResults.isEmpty {
+                    searchSectionHeader("People")
+                    ForEach(searchRepo.profileResults) { p in
+                        profileSearchRow(p)
+                        Divider().padding(.leading, 76).background(DreamTheme.line)
+                    }
+                }
+                if !searchRepo.dreamResults.isEmpty {
+                    searchSectionHeader("Dreams")
+                    ForEach(searchRepo.dreamResults) { d in
+                        dreamSearchRow(d)
+                        Divider().padding(.leading, 76).background(DreamTheme.line)
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+        }
+    }
+
+    private func searchSectionHeader(_ title: String) -> some View {
+        Text(title.uppercased())
+            .font(DreamTheme.Font.text(11, weight: .bold))
+            .tracking(1.2)
+            .foregroundStyle(DreamTheme.ink3)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 16)
+            .padding(.bottom, 6)
+    }
+
+    private func profileSearchRow(_ p: SearchProfileResult) -> some View {
+        Button { profileForUser = p.id } label: {
+            HStack(spacing: 12) {
+                Avatar(name: p.name ?? "Dreamer", seed: p.avatarSeed, size: 48, url: p.avatarURL)
+                    .overlay(Circle().strokeBorder(DreamTheme.line, lineWidth: 1))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(p.name ?? "Dreamer")
+                        .font(DreamTheme.Font.text(15, weight: .semibold))
+                        .foregroundStyle(DreamTheme.ink)
+                    HStack(spacing: 6) {
+                        Text("@\(p.handle ?? "anon")")
+                            .font(DreamTheme.Font.text(13))
+                            .foregroundStyle(DreamTheme.ink2)
+                        if let loc = p.location, !loc.isEmpty {
+                            Circle().fill(DreamTheme.ink3).frame(width: 2, height: 2)
+                            Text(loc)
+                                .font(DreamTheme.Font.text(13))
+                                .foregroundStyle(DreamTheme.ink3)
+                        }
+                    }
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(DreamTheme.ink3)
+            }
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func dreamSearchRow(_ d: SearchDreamResult) -> some View {
+        Button { if let ownerId = d.ownerId { profileForUser = ownerId } } label: {
+            HStack(spacing: 12) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(d.resolvedCategory.palette.bg)
+                        .frame(width: 48, height: 48)
+                    Text(d.resolvedCategory.emoji)
+                        .font(.system(size: 22))
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(d.title)
+                        .font(DreamTheme.Font.text(15, weight: .semibold))
+                        .foregroundStyle(DreamTheme.ink)
+                        .lineLimit(1)
+                    if let name = d.ownerName, let handle = d.ownerHandle {
+                        Text("\(name) · @\(handle)")
+                            .font(DreamTheme.Font.text(13))
+                            .foregroundStyle(DreamTheme.ink2)
+                            .lineLimit(1)
+                    }
+                }
+                Spacer()
+                CategoryBadge(category: d.resolvedCategory)
+            }
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Header
 
     private var headerOverlay: some View {
-        VStack(spacing: 0) {
-            HStack(alignment: .center) {
+        VStack(spacing: 10) {
+            HStack {
                 Text("Explore")
                     .font(DreamTheme.Font.display(34, weight: .regular, italic: true))
-                    .foregroundStyle(viewMode == .map ? .white : DreamTheme.ink)
-                    .shadow(color: viewMode == .map ? .black.opacity(0.3) : .clear, radius: 6)
-
+                    .foregroundStyle(DreamTheme.ink)
                 Spacer()
-
-                // Map / List toggle
-                HStack(spacing: 2) {
-                    modeButton(icon: "map.fill", mode: .map)
-                    modeButton(icon: "list.bullet", mode: .list)
-                }
-                .padding(4)
-                .background(
-                    Capsule().fill(viewMode == .map
-                        ? Color.black.opacity(0.35)
-                        : DreamTheme.bg)
-                )
             }
             .padding(.horizontal, 20)
             .padding(.top, 64)
-            .padding(.bottom, 12)
 
-            // Category filter pills
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    categoryPill(nil, label: "All")
-                    ForEach(DreamCategory.allCases, id: \.self) { cat in
-                        categoryPill(cat, label: cat.rawValue.capitalized)
-                    }
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 8)
-            }
-
-            // Search bar (list mode only)
-            if viewMode == .list {
-                HStack(spacing: 10) {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundStyle(DreamTheme.ink3)
-                        .font(.system(size: 15))
-                    TextField("Search dreams…", text: $searchText)
-                        .font(DreamTheme.Font.text(15))
-                        .foregroundStyle(DreamTheme.ink)
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .background(DreamTheme.bg, in: RoundedRectangle(cornerRadius: 14))
-                .padding(.horizontal, 20)
-                .padding(.bottom, 8)
-            }
-        }
-        .background(
-            viewMode == .map
-                ? LinearGradient(colors: [.black.opacity(0.55), .clear], startPoint: .top, endPoint: .bottom)
-                    .frame(height: viewMode == .map ? 220 : 0)
-                    .allowsHitTesting(false)
-                    .eraseToAnyView()
-                : DreamTheme.paper.eraseToAnyView()
-        )
-        .animation(.easeInOut(duration: 0.2), value: viewMode)
-    }
-
-    private func modeButton(icon: String, mode: ViewMode) -> some View {
-        Button { withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { viewMode = mode } } label: {
-            Image(systemName: icon)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(viewMode == mode
-                    ? (mode == .map ? .white : DreamTheme.blue)
-                    : (mode == .map ? Color.white.opacity(0.6) : DreamTheme.ink3))
-                .frame(width: 38, height: 32)
-                .background(viewMode == mode
-                    ? (mode == .map ? Color.white.opacity(0.25) : Color.white)
-                    : Color.clear,
-                    in: Capsule())
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func categoryPill(_ cat: DreamCategory?, label: String) -> some View {
-        let selected = selectedCategory == cat
-        let isMap = viewMode == .map
-
-        let textColor: Color = {
-            if selected { return isMap ? .white : (cat?.palette.fg ?? DreamTheme.blue) }
-            return isMap ? Color.white.opacity(0.85) : DreamTheme.ink2
-        }()
-        let bgColor: Color = {
-            if selected { return isMap ? Color.white.opacity(0.3) : (cat?.palette.bg ?? DreamTheme.blue.opacity(0.12)) }
-            return isMap ? Color.black.opacity(0.3) : DreamTheme.bg
-        }()
-        let strokeColor: Color = selected ? (cat?.palette.fg ?? DreamTheme.blue).opacity(0.4) : Color.clear
-
-        return Button {
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.8)) {
-                selectedCategory = selected ? nil : cat
-            }
-        } label: {
-            Text(label)
-                .font(DreamTheme.Font.text(13, weight: selected ? .semibold : .regular))
-                .foregroundStyle(textColor)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 7)
-                .background(Capsule().fill(bgColor))
-                .overlay(Capsule().strokeBorder(strokeColor, lineWidth: 1))
-        }
-        .buttonStyle(.plain)
-    }
-
-    // MARK: - Map
-
-    private var mapContent: some View {
-        ZStack(alignment: .bottom) {
-            Map(position: $cameraPosition) {
-                ForEach(filtered) { d in
-                    Annotation(d.title, coordinate: d.coordinate, anchor: .bottom) {
-                        mapPin(d)
-                            .onTapGesture {
-                                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                                    selectedDream = (selectedDream?.id == d.id) ? nil : d
-                                }
-                            }
-                    }
-                }
-            }
-            .mapStyle(.standard(elevation: .flat))
-            .ignoresSafeArea()
-
-            // Preview card when pin selected
-            if let d = selectedDream {
-                mapPreviewCard(d)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 110)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
-        }
-        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: selectedDream?.id)
-    }
-
-    private func mapPin(_ d: ExploreDream) -> some View {
-        let isSelected = selectedDream?.id == d.id
-        return VStack(spacing: 0) {
-            ZStack {
-                Circle()
-                    .fill(d.category.palette.bg)
-                    .frame(width: isSelected ? 48 : 36, height: isSelected ? 48 : 36)
-                    .shadow(color: d.category.palette.fg.opacity(0.4), radius: isSelected ? 8 : 4, y: 2)
-                Text(d.category.emoji)
-                    .font(.system(size: isSelected ? 22 : 16))
-            }
-            // Pin tail
-            Triangle()
-                .fill(d.category.palette.bg)
-                .frame(width: isSelected ? 10 : 8, height: isSelected ? 7 : 5)
-        }
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isSelected)
-    }
-
-    private func mapPreviewCard(_ d: ExploreDream) -> some View {
-        HStack(spacing: 14) {
-            ZStack {
-                Circle().fill(d.category.palette.bg).frame(width: 50, height: 50)
-                Text(d.category.emoji).font(.system(size: 24))
-            }
-            VStack(alignment: .leading, spacing: 4) {
-                Text(d.title)
-                    .font(DreamTheme.Font.text(15, weight: .semibold))
+            // Search bar
+            HStack(spacing: 10) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(DreamTheme.ink3)
+                    .font(.system(size: 15))
+                TextField("Search people, dreams, places…", text: $searchText)
+                    .font(DreamTheme.Font.text(15))
                     .foregroundStyle(DreamTheme.ink)
-                    .lineLimit(2)
-                HStack(spacing: 8) {
-                    Text(d.location)
-                        .font(DreamTheme.Font.text(12))
-                        .foregroundStyle(DreamTheme.ink3)
-                    Circle().fill(DreamTheme.ink3).frame(width: 3, height: 3)
-                    Text("\(d.supporters) supporters")
-                        .font(DreamTheme.Font.text(12))
-                        .foregroundStyle(DreamTheme.ink3)
-                }
-            }
-            Spacer(minLength: 8)
-            Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(DreamTheme.ink3)
-        }
-        .padding(16)
-        .background(Color.white, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .shadow(color: .black.opacity(0.1), radius: 16, y: 6)
-    }
-
-    // MARK: - List
-
-    private var listContent: some View {
-        ScrollView(showsIndicators: false) {
-            LazyVStack(spacing: 12) {
-                // Top spacer for fixed header (title + pills + search)
-                Color.clear.frame(height: 180)
-
-                if filtered.isEmpty {
-                    VStack(spacing: 10) {
-                        Image(systemName: "magnifyingglass")
-                            .font(.system(size: 28, weight: .light))
+                if !searchText.isEmpty {
+                    Button { searchText = "" } label: {
+                        Image(systemName: "xmark.circle.fill")
                             .foregroundStyle(DreamTheme.ink3)
-                        Text("No dreams found")
-                            .font(DreamTheme.Font.display(20, weight: .regular, italic: true))
-                            .foregroundStyle(DreamTheme.ink)
                     }
-                    .padding(.top, 60)
-                } else {
-                    ForEach(filtered) { d in listCard(d) }
+                    .buttonStyle(.plain)
                 }
-
-                Color.clear.frame(height: 120)
             }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(DreamTheme.bg, in: RoundedRectangle(cornerRadius: 14))
             .padding(.horizontal, 20)
+            .padding(.bottom, 8)
         }
-        .background(DreamTheme.paper.ignoresSafeArea())
+        .background(DreamTheme.paper.opacity(0.96))
     }
 
-    private func listCard(_ d: ExploreDream) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(d.category.palette.bg)
-                        .frame(width: 52, height: 52)
-                    Text(d.category.emoji)
-                        .font(.system(size: 26))
-                }
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(d.title)
-                        .font(DreamTheme.Font.text(16, weight: .semibold))
-                        .foregroundStyle(DreamTheme.ink)
-                        .lineLimit(2)
-                    HStack(spacing: 6) {
-                        Text("@\(d.handle)")
-                            .font(DreamTheme.Font.text(13))
-                            .foregroundStyle(DreamTheme.ink2)
-                        Circle().fill(DreamTheme.ink3).frame(width: 2, height: 2)
-                        Text(d.location)
-                            .font(DreamTheme.Font.text(13))
-                            .foregroundStyle(DreamTheme.ink3)
-                    }
-                }
-                Spacer(minLength: 8)
-                stageChip(d.stage)
-            }
+    // MARK: - Grid
 
-            Text(d.desc)
+    private var exploreGrid: some View {
+        let cols = [GridItem(.flexible(), spacing: 2),
+                    GridItem(.flexible(), spacing: 2),
+                    GridItem(.flexible(), spacing: 2)]
+        let side = (UIScreen.main.bounds.width - 4) / 3
+
+        return LazyVGrid(columns: cols, spacing: 2) {
+            ForEach(ExplorePost.mock) { post in
+                PostGridCell(post: post, size: CGSize(width: side, height: side))
+                    .frame(height: side)
+                    .onTapGesture { selectedPost = post }
+            }
+        }
+    }
+
+    private var emptySearch: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 32, weight: .light))
+                .foregroundStyle(DreamTheme.ink3)
+            Text("No results for \"\(searchText)\"")
+                .font(DreamTheme.Font.display(20, weight: .regular, italic: true))
+                .foregroundStyle(DreamTheme.ink)
+            Text("Try searching by name, dream or location.")
                 .font(DreamTheme.Font.text(14))
                 .foregroundStyle(DreamTheme.ink2)
-                .lineLimit(2)
-                .lineSpacing(2)
-
-            HStack(spacing: 16) {
-                HStack(spacing: 5) {
-                    Image(systemName: "person.2.fill")
-                        .font(.system(size: 11))
-                        .foregroundStyle(d.category.palette.fg)
-                    Text("\(d.supporters) supporters")
-                        .font(DreamTheme.Font.text(12, weight: .medium))
-                        .foregroundStyle(DreamTheme.ink2)
-                }
-
-                CategoryBadge(category: d.category, dark: false)
-
-                Spacer()
-
-                Button {} label: {
-                    Text("View dream")
-                        .font(DreamTheme.Font.text(13, weight: .semibold))
-                        .foregroundStyle(DreamTheme.blue)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 7)
-                        .background(DreamTheme.blue.opacity(0.08), in: Capsule())
-                }
-                .buttonStyle(.plain)
-            }
         }
-        .padding(16)
-        .background(Color.white, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .shadow(color: .black.opacity(0.04), radius: 8, y: 3)
-    }
-
-    private func stageChip(_ stage: DreamStage) -> some View {
-        Text(stage.shortLabel)
-            .font(DreamTheme.Font.text(11, weight: .semibold))
-            .foregroundStyle(DreamTheme.ink2)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background(DreamTheme.bg, in: Capsule())
+        .padding(.top, 80)
+        .padding(.horizontal, 40)
     }
 }
 
-// MARK: - Helpers
+// MARK: - Grid cell
+
+struct PostGridCell: View {
+    let post: ExplorePost
+    let size: CGSize
+
+    var body: some View {
+        ZStack(alignment: .bottomLeading) {
+            // Gradient background simulating a photo
+            LinearGradient(
+                colors: gradientColors(for: post),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .frame(width: size.width, height: size.height)
+
+                // Category emoji watermark
+            categorySymbol
+                .frame(width: size.width, height: size.height)
+
+            // Bottom fade with author handle
+            LinearGradient(
+                colors: [.clear, .black.opacity(0.5)],
+                startPoint: .center, endPoint: .bottom
+            )
+
+            Text("@\(post.handle)")
+                .font(DreamTheme.Font.text(10, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.85))
+                .padding(.horizontal, 6)
+                .padding(.bottom, 6)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+        }
+        .clipped()
+    }
+
+    private var categorySymbol: some View {
+        Text(post.category.emoji)
+            .font(.system(size: size.height * 0.32))
+            .opacity(0.18)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+    }
+
+    private func gradientColors(for post: ExplorePost) -> [Color] {
+        let base = post.category.palette.bg
+        let accent = post.category.palette.fg
+        // Mix with avatar seed for visual variety
+        let shift = Double(post.avatarSeed % 40) / 100.0
+        return [
+            base.opacity(0.7 + shift * 0.3),
+            accent.opacity(0.5 + shift * 0.2),
+            base.opacity(0.85)
+        ]
+    }
+}
+
+// MARK: - Post detail sheet
+
+struct PostDetailSheet: View {
+    let post: ExplorePost
+    let onOpenProfile: () -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 0) {
+                    // Large image area
+                    ZStack(alignment: .bottomLeading) {
+                        LinearGradient(
+                            colors: [post.category.palette.bg.opacity(0.8),
+                                     post.category.palette.fg.opacity(0.6),
+                                     post.category.palette.bg],
+                            startPoint: .topLeading, endPoint: .bottomTrailing
+                        )
+                        .frame(height: 360)
+                        .frame(maxWidth: .infinity)
+
+                        Text(post.category.emoji)
+                            .font(.system(size: 110))
+                            .opacity(0.25)
+                            .frame(maxWidth: .infinity, maxHeight: 360)
+
+                        LinearGradient(
+                            colors: [.clear, .black.opacity(0.5)],
+                            startPoint: .center, endPoint: .bottom
+                        )
+                        .frame(height: 360)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            CategoryBadge(category: post.category, dark: true)
+                            Text(post.dreamTitle)
+                                .font(DreamTheme.Font.display(22, weight: .regular))
+                                .foregroundStyle(.white)
+                                .lineLimit(2)
+                        }
+                        .padding(18)
+                    }
+                    .clipped()
+
+                    VStack(alignment: .leading, spacing: 16) {
+                        // Author row
+                        HStack(spacing: 12) {
+                            Avatar(name: post.authorName, seed: post.avatarSeed, size: 44)
+                                .overlay(Circle().strokeBorder(DreamTheme.line, lineWidth: 1))
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(post.authorName)
+                                    .font(DreamTheme.Font.text(15, weight: .semibold))
+                                    .foregroundStyle(DreamTheme.ink)
+                                HStack(spacing: 6) {
+                                    Text("@\(post.handle)")
+                                        .font(DreamTheme.Font.text(13))
+                                        .foregroundStyle(DreamTheme.ink2)
+                                    Circle().fill(DreamTheme.ink3).frame(width: 2, height: 2)
+                                    Text(post.location)
+                                        .font(DreamTheme.Font.text(13))
+                                        .foregroundStyle(DreamTheme.ink3)
+                                }
+                            }
+                            Spacer()
+                            Button {
+                                dismiss()
+                                onOpenProfile()
+                            } label: {
+                                Text("View profile")
+                                    .font(DreamTheme.Font.text(13, weight: .semibold))
+                                    .foregroundStyle(DreamTheme.blue)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 8)
+                                    .background(DreamTheme.blue.opacity(0.08), in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+
+                        Divider().background(DreamTheme.line)
+
+                        // Caption
+                        Text(post.caption)
+                            .font(DreamTheme.Font.text(16))
+                            .foregroundStyle(DreamTheme.ink)
+                            .lineSpacing(4)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        // Location chip
+                        HStack(spacing: 5) {
+                            Image(systemName: "mappin.and.ellipse")
+                                .font(.system(size: 12))
+                            Text(post.location)
+                                .font(DreamTheme.Font.text(13))
+                        }
+                        .foregroundStyle(DreamTheme.ink3)
+                    }
+                    .padding(20)
+                }
+            }
+            .ignoresSafeArea(edges: .top)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(DreamTheme.ink)
+                            .frame(width: 32, height: 32)
+                            .background(DreamTheme.bg, in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Helpers (keep from old ExploreScreen)
 
 extension DreamCategory {
-    /// All cases for the filter pills
     static var allCases: [DreamCategory] {
         [.tech, .food, .art, .impact, .education, .health, .music, .sport]
     }
@@ -433,20 +474,4 @@ extension DreamStage {
         case .almost: return "Almost there"
         }
     }
-}
-
-/// Pin tail triangle shape
-private struct Triangle: Shape {
-    func path(in rect: CGRect) -> Path {
-        Path { p in
-            p.move(to: CGPoint(x: rect.midX, y: rect.maxY))
-            p.addLine(to: CGPoint(x: rect.minX, y: rect.minY))
-            p.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
-            p.closeSubpath()
-        }
-    }
-}
-
-private extension View {
-    func eraseToAnyView() -> AnyView { AnyView(self) }
 }

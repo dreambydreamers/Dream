@@ -14,15 +14,45 @@ struct InAppShareSheet: View {
     @State private var sending: Set<UUID> = []
     @State private var sent: Set<UUID> = []
     @State private var errorMessage: String?
+    @State private var sentOverlay = false
+    @State private var sentToName = ""
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                preview
-                Divider().background(DreamTheme.line)
-                content
+            ZStack {
+                VStack(spacing: 0) {
+                    preview
+                    Divider().background(DreamTheme.line)
+                    content
+                }
+                .background(DreamTheme.paper.ignoresSafeArea())
+
+                if sentOverlay {
+                    Color.black.opacity(0.55)
+                        .ignoresSafeArea()
+                        .transition(.opacity)
+
+                    VStack(spacing: 18) {
+                        ZStack {
+                            Circle()
+                                .fill(DreamTheme.blue)
+                                .frame(width: 88, height: 88)
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 38, weight: .bold))
+                                .foregroundStyle(.white)
+                        }
+                        Text("Sent!")
+                            .font(DreamTheme.Font.display(32, weight: .regular, italic: true))
+                            .foregroundStyle(.white)
+                        if !sentToName.isEmpty {
+                            Text(sentToName)
+                                .font(DreamTheme.Font.text(16))
+                                .foregroundStyle(.white.opacity(0.75))
+                        }
+                    }
+                    .transition(.scale(scale: 0.6).combined(with: .opacity))
+                }
             }
-            .background(DreamTheme.paper.ignoresSafeArea())
             .navigationTitle("Send to")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -34,6 +64,7 @@ struct InAppShareSheet: View {
             }
             .task { await loadRecipients() }
         }
+        .animation(.spring(response: 0.4, dampingFraction: 0.7), value: sentOverlay)
     }
 
     private var preview: some View {
@@ -189,8 +220,17 @@ struct InAppShareSheet: View {
                     note: note.trimmingCharacters(in: .whitespacesAndNewlines)
                 )
                 sent.insert(profile.id)
-                onSent(profile.name ?? profile.handle ?? "friend")
+                let name = profile.name ?? profile.handle ?? "friend"
+                onSent(name)
                 await ActivityRepository.shared.load()
+
+                // Show "Sent!" overlay then close the sheet
+                sentToName = name
+                withAnimation { sentOverlay = true }
+                try? await Task.sleep(nanoseconds: 1_600_000_000)
+                withAnimation(.easeOut(duration: 0.25)) { sentOverlay = false }
+                try? await Task.sleep(nanoseconds: 280_000_000)
+                onClose()
             } catch {
                 errorMessage = "Couldn't send that video. Please try again."
                 print("[InAppShareSheet] send failed: \(error)")
