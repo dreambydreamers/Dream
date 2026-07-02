@@ -10,9 +10,10 @@ struct ChatScreen: View {
     let otherAvatarURL: URL?
     var onOpenProfile: (UUID) -> Void = { _ in }
     var onOpenDream: (UUID) -> Void = { _ in }
-    var onBack: () -> Void = {}
+    var onBack: (() -> Void)? = nil
 
     @StateObject private var model: ChatRepository
+    @State private var didRevealInitialMessages = false
     @FocusState private var composerFocused: Bool
     @Environment(\.dismiss) private var dismiss
 
@@ -20,7 +21,7 @@ struct ChatScreen: View {
          otherAvatarURL: URL? = nil,
          onOpenProfile: @escaping (UUID) -> Void = { _ in },
          onOpenDream: @escaping (UUID) -> Void = { _ in },
-         onBack: @escaping () -> Void = {}) {
+         onBack: (() -> Void)? = nil) {
         self.me = me
         self.otherName = otherName
         self.otherSeed = otherSeed
@@ -36,6 +37,8 @@ struct ChatScreen: View {
         VStack(spacing: 0) {
             header
             messageList
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             composer
         }
         .background(DreamTheme.paper.ignoresSafeArea())
@@ -43,7 +46,7 @@ struct ChatScreen: View {
         .task { await model.start() }
         .onDisappear { Task { await model.stop() } }
         .pausesDiscoverFeed()
-        .interactiveBackSwipe { dismiss(); onBack() }
+        .interactiveBackSwipe { goBack() }
     }
 
     // MARK: - Header
@@ -51,8 +54,7 @@ struct ChatScreen: View {
     private var header: some View {
         HStack(spacing: 12) {
             Button {
-                dismiss()
-                onBack()
+                goBack()
             } label: {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 17, weight: .semibold))
@@ -125,16 +127,38 @@ struct ChatScreen: View {
                 .padding(.top, 12)
                 .padding(.bottom, 8)
             }
+            .defaultScrollAnchor(.bottom)
             .scrollDismissesKeyboard(.interactively)
-            .onChange(of: model.messages.count) { _, _ in
-                withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo("bottom", anchor: .bottom) }
+            .opacity(model.messages.isEmpty || didRevealInitialMessages ? 1 : 0)
+            .onChange(of: model.messages.count) { _, count in
+                guard count > 0 else { return }
+                if didRevealInitialMessages {
+                    scrollToBottom(proxy, animated: true)
+                } else {
+                    revealInitialMessagesIfNeeded(proxy)
+                }
+            }
+            .onChange(of: model.isLoading) { _, isLoading in
+                if !isLoading {
+                    revealInitialMessagesIfNeeded(proxy)
+                }
             }
             .onChange(of: model.isOtherTyping) { _, typing in
                 if typing { withAnimation { proxy.scrollTo("typing", anchor: .bottom) } }
             }
+            .onChange(of: composerFocused) { _, focused in
+                guard focused else { return }
+                // Wait a beat for the keyboard inset to land, then keep the
+                // latest messages in view above the composer.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        proxy.scrollTo("bottom", anchor: .bottom)
+                    }
+                }
+            }
             .task {
-                try? await Task.sleep(nanoseconds: 250_000_000)
-                proxy.scrollTo("bottom", anchor: .bottom)
+                await Task.yield()
+                revealInitialMessagesIfNeeded(proxy)
             }
         }
     }
@@ -142,6 +166,41 @@ struct ChatScreen: View {
     private func sharePreview(for message: MessageDTO) -> SharedVideoPreview? {
         guard message.isDreamShare, let key = message.sharedVideoId ?? message.sharedDreamId else { return nil }
         return model.sharedPreviews[key]
+    }
+
+    private func goBack() {
+        if let onBack {
+            onBack()
+        } else {
+            dismiss()
+        }
+    }
+
+    private func scrollToBottom(_ proxy: ScrollViewProxy, animated: Bool) {
+        if animated {
+            withAnimation(.easeOut(duration: 0.2)) {
+                proxy.scrollTo("bottom", anchor: .bottom)
+            }
+        } else {
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                proxy.scrollTo("bottom", anchor: .bottom)
+            }
+        }
+    }
+
+    private func revealInitialMessagesIfNeeded(_ proxy: ScrollViewProxy) {
+        guard !didRevealInitialMessages, !model.messages.isEmpty, !model.isLoading else { return }
+        scrollToBottom(proxy, animated: false)
+
+        DispatchQueue.main.async {
+            scrollToBottom(proxy, animated: false)
+            DispatchQueue.main.async {
+                scrollToBottom(proxy, animated: false)
+                didRevealInitialMessages = true
+            }
+        }
     }
 
     // MARK: - Composer

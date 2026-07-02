@@ -78,9 +78,11 @@ struct EditProfileScreen: View {
                 .padding(.top, 76)
                 .padding(.bottom, 60)
             }
+            .scrollDismissesKeyboard(.interactively)
 
             topBar
         }
+        .keyboardDoneButton()
     }
 
     // MARK: - Top bar

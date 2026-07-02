@@ -86,6 +86,7 @@ struct ExploreScreen: View {
                     Color.clear.frame(height: 120)
                 }
             }
+            .scrollDismissesKeyboard(.immediately)
 
             headerOverlay
         }

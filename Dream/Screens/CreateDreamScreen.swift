@@ -34,6 +34,7 @@ struct CreateDreamScreen: View {
                 }
             }
             .background(Color.white.ignoresSafeArea())
+            .keyboardDoneButton()
             .navigationTitle(step == .source ? "Share your dream" : "Dream details")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -185,6 +186,7 @@ struct CreateDreamScreen: View {
                 .padding(20)
                 .padding(.bottom, 20)
             }
+            .scrollDismissesKeyboard(.interactively)
 
             Divider().background(DreamTheme.line)
             VStack(spacing: 10) {

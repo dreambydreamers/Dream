@@ -31,6 +31,7 @@ struct PostUpdateScreen: View {
                 }
             }
             .background(Color.white.ignoresSafeArea())
+            .keyboardDoneButton()
             .navigationTitle(step == .source ? "Post an update" : "Update details")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -117,6 +118,7 @@ struct PostUpdateScreen: View {
                 }
                 .padding(20)
             }
+            .scrollDismissesKeyboard(.interactively)
 
             Divider().background(DreamTheme.line)
             VStack(spacing: 10) {

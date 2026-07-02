@@ -81,6 +81,7 @@ struct HelpSheet: View {
                 }
             }
             .background(Color.white.ignoresSafeArea())
+            .keyboardDoneButton()
             .navigationTitle(mode == .pick ? "Offer your help" : (selected?.label ?? ""))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -258,6 +259,7 @@ struct HelpSheet: View {
                 .padding(.top, 10)
                 .padding(.bottom, 30)
             }
+            .scrollDismissesKeyboard(.interactively)
 
             Divider().background(DreamTheme.line)
             VStack(spacing: 10) {

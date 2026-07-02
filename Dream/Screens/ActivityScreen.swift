@@ -22,7 +22,7 @@ struct ActivityScreen: View {
     @ObservedObject private var auth = AuthService.shared
     @Binding var isTabBarHidden: Bool
 
-    @State private var section: Section = .notifications
+    @State private var section: Section = .messages
     @State private var navPath = NavigationPath()
 
     init(isTabBarHidden: Binding<Bool> = .constant(false)) {
@@ -30,8 +30,8 @@ struct ActivityScreen: View {
     }
 
     enum Section: String, CaseIterable, Identifiable {
-        case notifications = "Activity"
         case messages = "Messages"
+        case notifications = "Activity"
         case offers = "Offers"
         var id: String { rawValue }
     }
@@ -68,7 +68,12 @@ struct ActivityScreen: View {
                         otherName: route.otherName, otherSeed: route.otherSeed,
                         otherAvatarURL: route.otherAvatarURL,
                         onOpenProfile: { uid in navPath.append(uid) },
-                        onOpenDream: { dreamId in navPath.append(DreamDetailRoute(dreamId: dreamId)) }
+                        onOpenDream: { dreamId in navPath.append(DreamDetailRoute(dreamId: dreamId)) },
+                        onBack: {
+                            if !navPath.isEmpty {
+                                navPath.removeLast()
+                            }
+                        }
                     )
                 }
             }
@@ -115,9 +120,8 @@ struct ActivityScreen: View {
                             Text(s.rawValue)
                                 .font(DreamTheme.Font.text(14, weight: section == s ? .semibold : .regular))
                                 .foregroundStyle(section == s ? .white : DreamTheme.ink2)
-                            let unreadMsgs = repo.conversations.filter(\.unread).count
-                            if s == .messages, unreadMsgs > 0 {
-                                Text("\(unreadMsgs)")
+                            if let badgeCount = badgeCount(for: s) {
+                                Text("\(badgeCount)")
                                     .font(DreamTheme.Font.text(11, weight: .bold))
                                     .foregroundStyle(section == s ? DreamTheme.blue : .white)
                                     .padding(.horizontal, 6)
@@ -135,6 +139,19 @@ struct ActivityScreen: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 10)
         }
+    }
+
+    private func badgeCount(for section: Section) -> Int? {
+        let count: Int
+        switch section {
+        case .messages:
+            count = repo.conversations.filter(\.unread).count
+        case .notifications:
+            count = repo.unreadCount
+        case .offers:
+            count = 0
+        }
+        return count > 0 ? count : nil
     }
 
     // MARK: - Notifications

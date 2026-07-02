@@ -7,8 +7,10 @@ struct DiscoverScreen: View {
     var tabBarCollapsed: Binding<Bool> = .constant(false)
     /// Lets us snap back to Discover after any sheet/cover dismissal (fixes paged-TabView jump).
     var activeTab: Binding<DreamTab> = .constant(.discover)
-    /// feedID of the card currently centred in the paged scroll view.
-    @State private var currentFeedID: UUID?
+    /// Virtual slot currently centred in the paged scroll view. Slots repeat the
+    /// real feed several times so the user can keep swiping forever; video/player
+    /// state still keys on the real card's `feedID`.
+    @State private var currentSlot: Int?
     @State private var cleanDisplay: Bool = false
     @State private var presentedDream: Dream?
     @State private var helpForDream: Dream?
@@ -24,10 +26,17 @@ struct DiscoverScreen: View {
     @State private var followBusyOwners: Set<UUID> = []
     @State private var shareToast: String?
     @State private var shareToastTask: Task<Void, Never>?
+    @State private var feedResetToken = UUID()
 
     private var dreams: [Dream] { repo.dreams }
-    private var dream: Dream { dreams.first { $0.feedID == currentFeedID } ?? dreams[0] }
-    private var currentIndex: Int { dreams.firstIndex { $0.feedID == currentFeedID } ?? 0 }
+    private let feedCycleCount = 5
+    private var middleCycle: Int { feedCycleCount / 2 }
+    private var virtualFeedCount: Int { dreams.count <= 1 ? dreams.count : dreams.count * feedCycleCount }
+    private var initialSlotIndex: Int { slotForDreamIndex(0) }
+    private var currentSlotIndex: Int { currentSlot ?? initialSlotIndex }
+    private var currentIndex: Int { dreamIndex(forSlot: currentSlotIndex) }
+    private var dream: Dream { dreams[currentIndex] }
+    private var currentFeedID: UUID? { dreams.isEmpty ? nil : dream.feedID }
 
     var body: some View {
         ZStack {
@@ -76,23 +85,25 @@ struct DiscoverScreen: View {
         .animation(.easeInOut(duration: 0.22), value: cleanDisplay)
         .task {
             if repo.dreams.isEmpty { await repo.loadFeed() }
-            if currentFeedID == nil { currentFeedID = dreams.first?.feedID }
+            ensureCurrentSlot()
             FeedVideoPreloader.shared.prefetchNeighbors(of: dreams, around: currentIndex)
             markFeedActive()
             if !dreams.isEmpty { await refreshFollowState(for: dream) }
         }
         .onAppear {
-            if currentFeedID == nil { currentFeedID = dreams.first?.feedID }
+            ensureCurrentSlot()
             markFeedActive()
         }
-        .onChange(of: currentFeedID) { _, _ in
+        .onChange(of: currentSlot) { _, _ in
+            normalizeLoopSlotIfNeeded()
             tabBarCollapsed.wrappedValue = true
             FeedVideoPreloader.shared.prefetchNeighbors(of: dreams, around: currentIndex)
             markFeedActive()
             if !dreams.isEmpty { Task { await refreshFollowState(for: dream) } }
         }
         .onChange(of: repo.dreams.count) { _, _ in
-            if currentFeedID == nil { currentFeedID = dreams.first?.feedID }
+            ensureCurrentSlot()
+            normalizeLoopSlotIfNeeded()
             FeedVideoPreloader.shared.prefetchNeighbors(of: dreams, around: currentIndex)
             markFeedActive()
             if !dreams.isEmpty { Task { await refreshFollowState(for: dream) } }
@@ -103,14 +114,14 @@ struct DiscoverScreen: View {
         .onDisappear {
             FeedVideoPreloader.shared.feedActiveID = nil
         }
-        .fullScreenCover(item: $presentedDream, onDismiss: { activeTab.wrappedValue = .discover }) { d in
+        .fullScreenCover(item: $presentedDream, onDismiss: restoreFeedAfterPresentation) { d in
             DreamDetailScreen(dream: d, onBack: { presentedDream = nil })
         }
-        .sheet(item: $helpForDream, onDismiss: { activeTab.wrappedValue = .discover }) { d in
+        .sheet(item: $helpForDream, onDismiss: restoreFeedAfterPresentation) { d in
             HelpSheet(dream: d, onClose: { helpForDream = nil })
                 .pausesDiscoverFeed()
         }
-        .sheet(item: $shareDream, onDismiss: { activeTab.wrappedValue = .discover }) { d in
+        .sheet(item: $shareDream, onDismiss: restoreFeedAfterPresentation) { d in
             InAppShareSheet(
                 dream: d,
                 onClose: { shareDream = nil },
@@ -118,7 +129,7 @@ struct DiscoverScreen: View {
             )
             .pausesDiscoverFeed()
         }
-        .fullScreenCover(item: $profileForUser, onDismiss: { activeTab.wrappedValue = .discover }) { userId in
+        .fullScreenCover(item: $profileForUser, onDismiss: restoreFeedAfterPresentation) { userId in
             ProfileScreen(userId: userId, onBack: { profileForUser = nil })
         }
         .videoActions(videoActions)
@@ -161,24 +172,92 @@ struct DiscoverScreen: View {
         FeedVideoPreloader.shared.feedMuted = isMuted
     }
 
+    private func dreamIndex(forSlot slot: Int) -> Int {
+        guard !dreams.isEmpty else { return 0 }
+        return ((slot % dreams.count) + dreams.count) % dreams.count
+    }
+
+    private func slotForDreamIndex(_ index: Int) -> Int {
+        guard dreams.count > 1 else { return index }
+        return middleCycle * dreams.count + dreamIndex(forSlot: index)
+    }
+
+    private func ensureCurrentSlot() {
+        guard !dreams.isEmpty else {
+            currentSlot = nil
+            return
+        }
+        guard dreams.count > 1 else {
+            currentSlot = 0
+            return
+        }
+        guard let slot = currentSlot, slot >= 0, slot < virtualFeedCount else {
+            currentSlot = initialSlotIndex
+            return
+        }
+        if slot / dreams.count != middleCycle {
+            currentSlot = slotForDreamIndex(dreamIndex(forSlot: slot))
+        }
+    }
+
+    private func normalizeLoopSlotIfNeeded() {
+        guard dreams.count > 1, let slot = currentSlot else { return }
+        let cycle = slot / dreams.count
+        guard cycle == 0 || cycle == feedCycleCount - 1 else { return }
+        let normalized = slotForDreamIndex(dreamIndex(forSlot: slot))
+        guard normalized != slot else { return }
+        DispatchQueue.main.async {
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                currentSlot = normalized
+            }
+        }
+    }
+
+    private func restoreFeedAfterPresentation() {
+        activeTab.wrappedValue = .discover
+        recenterFeed()
+        DispatchQueue.main.async {
+            recenterFeed()
+        }
+    }
+
+    private func recenterFeed() {
+        guard !dreams.isEmpty else { return }
+        let normalized = slotForDreamIndex(currentIndex)
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            currentSlot = normalized
+            feedResetToken = UUID()
+        }
+        markFeedActive()
+    }
+
     // MARK: - Feed
 
     private var feed: some View {
         GeometryReader { geo in
             ScrollView(.vertical, showsIndicators: false) {
                 LazyVStack(spacing: 0) {
-                    ForEach(dreams, id: \.feedID) { d in
+                    ForEach(0..<virtualFeedCount, id: \.self) { slot in
+                        let d = dreams[dreamIndex(forSlot: slot)]
                         cardView(d, geo: geo, safeTop: geo.safeAreaInsets.top,
-                                 isActive: d.feedID == currentFeedID)
+                                 isActive: slot == currentSlotIndex)
                             .frame(width: geo.size.width, height: geo.size.height)
                     }
                 }
                 .scrollTargetLayout()
             }
             .scrollTargetBehavior(.paging)
-            .scrollPosition(id: $currentFeedID)
+            .scrollPosition(id: Binding(
+                get: { currentSlot ?? initialSlotIndex },
+                set: { currentSlot = $0 }
+            ))
             .scrollIndicators(.hidden)
             .ignoresSafeArea()
+            .id(feedResetToken)
         }
         .ignoresSafeArea()
     }
@@ -191,9 +270,10 @@ struct DiscoverScreen: View {
                 .frame(width: geo.size.width, height: geo.size.height)
                 .clipped()
 
-            // Overlay hidden for the active card when clean display is on;
-            // adjacent cards always show it (they're off-screen during clean mode).
-            if !(cleanDisplay && isActive) {
+            // Only the centered card gets chrome. If SwiftUI briefly restores the
+            // paged ScrollView between slots after a sheet dismissal, neighboring
+            // virtual copies stay visual-only instead of showing duplicate controls.
+            if isActive && !cleanDisplay {
                 topGradient
                 bottomGradient
 

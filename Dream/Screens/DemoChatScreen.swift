@@ -23,6 +23,8 @@ struct DemoChatScreen: View {
         VStack(spacing: 0) {
             header
             messageList
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             composerArea
         }
         .background(DreamTheme.paper.ignoresSafeArea())

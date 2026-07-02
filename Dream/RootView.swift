@@ -50,6 +50,9 @@ private struct MainShell: View {
                 .offset(y: tabBarHidden ? 150 : 0)
                 .animation(.easeInOut(duration: 0.22), value: tabBarHidden)
                 .allowsHitTesting(!tabBarHidden)
+                // Stay at the physical bottom when the keyboard opens (e.g. the
+                // Explore search) instead of riding up on top of it.
+                .ignoresSafeArea(.keyboard, edges: .bottom)
 
             if showPublishedToast {
                 publishedToast
@@ -57,7 +60,10 @@ private struct MainShell: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .ignoresSafeArea(edges: .bottom)
+        // Container region only — ignoring the default `.all` would also ignore
+        // the keyboard safe area for every tab screen, which breaks keyboard
+        // avoidance app-wide (the chat composer ends up hidden under the keyboard).
+        .ignoresSafeArea(.container, edges: .bottom)
         .task { await activity.start() }
         .onChange(of: activeTab) { _, tab in
             tabBarCollapsed = false
@@ -150,7 +156,7 @@ private struct MainShell: View {
                 .tag(DreamTab.profile)
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
-        .ignoresSafeArea()
+        .ignoresSafeArea(.container)
     }
 
     @ViewBuilder

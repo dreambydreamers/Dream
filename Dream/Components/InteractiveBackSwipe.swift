@@ -10,16 +10,17 @@ import SwiftUI
 /// top-left back button or a bottom CTA, and it's narrow enough not to interfere
 /// with interior vertical scrolling.
 private struct InteractiveBackSwipe: ViewModifier {
-    /// When true, a successful swipe slides the content off to the right before
-    /// running `onBack` — the native feel for dismissing a cover. When false
-    /// (e.g. stepping back within a multi-step sheet that stays on screen) the
-    /// content springs back to place and `onBack` just changes the step.
+    /// When true, a successful swipe dismisses immediately after the threshold is
+    /// crossed. When false (e.g. stepping back within a multi-step sheet that
+    /// stays on screen) the content springs back to place and `onBack` changes
+    /// the step.
     let slideOff: Bool
     let onBack: () -> Void
     @State private var dragX: CGFloat = 0
+    @State private var didCommit = false
 
     func body(content: Content) -> some View {
-        GeometryReader { geometry in
+        GeometryReader { _ in
             content
                 .offset(x: dragX)
                 .overlay(alignment: .leading) {
@@ -32,22 +33,36 @@ private struct InteractiveBackSwipe: ViewModifier {
                         .gesture(
                             DragGesture(minimumDistance: 8, coordinateSpace: .global)
                                 .onChanged { value in
-                                    dragX = max(0, value.translation.width)
+                                    guard !didCommit else { return }
+                                    // Suppress implicit ancestor animations while the finger
+                                    // is moving, or the drag lags behind the gesture.
+                                    var tx = Transaction()
+                                    tx.isContinuous = true
+                                    tx.disablesAnimations = true
+                                    withTransaction(tx) {
+                                        let distance = max(0, value.translation.width)
+                                        dragX = slideOff ? min(distance * 0.12, 24) : distance
+                                    }
+                                    if slideOff, shouldCommit(value) {
+                                        commitBack()
+                                    }
                                 }
                                 .onEnded { value in
-                                    let distance = value.translation.width
-                                    let projected = value.predictedEndTranslation.width
-                                    if distance > 110 || projected > 240 {
+                                    guard !didCommit else { return }
+                                    if shouldCommit(value) {
                                         if slideOff {
-                                            withAnimation(.easeOut(duration: 0.2)) {
-                                                dragX = geometry.size.width
-                                            }
+                                            // Do not animate the content all the way off-screen
+                                            // before dismissing: NavigationStack/fullScreenCover
+                                            // hosts often have only a blank background behind
+                                            // this view, which causes a white flash. Commit the
+                                            // pop immediately and let the previous screen appear.
+                                            commitBack()
                                         } else {
                                             withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
                                                 dragX = 0
                                             }
+                                            onBack()
                                         }
-                                        onBack()
                                     } else {
                                         withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
                                             dragX = 0
@@ -57,6 +72,23 @@ private struct InteractiveBackSwipe: ViewModifier {
                         )
                         .ignoresSafeArea()
                 }
+        }
+    }
+
+    private func shouldCommit(_ value: DragGesture.Value) -> Bool {
+        value.translation.width > 90 || value.predictedEndTranslation.width > 220
+    }
+
+    private func commitBack() {
+        var tx = Transaction()
+        tx.disablesAnimations = true
+        withTransaction(tx) {
+            didCommit = true
+            dragX = 0
+            onBack()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            didCommit = false
         }
     }
 }

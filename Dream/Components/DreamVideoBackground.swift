@@ -73,8 +73,14 @@ struct DreamVideoBackground: View {
         .onDisappear {
             // Just pause — the preloader owns the player's lifecycle so it
             // stays warm in the cache for an instant restart.
-            player?.pause()
+            let disappearingPlayer = player
+            let id = dream.feedID
             player = nil
+            DispatchQueue.main.async {
+                if FeedVideoPreloader.shared.feedActiveID != id {
+                    disappearingPlayer?.pause()
+                }
+            }
         }
     }
 

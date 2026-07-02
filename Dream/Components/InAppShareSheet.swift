@@ -55,6 +55,7 @@ struct InAppShareSheet: View {
             }
             .navigationTitle("Send to")
             .navigationBarTitleDisplayMode(.inline)
+            .keyboardDoneButton()
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done", action: onClose)
@@ -152,6 +153,7 @@ struct InAppShareSheet: View {
                     }
                     .background(Color.white)
                 }
+                .scrollDismissesKeyboard(.interactively)
             }
         }
     }
