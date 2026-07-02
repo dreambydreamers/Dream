@@ -1,4 +1,3 @@
-import AVFoundation
 import SwiftUI
 import UIKit
 
@@ -22,6 +21,7 @@ struct CreateDreamScreen: View {
     @State private var showLibrary: Bool = false
     @State private var isPublishing: Bool = false
     @State private var publishError: String?
+    @StateObject private var videoActions = VideoActionsModel()
 
     private let helps = ["Coding", "Design", "Funding", "Mentorship", "Marketing", "Legal"]
 
@@ -34,6 +34,7 @@ struct CreateDreamScreen: View {
                 }
             }
             .background(Color.white.ignoresSafeArea())
+            .keyboardDoneButton()
             .navigationTitle(step == .source ? "Share your dream" : "Dream details")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -54,32 +55,16 @@ struct CreateDreamScreen: View {
                         }
                 }
             }
-            .fullScreenCover(isPresented: $showCamera) {
-                VideoRecorder { url in handlePicked(url) }
-                    .ignoresSafeArea()
-            }
-            .sheet(isPresented: $showLibrary) {
-                VideoLibraryPicker { url in handlePicked(url) }
-                    .ignoresSafeArea()
-            }
+            .videoSourcePicker(showCamera: $showCamera, showLibrary: $showLibrary, onPick: handlePicked)
         }
+        .videoActions(videoActions)
     }
 
     private func handlePicked(_ url: URL) {
         selectedVideoURL = url
         hasMedia = true
         step = .details
-        Task { await generateThumbnail(from: url) }
-    }
-
-    private func generateThumbnail(from url: URL) async {
-        let asset = AVURLAsset(url: url)
-        let generator = AVAssetImageGenerator(asset: asset)
-        generator.appliesPreferredTrackTransform = true
-        generator.maximumSize = CGSize(width: 1080, height: 1080)
-        let time = CMTime(seconds: 0.5, preferredTimescale: 600)
-        guard let cgImage = try? await generator.image(at: time).image else { return }
-        await MainActor.run { videoThumbnail = UIImage(cgImage: cgImage) }
+        Task { videoThumbnail = await loadVideoThumbnail(from: url) }
     }
 
     // MARK: - Source step
@@ -99,7 +84,7 @@ struct CreateDreamScreen: View {
                 .lineSpacing(3)
                 .padding(.bottom, 28)
 
-            sourceCard(
+            VideoSourceCard(
                 icon: "video.fill",
                 title: "Record video",
                 sub: "Up to 60 seconds · Vertical",
@@ -109,11 +94,10 @@ struct CreateDreamScreen: View {
             }
             .padding(.bottom, 12)
 
-            sourceCard(
+            VideoSourceCard(
                 icon: "photo.on.rectangle",
                 title: "Choose from library",
-                sub: "Pick an existing video",
-                tinted: false
+                sub: "Pick an existing video"
             ) {
                 showLibrary = true
             }
@@ -139,44 +123,6 @@ struct CreateDreamScreen: View {
         }
         .padding(.horizontal, 20)
         .padding(.bottom, 24)
-    }
-
-    private func sourceCard(icon: String, title: String, sub: String, tinted: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 16) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(tinted ? Color.white : DreamTheme.bg)
-                        .shadow(color: tinted ? DreamTheme.blue.opacity(0.15) : .clear, radius: 12, y: 4)
-                    Image(systemName: icon)
-                        .font(.system(size: 24, weight: .semibold))
-                        .foregroundStyle(DreamTheme.blue)
-                }
-                .frame(width: 56, height: 56)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(title)
-                        .font(DreamTheme.Font.text(17, weight: .semibold))
-                        .foregroundStyle(DreamTheme.ink)
-                    Text(sub)
-                        .font(DreamTheme.Font.text(13))
-                        .foregroundStyle(DreamTheme.ink2)
-                }
-                Spacer()
-            }
-            .padding(20)
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(tinted
-                          ? LinearGradient(colors: [DreamTheme.blueSoft, .white], startPoint: .topLeading, endPoint: .bottomTrailing)
-                          : LinearGradient(colors: [.white, .white], startPoint: .top, endPoint: .bottom))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 20)
-                    .strokeBorder(tinted ? DreamTheme.blue : DreamTheme.line, lineWidth: 1.5)
-            )
-        }
-        .buttonStyle(.plain)
     }
 
     // MARK: - Details step
@@ -240,6 +186,7 @@ struct CreateDreamScreen: View {
                 .padding(20)
                 .padding(.bottom, 20)
             }
+            .scrollDismissesKeyboard(.interactively)
 
             Divider().background(DreamTheme.line)
             VStack(spacing: 10) {
@@ -298,45 +245,13 @@ struct CreateDreamScreen: View {
     }
 
     private var videoPreview: some View {
-        ZStack {
-            if let videoThumbnail {
-                Image(uiImage: videoThumbnail)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-            } else {
-                ScenePoster(category: category ?? .tech)
-                    .aspectRatio(16.0/9.0, contentMode: .fill)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-            }
-
-            Circle()
-                .fill(Color.black.opacity(0.4))
-                .background(.ultraThinMaterial, in: Circle())
-                .frame(width: 52, height: 52)
-                .overlay(
-                    Image(systemName: "play.fill")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .offset(x: 2)
-                )
-
-            VStack {
-                HStack {
-                    Spacer()
-                    Button("Re-record") { step = .source }
-                        .font(DreamTheme.Font.text(12, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Color.black.opacity(0.5), in: Capsule())
-                }
-                Spacer()
-            }
-            .padding(10)
-        }
-        .frame(maxWidth: .infinity)
-        .aspectRatio(16.0/9.0, contentMode: .fit)
+        VideoPreviewCard(
+            thumbnail: videoThumbnail,
+            category: category ?? .tech,
+            rePickLabel: "Re-record",
+            onRePick: { step = .source },
+            onSave: selectedVideoURL.map { url in { videoActions.save(localURL: url) } }
+        )
     }
 
     @ViewBuilder

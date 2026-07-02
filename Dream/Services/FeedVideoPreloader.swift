@@ -31,9 +31,52 @@ final class FeedVideoPreloader {
     private let maxPlayers = 4
     private var audioConfigured = false
 
+    /// The discover feed's currently-visible card. Set by `DiscoverScreen` while
+    /// the feed is on screen, cleared when it leaves. A `fullScreenCover` (dream
+    /// detail / profile) freezes the presenter, so the feed view can't pause
+    /// itself — the covering screen drives `pauseFeedPlayer()`/`resumeFeedPlayer()`
+    /// against this id instead.
+    var feedActiveID: UUID?
+    /// The feed's desired mute state, restored when the feed resumes (a covering
+    /// detail page may have toggled mute on a player it shares with the feed).
+    var feedMuted: Bool = false
+
+    /// How many full-screen covers (detail / profile, possibly nested) are over
+    /// the feed. The feed only resumes once the last one closes.
+    private var feedCoverDepth = 0
+
     private init() {}
 
+    /// Pause the feed's current player while a full-screen cover is shown over it.
+    func pauseFeedPlayer() {
+        feedCoverDepth += 1
+        guard let id = feedActiveID, let prepared = players[id] else { return }
+        prepared.player.pause()
+    }
+
+    /// Balance a `pauseFeedPlayer()`. Resumes the feed only when the outermost
+    /// cover closes. Deferred a runloop tick so it lands *after* the covering
+    /// view's own `onDisappear` (which may pause a player shared with the feed),
+    /// regardless of teardown order.
+    func resumeFeedPlayer() {
+        feedCoverDepth = max(0, feedCoverDepth - 1)
+        guard feedCoverDepth == 0, let id = feedActiveID else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.feedCoverDepth == 0, let prepared = self.players[id] else { return }
+            prepared.player.isMuted = self.feedMuted
+            prepared.player.play()
+        }
+    }
+
     // MARK: - Public
+
+    /// Returns the already-built player for a dream if one is in the pool,
+    /// without any async suspension. Returns nil if not yet prefetched.
+    func cachedPlayer(for dream: Dream) -> AVQueuePlayer? {
+        guard let prepared = players[dream.feedID] else { return nil }
+        touch(dream.feedID)
+        return prepared.player
+    }
 
     /// Returns a warm, looping player for the dream, building + pre-buffering
     /// one on the spot if it wasn't already prefetched. The player is returned
@@ -47,7 +90,7 @@ final class FeedVideoPreloader {
     /// Warm up a dream's player in the background without playing it, so it's
     /// buffered by the time the user scrolls to it.
     func prefetch(_ dream: Dream) {
-        guard dream.videoStoragePath != nil, players[dream.id] == nil else { return }
+        guard dream.videoStoragePath != nil, players[dream.feedID] == nil else { return }
         Task { [weak self] in _ = await self?.build(for: dream, isMuted: true) }
     }
 
@@ -55,7 +98,10 @@ final class FeedVideoPreloader {
     func prefetchNeighbors(of dreams: [Dream], around index: Int) {
         guard !dreams.isEmpty else { return }
         let count = dreams.count
-        for offset in [0, 1, -1, 2] {
+        // Current + immediate neighbours only. Each prefetch eagerly buffers
+        // ~1s of video, so a tighter window means less wasted egress on cards
+        // the user may never reach.
+        for offset in [0, 1, -1] {
             let i = ((index + offset) % count + count) % count
             prefetch(dreams[i])
         }
@@ -64,19 +110,20 @@ final class FeedVideoPreloader {
     // MARK: - Building (coalesced per dream)
 
     private func build(for dream: Dream, isMuted: Bool) async -> Prepared? {
-        if let prepared = players[dream.id] {
-            touch(dream.id)
+        let key = dream.feedID
+        if let prepared = players[key] {
+            touch(key)
             return prepared
         }
-        if let inFlight = building[dream.id] {
+        if let inFlight = building[key] {
             return await inFlight.value
         }
         let task = Task { [weak self] () -> Prepared? in
             await self?.makePrepared(for: dream, isMuted: isMuted)
         }
-        building[dream.id] = task
+        building[key] = task
         let result = await task.value
-        building[dream.id] = nil
+        building[key] = nil
         return result
     }
 
@@ -99,10 +146,10 @@ final class FeedVideoPreloader {
 
         // Prime the decode pipeline once the player is ready. `preroll` throws
         // if called before `.readyToPlay`, so gate it on the status observer.
-        primePrerollWhenReady(dream.id, queue)
+        primePrerollWhenReady(dream.feedID, queue)
 
         let prepared = Prepared(player: queue, looper: looper)
-        store(dream.id, prepared)
+        store(dream.feedID, prepared)
         return prepared
     }
 
@@ -118,11 +165,11 @@ final class FeedVideoPreloader {
 
     private func signedURL(for dream: Dream) async -> URL? {
         guard let path = dream.videoStoragePath else { return nil }
-        if let cached = signedURLs[dream.id], cached.expires > Date().addingTimeInterval(120) {
+        if let cached = signedURLs[dream.feedID], cached.expires > Date().addingTimeInterval(120) {
             return cached.url
         }
         guard let url = try? await VideoUploader.shared.signedVideoURL(storagePath: path) else { return nil }
-        signedURLs[dream.id] = (url, Date().addingTimeInterval(3600))
+        signedURLs[dream.feedID] = (url, Date().addingTimeInterval(3600))
         return url
     }
 
@@ -153,5 +200,19 @@ final class FeedVideoPreloader {
         let session = AVAudioSession.sharedInstance()
         try? session.setCategory(.playback, mode: .moviePlayback)
         try? session.setActive(true)
+    }
+}
+
+import SwiftUI
+
+extension View {
+    /// Pauses the discover feed's video while this presented screen (a sheet or
+    /// cover shown over the feed) is on screen, and resumes it — once the last
+    /// cover closes — when the screen is dismissed. Balanced via the preloader's
+    /// cover-depth counter, so it nests safely with other paused covers.
+    func pausesDiscoverFeed() -> some View {
+        self
+            .onAppear { FeedVideoPreloader.shared.pauseFeedPlayer() }
+            .onDisappear { FeedVideoPreloader.shared.resumeFeedPlayer() }
     }
 }

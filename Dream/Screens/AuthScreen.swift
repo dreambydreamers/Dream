@@ -245,5 +245,5 @@ struct AuthScreen: View {
 }
 
 #Preview {
-    AuthScreen(mode: .signUp)
+    AuthScreen()
 }

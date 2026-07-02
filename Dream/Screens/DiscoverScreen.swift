@@ -2,15 +2,41 @@ import SwiftUI
 
 struct DiscoverScreen: View {
     @StateObject private var repo = DreamRepository.shared
-    @State private var index: Int = 0
-    @State private var supporterMode: Bool = true
-    @State private var supporterSkills: [String] = ["Design", "Funding"]
+    @ObservedObject private var auth = AuthService.shared
+    /// Shrinks the floating tab bar while the user pages through the feed.
+    var tabBarCollapsed: Binding<Bool> = .constant(false)
+    /// Lets us snap back to Discover after any sheet/cover dismissal (fixes paged-TabView jump).
+    var activeTab: Binding<DreamTab> = .constant(.discover)
+    /// Virtual slot currently centred in the paged scroll view. Slots repeat the
+    /// real feed several times so the user can keep swiping forever; video/player
+    /// state still keys on the real card's `feedID`.
+    @State private var currentSlot: Int?
+    @State private var cleanDisplay: Bool = false
     @State private var presentedDream: Dream?
     @State private var helpForDream: Dream?
+    @State private var shareDream: Dream?
+    @State private var profileForUser: UUID?
     @State private var isMuted: Bool = false
+    @StateObject private var videoActions = VideoActionsModel()
+    @StateObject private var savedStore = SavedDreamsStore.shared
+    @State private var moreMenuDream: Dream? = nil
+    @State private var expandedDesc: Set<UUID> = []
+    @State private var followedOwners: Set<UUID> = []
+    @State private var loadedFollowOwners: Set<UUID> = []
+    @State private var followBusyOwners: Set<UUID> = []
+    @State private var shareToast: String?
+    @State private var shareToastTask: Task<Void, Never>?
+    @State private var feedResetToken = UUID()
 
     private var dreams: [Dream] { repo.dreams }
-    private var dream: Dream { dreams[index % dreams.count] }
+    private let feedCycleCount = 5
+    private var middleCycle: Int { feedCycleCount / 2 }
+    private var virtualFeedCount: Int { dreams.count <= 1 ? dreams.count : dreams.count * feedCycleCount }
+    private var initialSlotIndex: Int { slotForDreamIndex(0) }
+    private var currentSlotIndex: Int { currentSlot ?? initialSlotIndex }
+    private var currentIndex: Int { dreamIndex(forSlot: currentSlotIndex) }
+    private var dream: Dream { dreams[currentIndex] }
+    private var currentFeedID: UUID? { dreams.isEmpty ? nil : dream.feedID }
 
     var body: some View {
         ZStack {
@@ -20,84 +46,258 @@ struct DiscoverScreen: View {
                 placeholder
             } else {
                 feed
+
+                // Fixed top bar — never scrolls, always above videos
+                if !cleanDisplay {
+                    VStack(spacing: 0) {
+                        topBar
+                            .padding(.horizontal, 16)
+                            .padding(.top, 8)
+                        Spacer()
+                    }
+                    .transition(.opacity)
+                }
+
+                // Clean display: small X to exit
+                if cleanDisplay {
+                    VStack(spacing: 0) {
+                        HStack {
+                            Spacer()
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.22)) { cleanDisplay = false }
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .padding(10)
+                                    .background(Color.black.opacity(0.45), in: Circle())
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.trailing, 16)
+                            .padding(.top, 8)
+                        }
+                        Spacer()
+                    }
+                    .transition(.opacity)
+                }
             }
         }
+        .animation(.easeInOut(duration: 0.22), value: cleanDisplay)
         .task {
             if repo.dreams.isEmpty { await repo.loadFeed() }
-            FeedVideoPreloader.shared.prefetchNeighbors(of: dreams, around: index)
+            ensureCurrentSlot()
+            FeedVideoPreloader.shared.prefetchNeighbors(of: dreams, around: currentIndex)
+            markFeedActive()
+            if !dreams.isEmpty { await refreshFollowState(for: dream) }
         }
-        .onChange(of: index) { _, newIndex in
-            FeedVideoPreloader.shared.prefetchNeighbors(of: dreams, around: newIndex)
+        .onAppear {
+            ensureCurrentSlot()
+            markFeedActive()
+        }
+        .onChange(of: currentSlot) { _, _ in
+            normalizeLoopSlotIfNeeded()
+            tabBarCollapsed.wrappedValue = true
+            FeedVideoPreloader.shared.prefetchNeighbors(of: dreams, around: currentIndex)
+            markFeedActive()
+            if !dreams.isEmpty { Task { await refreshFollowState(for: dream) } }
         }
         .onChange(of: repo.dreams.count) { _, _ in
-            FeedVideoPreloader.shared.prefetchNeighbors(of: dreams, around: index)
+            ensureCurrentSlot()
+            normalizeLoopSlotIfNeeded()
+            FeedVideoPreloader.shared.prefetchNeighbors(of: dreams, around: currentIndex)
+            markFeedActive()
+            if !dreams.isEmpty { Task { await refreshFollowState(for: dream) } }
         }
-        .fullScreenCover(item: $presentedDream) { d in
-            DreamDetailScreen(
-                dream: d,
-                onBack: { presentedDream = nil },
-                onHelp: {
-                    presentedDream = nil
-                    helpForDream = d
-                }
-            )
+        .onChange(of: isMuted) { _, muted in
+            FeedVideoPreloader.shared.feedMuted = muted
         }
-        .sheet(item: $helpForDream) { d in
+        .onDisappear {
+            FeedVideoPreloader.shared.feedActiveID = nil
+        }
+        .fullScreenCover(item: $presentedDream, onDismiss: restoreFeedAfterPresentation) { d in
+            DreamDetailScreen(dream: d, onBack: { presentedDream = nil })
+        }
+        .sheet(item: $helpForDream, onDismiss: restoreFeedAfterPresentation) { d in
             HelpSheet(dream: d, onClose: { helpForDream = nil })
+                .pausesDiscoverFeed()
         }
+        .sheet(item: $shareDream, onDismiss: restoreFeedAfterPresentation) { d in
+            InAppShareSheet(
+                dream: d,
+                onClose: { shareDream = nil },
+                onSent: { name in showShareToast("Sent to \(name)") }
+            )
+            .pausesDiscoverFeed()
+        }
+        .fullScreenCover(item: $profileForUser, onDismiss: restoreFeedAfterPresentation) { userId in
+            ProfileScreen(userId: userId, onBack: { profileForUser = nil })
+        }
+        .videoActions(videoActions)
+        .confirmationDialog("", isPresented: Binding(
+            get: { moreMenuDream != nil },
+            set: { if !$0 { moreMenuDream = nil } }
+        ), titleVisibility: .hidden) {
+            if let d = moreMenuDream {
+                Button("Save to Gallery") {
+                    videoActions.save(storagePath: d.videoStoragePath)
+                }
+                Button("Share outside Dream") {
+                    videoActions.share(storagePath: d.videoStoragePath)
+                }
+                Button("Cancel", role: .cancel) { }
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if let shareToast {
+                HStack(spacing: 8) {
+                    Image(systemName: "paperplane.fill")
+                        .font(.system(size: 13, weight: .bold))
+                    Text(shareToast)
+                        .font(DreamTheme.Font.text(14, weight: .semibold))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(Color.black.opacity(0.74), in: Capsule())
+                .padding(.bottom, 118)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.spring(response: 0.38, dampingFraction: 0.86), value: shareToast)
+    }
+
+    private func markFeedActive() {
+        guard !dreams.isEmpty else { return }
+        FeedVideoPreloader.shared.feedActiveID = currentFeedID
+        FeedVideoPreloader.shared.feedMuted = isMuted
+    }
+
+    private func dreamIndex(forSlot slot: Int) -> Int {
+        guard !dreams.isEmpty else { return 0 }
+        return ((slot % dreams.count) + dreams.count) % dreams.count
+    }
+
+    private func slotForDreamIndex(_ index: Int) -> Int {
+        guard dreams.count > 1 else { return index }
+        return middleCycle * dreams.count + dreamIndex(forSlot: index)
+    }
+
+    private func ensureCurrentSlot() {
+        guard !dreams.isEmpty else {
+            currentSlot = nil
+            return
+        }
+        guard dreams.count > 1 else {
+            currentSlot = 0
+            return
+        }
+        guard let slot = currentSlot, slot >= 0, slot < virtualFeedCount else {
+            currentSlot = initialSlotIndex
+            return
+        }
+        if slot / dreams.count != middleCycle {
+            currentSlot = slotForDreamIndex(dreamIndex(forSlot: slot))
+        }
+    }
+
+    private func normalizeLoopSlotIfNeeded() {
+        guard dreams.count > 1, let slot = currentSlot else { return }
+        let cycle = slot / dreams.count
+        guard cycle == 0 || cycle == feedCycleCount - 1 else { return }
+        let normalized = slotForDreamIndex(dreamIndex(forSlot: slot))
+        guard normalized != slot else { return }
+        DispatchQueue.main.async {
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                currentSlot = normalized
+            }
+        }
+    }
+
+    private func restoreFeedAfterPresentation() {
+        activeTab.wrappedValue = .discover
+        recenterFeed()
+        DispatchQueue.main.async {
+            recenterFeed()
+        }
+    }
+
+    private func recenterFeed() {
+        guard !dreams.isEmpty else { return }
+        let normalized = slotForDreamIndex(currentIndex)
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            currentSlot = normalized
+            feedResetToken = UUID()
+        }
+        markFeedActive()
     }
 
     // MARK: - Feed
 
     private var feed: some View {
+        GeometryReader { geo in
+            ScrollView(.vertical, showsIndicators: false) {
+                LazyVStack(spacing: 0) {
+                    ForEach(0..<virtualFeedCount, id: \.self) { slot in
+                        let d = dreams[dreamIndex(forSlot: slot)]
+                        cardView(d, geo: geo, safeTop: geo.safeAreaInsets.top,
+                                 isActive: slot == currentSlotIndex)
+                            .frame(width: geo.size.width, height: geo.size.height)
+                    }
+                }
+                .scrollTargetLayout()
+            }
+            .scrollTargetBehavior(.paging)
+            .scrollPosition(id: Binding(
+                get: { currentSlot ?? initialSlotIndex },
+                set: { currentSlot = $0 }
+            ))
+            .scrollIndicators(.hidden)
+            .ignoresSafeArea()
+            .id(feedResetToken)
+        }
+        .ignoresSafeArea()
+    }
+
+    // Each card: full-screen video + optional overlay. Non-active cards are muted
+    // and non-interactive; they only appear during the transition swipe.
+    private func cardView(_ d: Dream, geo: GeometryProxy, safeTop: CGFloat, isActive: Bool) -> some View {
         ZStack {
-            DreamVideoBackground(dream: dream, isMuted: isMuted)
-                .ignoresSafeArea()
-                .id(dream.id)
-                .transition(.opacity)
+            DreamVideoBackground(dream: d, isMuted: isActive ? isMuted : true)
+                .frame(width: geo.size.width, height: geo.size.height)
+                .clipped()
 
-            topGradient
-            bottomGradient
+            // Only the centered card gets chrome. If SwiftUI briefly restores the
+            // paged ScrollView between slots after a sheet dismissal, neighboring
+            // virtual copies stay visual-only instead of showing duplicate controls.
+            if isActive && !cleanDisplay {
+                topGradient
+                bottomGradient
 
-            GeometryReader { geo in
                 VStack(alignment: .leading, spacing: 0) {
-                    topBar
-                    if supporterMode {
-                        supporterBanner.padding(.top, 10)
-                    }
-                    if let matchedSkill = dream.matched(against: supporterSkills), supporterMode {
-                        matchBadge(matchedSkill).padding(.top, 10)
-                    }
+                    // Reserve space for the fixed top bar that sits above all cards.
+                    // safeTop (status bar) + 8pt (bar padding) + ~40pt (bar height)
+                    Color.clear.frame(height: safeTop + 48)
 
                     Spacer(minLength: 24)
 
                     HStack(alignment: .bottom, spacing: 12) {
-                        bottomInfo
+                        bottomInfo(for: d, isActive: isActive)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                        rightRail
+                        rightRail(for: d, isActive: isActive)
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 8)
                 .padding(.bottom, 132)
                 .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
             }
         }
-        .contentShape(Rectangle())
-        .gesture(
-            DragGesture(minimumDistance: 30)
-                .onEnded { value in
-                    if value.translation.height < -60 {
-                        withAnimation(.easeInOut(duration: 0.35)) {
-                            index = (index + 1) % dreams.count
-                        }
-                    } else if value.translation.height > 60 {
-                        withAnimation(.easeInOut(duration: 0.35)) {
-                            index = (index - 1 + dreams.count) % dreams.count
-                        }
-                    }
-                }
-        )
+        .frame(width: geo.size.width, height: geo.size.height)
+        .clipped()
+        .allowsHitTesting(isActive)
     }
 
     private var placeholder: some View {
@@ -147,6 +347,7 @@ struct DiscoverScreen: View {
         .allowsHitTesting(false)
     }
 
+    // Fixed header — lives in body ZStack, never slides with card transitions.
     private var topBar: some View {
         HStack {
             Text("Dream")
@@ -162,7 +363,11 @@ struct DiscoverScreen: View {
                 circleButton(systemImage: isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill") {
                     isMuted.toggle()
                 }
-                circleButton(systemImage: "slider.horizontal.3") {}
+                // Clears all overlay chrome so the video fills the screen.
+                // Tap the × corner button that appears to restore the UI.
+                circleButton(systemImage: "arrow.up.left.and.arrow.down.right") {
+                    withAnimation(.easeInOut(duration: 0.22)) { cleanDisplay = true }
+                }
             }
         }
     }
@@ -180,63 +385,13 @@ struct DiscoverScreen: View {
         .buttonStyle(.plain)
     }
 
-    private var supporterBanner: some View {
-        HStack(spacing: 8) {
-            Circle()
-                .fill(Color(hex: 0x8AD3A7))
-                .frame(width: 8, height: 8)
-                .shadow(color: Color(hex: 0x8AD3A7), radius: 4)
-            Text("Supporter mode · matching")
-                .font(DreamTheme.Font.text(12))
-                .foregroundStyle(.white.opacity(0.9))
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
-            Spacer(minLength: 8)
-            HStack(spacing: 4) {
-                ForEach(supporterSkills, id: \.self) { s in
-                    Text(s)
-                        .font(DreamTheme.Font.text(11, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .background(Color.white.opacity(0.2), in: Capsule())
-                }
-            }
-            .fixedSize()
-            .layoutPriority(1)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(Color.white.opacity(0.14), in: RoundedRectangle(cornerRadius: 12))
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5)
-        )
-    }
-
-    private func matchBadge(_ skill: String) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: "star.fill")
-                .font(.system(size: 11, weight: .bold))
-            Text("\(skill) match")
-                .font(DreamTheme.Font.text(12, weight: .bold))
-        }
-        .foregroundStyle(Color(hex: 0x1F4731))
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(Color(hex: 0x8AD3A7), in: Capsule())
-        .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var bottomInfo: some View {
+    private func bottomInfo(for d: Dream, isActive: Bool) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
-                CategoryBadge(category: dream.category, dark: true)
+                CategoryBadge(category: d.category, dark: true)
                 HStack(spacing: 4) {
                     Text("◐")
-                    Text(dream.stage.rawValue)
+                    Text(d.stage.rawValue)
                 }
                 .font(DreamTheme.Font.text(12, weight: .semibold))
                 .foregroundStyle(.white)
@@ -246,18 +401,10 @@ struct DiscoverScreen: View {
                 .overlay(Capsule().strokeBorder(Color.white.opacity(0.3), lineWidth: 0.5))
             }
 
-            HStack(spacing: 8) {
-                Text("@\(dream.handle)")
-                    .font(DreamTheme.Font.text(14, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.92))
-                Circle().fill(.white.opacity(0.5)).frame(width: 3, height: 3)
-                Text(dream.distance)
-                    .font(DreamTheme.Font.text(14))
-                    .foregroundStyle(.white.opacity(0.8))
-            }
+            authorRow(for: d, isActive: isActive)
 
-            Button { presentedDream = dream } label: {
-                Text(dream.title)
+            Button { presentedDream = d } label: {
+                Text(d.displayTitle)
                     .font(DreamTheme.Font.display(30, weight: .regular))
                     .tracking(-0.6)
                     .foregroundStyle(.white)
@@ -269,57 +416,173 @@ struct DiscoverScreen: View {
             .buttonStyle(.plain)
 
             Rectangle()
-                .fill(dream.category.palette.fg)
+                .fill(d.category.palette.fg)
                 .frame(width: 36, height: 3)
                 .clipShape(Capsule())
-                .shadow(color: dream.category.palette.fg.opacity(0.7), radius: 6)
+                .shadow(color: d.category.palette.fg.opacity(0.7), radius: 6)
 
-            if !dream.desc.isEmpty {
-                Text(descriptionWithMore)
-                    .font(DreamTheme.Font.text(13))
-                    .foregroundStyle(.white.opacity(0.9))
-                    .lineSpacing(2)
-                    .lineLimit(2)
+            if !d.desc.isEmpty {
+                descriptionBlock(for: d)
             }
         }
     }
 
-    private var descriptionWithMore: AttributedString {
-        let snippet = String(dream.desc.prefix(90)) + "... "
-        var s = AttributedString(snippet)
-        s.foregroundColor = .white.opacity(0.9)
-        var more = AttributedString("more")
-        more.foregroundColor = .white.opacity(0.7)
-        more.font = DreamTheme.Font.text(13, weight: .semibold)
-        return s + more
+    private func descriptionBlock(for d: Dream) -> some View {
+        let expanded = expandedDesc.contains(d.feedID)
+        let long = d.desc.count > 90
+
+        if expanded || !long {
+            return AnyView(
+                Text(d.desc)
+                    .font(DreamTheme.Font.text(13))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .lineSpacing(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            )
+        }
+        let snippet = String(d.desc.prefix(90))
+        return AnyView(
+            (Text(snippet + "… ")
+                .font(DreamTheme.Font.text(13))
+                .foregroundStyle(Color.white.opacity(0.9))
+             + Text("more")
+                .font(DreamTheme.Font.text(13, weight: .semibold))
+                .foregroundStyle(Color.white.opacity(0.65))
+            )
+            .lineSpacing(2)
+            .onTapGesture {
+                let id = d.feedID
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    _ = expandedDesc.insert(id)
+                }
+            }
+        )
     }
 
-    private var rightRail: some View {
+    private func rightRail(for d: Dream, isActive: Bool) -> some View {
         VStack(spacing: 16) {
-            let matched = dream.matched(against: supporterSkills) != nil && supporterMode
+            ActionButton(systemImage: "heart.fill", label: "I can help") {
+                helpForDream = d
+            }
+            ActionButton(systemImage: "paperplane.fill", label: "Send") {
+                shareDream = d
+            }
             ActionButton(
-                systemImage: "heart.fill",
-                label: matched ? "Offer \(dream.matched(against: supporterSkills) ?? "")" : "I can help",
-                highlight: matched,
-                action: { helpForDream = dream }
-            )
-            ActionButton(systemImage: "arrowshape.turn.up.right.fill", label: "124")
-            ActionButton(systemImage: "bookmark.fill", label: "Save")
-
-            Avatar(name: dream.name, seed: dream.avatarSeed, size: 40)
-                .padding(2)
-                .overlay(
-                    Circle().strokeBorder(
-                        matched ? Color(hex: 0x8AD3A7) : .white,
-                        lineWidth: matched ? 2.5 : 2
-                    )
-                )
-                .shadow(color: matched ? Color(hex: 0x8AD3A7).opacity(0.7) : .clear, radius: 8)
+                systemImage: savedStore.isSaved(d.feedID) ? "bookmark.fill" : "bookmark",
+                label: savedStore.isSaved(d.feedID) ? "Saved" : "Save"
+            ) {
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                savedStore.toggle(d.feedID)
+            }
+            ActionButton(systemImage: "ellipsis", label: "More") {
+                moreMenuDream = d
+            }
         }
         .frame(width: 64)
+    }
+
+    private func authorRow(for d: Dream, isActive: Bool) -> some View {
+        HStack(spacing: 8) {
+            Button { profileForUser = d.ownerId } label: {
+                Avatar(name: d.name, seed: d.avatarSeed, size: 34, url: d.avatarURL)
+                    .overlay(Circle().strokeBorder(.white.opacity(0.9), lineWidth: 1.5))
+                    .shadow(color: .black.opacity(0.28), radius: 7, y: 2)
+            }
+            .buttonStyle(.plain)
+
+            Button { profileForUser = d.ownerId } label: {
+                Text("@\(d.handle)")
+                    .font(DreamTheme.Font.text(14, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.94))
+                    .lineLimit(1)
+            }
+            .buttonStyle(.plain)
+
+            if !isOwnDream(d) {
+                Button { toggleFollow(for: d) } label: {
+                    Text(isFollowingOwner(d) ? "Following" : "Follow")
+                        .font(DreamTheme.Font.text(12, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(Color.white.opacity(0.18)))
+                        .overlay(Capsule().strokeBorder(Color.white.opacity(0.3), lineWidth: 0.5))
+                }
+                .buttonStyle(.plain)
+                .disabled(followBusyOwners.contains(d.ownerId))
+            }
+
+            if !d.distance.isEmpty {
+                Circle().fill(.white.opacity(0.5)).frame(width: 3, height: 3)
+                Text(d.distance)
+                    .font(DreamTheme.Font.text(14))
+                    .foregroundStyle(.white.opacity(0.8))
+                    .lineLimit(1)
+            }
+        }
+    }
+
+    private func isOwnDream(_ d: Dream) -> Bool {
+        auth.userId == d.ownerId
+    }
+
+    private func isFollowingOwner(_ d: Dream) -> Bool {
+        followedOwners.contains(d.ownerId)
+    }
+
+    private func refreshFollowState(for dream: Dream) async {
+        guard auth.userId != dream.ownerId, !loadedFollowOwners.contains(dream.ownerId) else { return }
+        let following = await ProfileRepository.shared.isFollowing(dream.ownerId)
+        loadedFollowOwners.insert(dream.ownerId)
+        if following {
+            followedOwners.insert(dream.ownerId)
+        } else {
+            followedOwners.remove(dream.ownerId)
+        }
+    }
+
+    private func toggleFollow(for d: Dream) {
+        guard !isOwnDream(d), !followBusyOwners.contains(d.ownerId) else { return }
+        let ownerId = d.ownerId
+        let wasFollowing = followedOwners.contains(ownerId)
+        followBusyOwners.insert(ownerId)
+        if wasFollowing {
+            followedOwners.remove(ownerId)
+        } else {
+            followedOwners.insert(ownerId)
+        }
+        loadedFollowOwners.insert(ownerId)
+        Task {
+            do {
+                if wasFollowing {
+                    try await ProfileRepository.shared.unfollow(ownerId)
+                } else {
+                    try await ProfileRepository.shared.follow(ownerId)
+                }
+            } catch {
+                if wasFollowing { followedOwners.insert(ownerId) } else { followedOwners.remove(ownerId) }
+                print("[DiscoverScreen] toggle follow failed: \(error)")
+            }
+            followBusyOwners.remove(ownerId)
+        }
+    }
+
+    private func showShareToast(_ message: String) {
+        shareToastTask?.cancel()
+        shareToast = message
+        shareToastTask = Task {
+            try? await Task.sleep(nanoseconds: 2_400_000_000)
+            guard !Task.isCancelled else { return }
+            shareToast = nil
+        }
     }
 }
 
 #Preview {
     DiscoverScreen()
+}
+
+/// Lets a bare `UUID` drive `.sheet(item:)` / `.fullScreenCover(item:)`.
+extension UUID: @retroactive Identifiable {
+    public var id: UUID { self }
 }

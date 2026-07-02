@@ -69,6 +69,9 @@ struct HelpSheet: View {
     @State private var introWhy: String = "Lila opened Sparrow on a similar budget last year."
     @State private var note: String = ""
 
+    @State private var sending = false
+    @State private var sendError: String?
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -78,6 +81,7 @@ struct HelpSheet: View {
                 }
             }
             .background(Color.white.ignoresSafeArea())
+            .keyboardDoneButton()
             .navigationTitle(mode == .pick ? "Offer your help" : (selected?.label ?? ""))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -90,6 +94,56 @@ struct HelpSheet: View {
                 }
             }
         }
+        // Swipe back steps within the flow (configure → pick) before closing the
+        // whole sheet, mirroring the in-flow "Back" button.
+        .interactiveBackSwipe(slideOff: false) { goBack() }
+    }
+
+    /// Left-edge swipe-back: pop to the offer picker if we're deeper in the
+    /// flow, otherwise dismiss the sheet.
+    private func goBack() {
+        if mode == .pick {
+            onClose()
+        } else {
+            mode = .pick
+        }
+    }
+
+    /// Persists the offer via the `create_help_offer` RPC, which also opens the
+    /// conversation and notifies the dream owner. The RPC de-duplicates, so a
+    /// repeat tap reuses the existing offer rather than creating another.
+    private func send() async {
+        sending = true
+        sendError = nil
+        defer { sending = false }
+        do {
+            _ = try await HelpOfferRepository.shared.createOffer(
+                dreamId: dream.id,
+                skill: selected?.skill ?? "Other",
+                message: composedMessage)
+            onClose()
+        } catch {
+            sendError = "Couldn't send your offer. Please try again."
+        }
+    }
+
+    /// A human-readable summary of the configured offer, stored as the offer's
+    /// message + opening chat line.
+    private var composedMessage: String {
+        let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        switch selected {
+        case .fund:
+            return "Offering $\(amount)." + (trimmedNote.isEmpty ? "" : " \(trimmedNote)")
+        case .mentor:
+            return "Happy to mentor for \(duration) min (\(slot))." + (trimmedNote.isEmpty ? "" : " \(trimmedNote)")
+        case .design:
+            let items = scope.sorted().joined(separator: ", ")
+            return "Design help: \(items)." + (trimmedNote.isEmpty ? "" : " \(trimmedNote)")
+        case .connect:
+            return "Intro to \(introWho). \(introWhy)"
+        case .custom, .none:
+            return trimmedNote
+        }
     }
 
     // MARK: - Pick
@@ -98,7 +152,7 @@ struct HelpSheet: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 10) {
-                    Avatar(name: dream.name, seed: dream.avatarSeed, size: 36)
+                    Avatar(name: dream.name, seed: dream.avatarSeed, size: 36, url: dream.avatarURL)
                     VStack(alignment: .leading, spacing: 1) {
                         Text("You're offering to help")
                             .font(DreamTheme.Font.text(13))
@@ -205,16 +259,30 @@ struct HelpSheet: View {
                 .padding(.top, 10)
                 .padding(.bottom, 30)
             }
+            .scrollDismissesKeyboard(.interactively)
 
             Divider().background(DreamTheme.line)
-            HStack(spacing: 10) {
-                Button("Back") { mode = .pick }
-                    .font(DreamTheme.Font.text(14, weight: .semibold))
-                    .foregroundStyle(DreamTheme.ink2)
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 14)
-                    .background(RoundedRectangle(cornerRadius: 14).strokeBorder(DreamTheme.line, lineWidth: 1))
-                PrimaryButton(title: "Send offer", action: onClose)
+            VStack(spacing: 10) {
+                if let sendError {
+                    Text(sendError)
+                        .font(DreamTheme.Font.text(13))
+                        .foregroundStyle(DreamCategory.health.palette.fg)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                HStack(spacing: 10) {
+                    Button("Back") { mode = .pick }
+                        .font(DreamTheme.Font.text(14, weight: .semibold))
+                        .foregroundStyle(DreamTheme.ink2)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 14)
+                        .background(RoundedRectangle(cornerRadius: 14).strokeBorder(DreamTheme.line, lineWidth: 1))
+                    PrimaryButton(title: sending ? "Sending…" : "Send offer") {
+                        guard !sending else { return }
+                        Task { await send() }
+                    }
+                    .disabled(sending)
+                    .opacity(sending ? 0.7 : 1)
+                }
             }
             .padding(.horizontal, 20)
             .padding(.top, 14)
@@ -395,6 +463,7 @@ struct HelpSheet: View {
             eyebrow("Who's the intro").padding(.bottom, 12)
             TextField("e.g. Lila, who runs Sparrow Café", text: $introWho, axis: .vertical)
                 .font(DreamTheme.Font.text(15))
+                .foregroundStyle(DreamTheme.ink)
                 .padding(14)
                 .background(RoundedRectangle(cornerRadius: 12).fill(DreamTheme.bg))
                 .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(DreamTheme.line, lineWidth: 1))
@@ -403,6 +472,7 @@ struct HelpSheet: View {
             eyebrow("Why they'd be helpful").padding(.bottom, 12)
             TextField("Their relevance...", text: $introWhy, axis: .vertical)
                 .font(DreamTheme.Font.text(14))
+                .foregroundStyle(DreamTheme.ink)
                 .lineLimit(4...8)
                 .padding(14)
                 .background(RoundedRectangle(cornerRadius: 12).fill(DreamTheme.bg))
@@ -420,6 +490,7 @@ struct HelpSheet: View {
     private func noteField(placeholder: String, minHeight: CGFloat = 90) -> some View {
         TextField(placeholder, text: $note, axis: .vertical)
             .font(DreamTheme.Font.text(14))
+            .foregroundStyle(DreamTheme.ink)
             .lineLimit(4...10)
             .padding(14)
             .frame(minHeight: minHeight, alignment: .topLeading)
