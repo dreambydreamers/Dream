@@ -70,6 +70,14 @@ final class FeedVideoPreloader {
 
     // MARK: - Public
 
+    /// Returns the already-built player for a dream if one is in the pool,
+    /// without any async suspension. Returns nil if not yet prefetched.
+    func cachedPlayer(for dream: Dream) -> AVQueuePlayer? {
+        guard let prepared = players[dream.feedID] else { return nil }
+        touch(dream.feedID)
+        return prepared.player
+    }
+
     /// Returns a warm, looping player for the dream, building + pre-buffering
     /// one on the spot if it wasn't already prefetched. The player is returned
     /// paused at the start; the caller decides when to `play()`.

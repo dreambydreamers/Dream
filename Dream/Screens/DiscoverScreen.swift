@@ -7,9 +7,8 @@ struct DiscoverScreen: View {
     var tabBarCollapsed: Binding<Bool> = .constant(false)
     /// Lets us snap back to Discover after any sheet/cover dismissal (fixes paged-TabView jump).
     var activeTab: Binding<DreamTab> = .constant(.discover)
-    @State private var index: Int = 0
-    @State private var dragOffset: CGFloat = 0
-    @State private var isAnimating: Bool = false
+    /// feedID of the card currently centred in the paged scroll view.
+    @State private var currentFeedID: UUID?
     @State private var cleanDisplay: Bool = false
     @State private var presentedDream: Dream?
     @State private var helpForDream: Dream?
@@ -27,7 +26,8 @@ struct DiscoverScreen: View {
     @State private var shareToastTask: Task<Void, Never>?
 
     private var dreams: [Dream] { repo.dreams }
-    private var dream: Dream { dreams[index % dreams.count] }
+    private var dream: Dream { dreams.first { $0.feedID == currentFeedID } ?? dreams[0] }
+    private var currentIndex: Int { dreams.firstIndex { $0.feedID == currentFeedID } ?? 0 }
 
     var body: some View {
         ZStack {
@@ -76,18 +76,24 @@ struct DiscoverScreen: View {
         .animation(.easeInOut(duration: 0.22), value: cleanDisplay)
         .task {
             if repo.dreams.isEmpty { await repo.loadFeed() }
-            FeedVideoPreloader.shared.prefetchNeighbors(of: dreams, around: index)
+            if currentFeedID == nil { currentFeedID = dreams.first?.feedID }
+            FeedVideoPreloader.shared.prefetchNeighbors(of: dreams, around: currentIndex)
             markFeedActive()
             if !dreams.isEmpty { await refreshFollowState(for: dream) }
         }
-        .onAppear { markFeedActive() }
-        .onChange(of: index) { _, newIndex in
-            FeedVideoPreloader.shared.prefetchNeighbors(of: dreams, around: newIndex)
+        .onAppear {
+            if currentFeedID == nil { currentFeedID = dreams.first?.feedID }
+            markFeedActive()
+        }
+        .onChange(of: currentFeedID) { _, _ in
+            tabBarCollapsed.wrappedValue = true
+            FeedVideoPreloader.shared.prefetchNeighbors(of: dreams, around: currentIndex)
             markFeedActive()
             if !dreams.isEmpty { Task { await refreshFollowState(for: dream) } }
         }
         .onChange(of: repo.dreams.count) { _, _ in
-            FeedVideoPreloader.shared.prefetchNeighbors(of: dreams, around: index)
+            if currentFeedID == nil { currentFeedID = dreams.first?.feedID }
+            FeedVideoPreloader.shared.prefetchNeighbors(of: dreams, around: currentIndex)
             markFeedActive()
             if !dreams.isEmpty { Task { await refreshFollowState(for: dream) } }
         }
@@ -151,7 +157,7 @@ struct DiscoverScreen: View {
 
     private func markFeedActive() {
         guard !dreams.isEmpty else { return }
-        FeedVideoPreloader.shared.feedActiveID = dream.feedID
+        FeedVideoPreloader.shared.feedActiveID = currentFeedID
         FeedVideoPreloader.shared.feedMuted = isMuted
     }
 
@@ -159,74 +165,22 @@ struct DiscoverScreen: View {
 
     private var feed: some View {
         GeometryReader { geo in
-            let h = geo.size.height
-            // safeAreaInsets are reported correctly even on an ignoresSafeArea reader
-            let safeTop = geo.safeAreaInsets.top
-            let prevIndex = (index - 1 + dreams.count) % dreams.count
-            let nextIndex = (index + 1) % dreams.count
-
-            ZStack(alignment: .top) {
-                if dreams.count > 1 {
-                    cardView(dreams[prevIndex], geo: geo, safeTop: safeTop, isActive: false)
-                        .offset(y: -h + dragOffset)
+            ScrollView(.vertical, showsIndicators: false) {
+                LazyVStack(spacing: 0) {
+                    ForEach(dreams, id: \.feedID) { d in
+                        cardView(d, geo: geo, safeTop: geo.safeAreaInsets.top,
+                                 isActive: d.feedID == currentFeedID)
+                            .frame(width: geo.size.width, height: geo.size.height)
+                    }
                 }
-                cardView(dream, geo: geo, safeTop: safeTop, isActive: true)
-                    .offset(y: dragOffset)
-                if dreams.count > 1 {
-                    cardView(dreams[nextIndex], geo: geo, safeTop: safeTop, isActive: false)
-                        .offset(y: h + dragOffset)
-                }
+                .scrollTargetLayout()
             }
-            .frame(width: geo.size.width, height: h, alignment: .top)
-            .clipped()
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 10)
-                    .onChanged { value in
-                        guard !isAnimating,
-                              abs(value.translation.height) > abs(value.translation.width) else { return }
-                        dragOffset = value.translation.height
-                    }
-                    .onEnded { value in
-                        guard abs(value.translation.height) > abs(value.translation.width) else {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { dragOffset = 0 }
-                            return
-                        }
-                        guard !isAnimating else { return }
-                        let dy = value.translation.height
-                        let vy = value.velocity.height
-                        // Commit if dragged > 30 % of screen height OR fast flick (>600 pt/s)
-                        if dy < -(h * 0.30) || (dy < -20 && vy < -600) {
-                            snap(to: (index + 1) % dreams.count, distance: -h)
-                        } else if dy > (h * 0.30) || (dy > 20 && vy > 600) {
-                            snap(to: (index - 1 + dreams.count) % dreams.count, distance: h)
-                        } else {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { dragOffset = 0 }
-                        }
-                    }
-            )
+            .scrollTargetBehavior(.paging)
+            .scrollPosition(id: $currentFeedID)
+            .scrollIndicators(.hidden)
+            .ignoresSafeArea()
         }
         .ignoresSafeArea()
-    }
-
-    private func snap(to newIndex: Int, distance: CGFloat) {
-        tabBarCollapsed.wrappedValue = true
-        isAnimating = true
-        // easeInOut gives a smooth "fly off screen" feel without spring bounce.
-        // Fixed duration makes asyncAfter timing reliable — completion: closure
-        // fires too early on springs (logicallyComplete fires before visual end).
-        let dur = 0.30
-        withAnimation(.easeInOut(duration: dur)) {
-            dragOffset = distance
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + dur) {
-            var t = Transaction()
-            t.disablesAnimations = true
-            withTransaction(t) {
-                self.index = newIndex
-                self.dragOffset = 0
-                self.isAnimating = false
-            }
-        }
     }
 
     // Each card: full-screen video + optional overlay. Non-active cards are muted

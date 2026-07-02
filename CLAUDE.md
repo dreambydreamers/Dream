@@ -45,10 +45,11 @@ DreamApp (@main)                (.preferredColorScheme(.light) — app is light-
    ├─ OnboardingScreen          (shown until AuthService.isSignedIn; AuthScreen = email/password)
    └─ MainShell                 → paged TabView (swipeable) + floating DreamTabBar overlay
       ├─ DiscoverScreen         (the video feed — the heart of the app)
-      ├─ ExplorePlaceholder     (still a placeholder)
+      ├─ ExploreScreen          (Instagram-style grid of mock posts + Supabase full-text search)
       ├─ ActivityScreen         (notifications + conversations + help offers, live over Realtime)
-      │   └─ ChatScreen         (1:1 live chat — typing, presence, read receipts, video shares)
-      ├─ ProfileScreen          (current user, or any author opened from the feed)
+      │   ├─ ChatScreen         (1:1 live chat — typing, presence, read receipts, video shares)
+      │   └─ DreamDetailFromIdView  (dream detail opened by tapping a shared video in chat)
+      ├─ ProfileScreen          (current user or any author; 3 tabs: Dreams / Updates / Saved)
       └─ "+" → CreateDreamScreen (new dream)  ·  PostUpdateScreen (update clip)
 ```
 
@@ -61,11 +62,30 @@ The **"+" tab button** routes based on whether the user already has a dream (`Dr
 - **`RootView.swift`** — top-level routing + `MainShell` tab container + "+" routing + publish/update toast. `MainShell` holds `ActivityRepository.shared` so the tab-bar unread badge stays live even off the Activity tab.
 - **`Models/Dream.swift`** — `Dream`, `JourneyStep` view models; `DreamStage` enum. `Dream` is one *video card* (see `feedID`, `displayTitle`, `videoId`, `videoTitle`).
 - **`Theme/DreamTheme.swift`** — all colors, fonts, `DreamCategory` + per-category palettes, `Color(hex:)`. **All theme colors are fixed (non-adaptive) light-mode values.**
-- **`Screens/`** — full screens (Discover, CreateDream, **PostUpdate**, DreamDetail, HelpSheet, Profile, EditProfile, Auth, Onboarding, **Activity**, **Chat**, placeholders).
-- **`Components/`** — reusable views (ActionButton, Avatar, CategoryBadge, **DreamTabBar**, DreamVideoBackground, FlowLayout, **InAppShareSheet**, **InteractiveBackSwipe**, JourneyTimeline, MediaVideoPlayer, PrimaryButton, ScenePoster, **ShareSheet**, VideoPicker, **VideoCompose**). `VideoCompose.swift` holds the shared compose pieces (`loadVideoThumbnail`, `VideoSourceCard`, `VideoPreviewCard`, `.videoSourcePicker(...)`) used by **both** CreateDream and PostUpdate — keep new compose UI here rather than duplicating it. `InAppShareSheet` is the Instagram-style send-to-friend sheet for sharing feed videos into direct chats. `DreamTabBar` is a **floating translucent capsule** (icon-only, animated active highlight via `matchedGeometryEffect`, blue accent "+", optional unread `badge`); `InteractiveBackSwipe.swift` holds the `.interactiveBackSwipe(...)` / `ConditionalBackSwipe` edge-swipe-back modifiers — see **Navigation & gestures**.
+- **`Screens/`** — full screens (Discover, **Explore**, CreateDream, **PostUpdate**, DreamDetail, HelpSheet, Profile, EditProfile, Auth, Onboarding, **Activity**, **Chat**, placeholders).
+- **`Components/`** — reusable views (ActionButton, Avatar, CategoryBadge, **DreamAchievements**, **DreamTabBar**, DreamVideoBackground, FlowLayout, **InAppShareSheet**, **InteractiveBackSwipe**, JourneyTimeline, MediaVideoPlayer, PrimaryButton, ScenePoster, **ShareSheet**, VideoPicker, **VideoCompose**). `VideoCompose.swift` holds the shared compose pieces (`loadVideoThumbnail`, `VideoSourceCard`, `VideoPreviewCard`, `.videoSourcePicker(...)`) used by **both** CreateDream and PostUpdate — keep new compose UI here rather than duplicating it. `InAppShareSheet` is the Instagram-style send-to-friend sheet for sharing feed videos into direct chats; it shows a "Sent!" overlay animation before auto-closing. `DreamTabBar` is a **floating translucent capsule** (icon-only, animated active highlight via `matchedGeometryEffect`, blue accent "+", optional unread `badge`); `InteractiveBackSwipe.swift` holds the `.interactiveBackSwipe(...)` / `ConditionalBackSwipe` edge-swipe-back modifiers — see **Navigation & gestures**. `DreamAchievements.swift` shows 8 locked/unlocked achievement badges on the Profile — always visible (locked state shown when the user has no dream yet).
 - **`Services/`** — Supabase client, repos (`DreamRepository`, `ProfileRepository`, `ActivityRepository`, `ChatRepository`, `HelpOfferRepository`, `VideoShareRepository`), DTOs (`DreamDTO`, `MessagingDTO`), uploaders/exporters (`AvatarUploader`, `VideoUploader`, `VideoTranscoder`, `VideoExporter`), auth, video preloader.
 - **`Config/SupabaseConfig.swift`** — Supabase URL + publishable (anon) key. Safe to ship; security is enforced by RLS.
 - **`scripts/shrink_existing_videos.sh`** — one-off backfill that re-encodes already-uploaded `dream-videos` to ~6 Mbps in place (mirrors `VideoTranscoder`). Needs a `service_role` key (env `SUPABASE_SERVICE_ROLE_KEY` or `/tmp/sb_service_key`). See Bandwidth & cost below.
+
+### Explore screen (`ExploreScreen.swift`)
+Instagram search-page layout. Two modes:
+- **Grid mode** (no search text): 3-column uniform `LazyVGrid` of `ExplorePost` mock cards. Each card is a category-coloured gradient with an emoji watermark and `@handle` label. Tap opens `PostDetailSheet` (enlarged view, author row, "View profile" button).
+- **Search mode** (text in search bar): queries Supabase via `SearchRepository.shared` (300 ms debounce). Results split into People (profile rows with avatar/name/handle/location) and Dreams (category tile + title + owner). **Tap on either opens `ProfileScreen` via `fullScreenCover`** — profile rows open that profile; dream rows open the dream owner's profile.
+
+### Profile screen tabs (`ProfileScreen.swift`)
+`ProfileScreen` has three tabs side-by-side (Dreams / Updates / Saved):
+- **Dreams** — the user's featured dream card + video grid (existing behaviour).
+- **Updates** — grid of update clips (mock data currently, uniform squares).
+- **Saved** — grid of dreams bookmarked via `SavedDreamsStore`. Each cell has a **Send button** (blue paperplane, top-right corner) that opens `InAppShareSheet` to share the saved video. Tapping the cell itself opens `DreamDetailScreen`.
+- **Achievements** — `DreamAchievementsView` always visible below the tabs, showing locked/unlocked badges based on the user's featured dream.
+
+### Discover screen features (`DiscoverScreen.swift`)
+Beyond the core video feed:
+- **Vertical snap paging**: 30% threshold + `DispatchQueue.main.asyncAfter` pattern for reliable snap (replaces unreliable `completion:` closure). Snap function uses `easeInOut(duration: 0.30)` + `Transaction(disablesAnimations: true)` for the index flip.
+- **Bookmark (Save)**: bookmark icon saves/unsaves the current dream to `SavedDreamsStore`. Filled icon = saved. Haptic feedback on toggle.
+- **Three-dots menu**: `confirmationDialog` with "Save to Gallery" (system photo export) and "Share outside Dream" (native share sheet) via `VideoActionsModel`.
+- **Expandable description**: description text truncates at 2 lines with a tappable "more" label that expands to full text. State keyed on `feedID` via `expandedDesc: Set<UUID>`.
 
 ### Services
 - **`SupabaseService.shared.client`** — the single `SupabaseClient`. Always go through this.
@@ -86,6 +106,8 @@ The **"+" tab button** routes based on whether the user already has a dream (`Dr
 - **`VideoTranscoder`** — plain (non-`@MainActor`) `enum`; `transcode(_:targetBitrate:maxLongEdge:)` re-encodes a local clip via `AVAssetReader`/`AVAssetWriter` to H.264 ~6 Mbps, long-edge ≤1920, AAC 128k, preserving the source's `preferredTransform` (orientation). Has a **skip-guard** (returns the source unchanged if it's already ≤1.2× target bitrate and within the resolution cap). Uses Reader/Writer, **not** `AVAssetExportSession`, because export presets can't set a target bitrate. See Bandwidth & cost below.
 - **`VideoExporter` / `VideoActionsModel`** — downloads private videos to local temp files for native system sharing or saving to Photos. Attach via `.videoActions(model)`. This is separate from in-app sharing (`VideoShareRepository`).
 - **`FeedVideoPreloader.shared`** — warm-player pool + signed-URL cache **and** the cross-screen feed pause/resume API (`feedActiveID`, `pauseFeedPlayer()`/`resumeFeedPlayer()` with `feedCoverDepth`, `feedMuted`, `.pausesDiscoverFeed()`). See Video playback below.
+- **`SavedDreamsStore.shared`** — `@MainActor ObservableObject`. Persists bookmarked dream `feedID`s to `UserDefaults` as `[String]` (UUID strings). API: `toggle(_ feedID: UUID)`, `isSaved(_ feedID: UUID) -> Bool`, `@Published savedIDs: Set<UUID>`. Used by `DiscoverScreen` (bookmark button) and `ProfileScreen` (Saved tab).
+- **`SearchRepository.shared`** — `@MainActor ObservableObject`. Full-text search via two Supabase RPCs (`search_dreams`, `search_profiles`). 300 ms debounce via task cancellation. Publishes `dreamResults: [SearchDreamResult]`, `profileResults: [SearchProfileResult]`, `isSearching: Bool`. Call `search(_ query: String)` / `clear()`. Requires migration `0017_search.sql` applied to Supabase.
 
 ## Backend (Supabase)
 
@@ -106,6 +128,7 @@ Project ref `qlrqcymqtxrrpekdzgxx`. MCP server configured in `.mcp.json` (use th
 - `0014_avatar_storage_rls.sql` — repair migration for avatar overwrite/remove RLS on already-migrated projects.
 - `0015_video_shares.sql` — adds `messages.shared_dream_id` / `shared_video_id`, `dream_share` notifications, and `share_dream_video`.
 - `0016_harden_video_share_trigger.sql` — revokes direct RPC execution on trigger-only `on_message_insert()`.
+- `0017_search.sql` — full-text search: `fts tsvector` generated columns on `dreams` (English stemmer, title+description) and `profiles` (simple tokeniser, handle+name+location), GIN indexes, `search_dreams(query)` and `search_profiles(query)` RPCs (SECURITY DEFINER, STABLE, authenticated-only). **Must be applied to Supabase Dashboard → SQL Editor before search works.**
 
 ### Tables (all have RLS enabled)
 - **`profiles`** (1:1 with `auth.users`, auto-created via `handle_new_user` trigger) — handle, name, avatar_seed, `avatar_url`, location, skills.
@@ -159,6 +182,9 @@ Three cooperating gesture systems sit on top of the feed — when editing any of
 
 - **Horizontal tab paging.** `MainShell`'s content is a paged `TabView(selection: $activeTab)`. Because the feed needs its **own vertical** swipe (card-to-card paging), `DiscoverScreen`'s feed drag is a **`.simultaneousGesture`** guarded to vertical-only (`abs(height) > abs(width)`) so horizontal swipes fall through to the `TabView` for tab switching while vertical swipes page the feed. Don't convert it back to `.gesture` or drop the axis guard or horizontal tab swipes break on Discover.
 - **Tab bar collapse.** `DreamTabBar` takes a `collapsed: Binding<Bool>`; when true it scales down (`scaleEffect(... anchor: .bottom)`) and dims. `DiscoverScreen` sets `tabBarCollapsed = true` on a vertical feed swipe; any tap on the bar (a tab **or** "+") sets it back to false, and `MainShell` resets it on `activeTab` change. **All** collapse/expand transitions route through a single `.animation(.smooth(...), value: collapsed)` modifier — set `collapsed` *outside* `withAnimation` so taps animate with the same smooth curve (don't wrap it in a separate spring). **Scale must wrap the fully-assembled pill** (after `.background`/`.clipShape`/`.shadow`), not the inner `HStack`, or only the icons shrink and the capsule background stays full size.
+- **Tab bar hide in chat.** `MainShell` holds `@State private var tabBarHidden = false` and passes it to `ActivityScreen` as `@Binding var isTabBarHidden`. When `navPath` in `ActivityScreen` becomes non-empty (chat or dream detail is pushed), `isTabBarHidden = true` and the `DreamTabBar` slides off-screen (`.offset(y: 150)`). When navPath empties again (user goes back), `isTabBarHidden = false` and the bar slides back.
+- **Sheet `onDismiss` tab restore.** SwiftUI's paged `TabView` can jump one tab left when a `.sheet` or `.fullScreenCover` is dismissed from inside a tab (known SwiftUI bug). Fix: every sheet/cover in `DiscoverScreen` uses `onDismiss: { activeTab.wrappedValue = .discover }`. `DiscoverScreen` accepts `activeTab: Binding<DreamTab>` passed from `MainShell`. **Do not remove this pattern** when adding new sheets to `DiscoverScreen`.
+- **Snap-back when tabBarHidden.** If the user accidentally swipes to a different tab while `tabBarHidden == true` (they're inside a chat or dream detail), `MainShell.onChange(of: activeTab)` snaps them back to `.activity` via `DispatchQueue.main.async`. This prevents getting stranded on Explore with no visible tab bar.
 - **Edge-swipe back.** Covers have no native interactive dismiss, so `.interactiveBackSwipe(slideOff:_:)` (in `InteractiveBackSwipe.swift`) adds a left-edge strip that tracks a rightward drag and dismisses past a distance/velocity threshold. The strip is inset top/bottom so it never swallows a top-left back button or bottom CTA, and is narrow (24pt) so it doesn't block interior vertical scrolling. `slideOff: true` (default) slides the screen off-screen before `onBack` (native cover-dismiss feel); **`slideOff: false`** springs back in place and is for **popping a step within a still-mounted screen**. Applied to `DreamDetailScreen` (always) and `ProfileScreen` (only when pushed over the feed, via `ConditionalBackSwipe` keyed on `onBack != nil`).
   - **Multi-step sheets own their back logic.** `HelpSheet` ("I can help" / "Offer your help") is a multi-step flow driven by an internal `mode` (`.pick` → `.configure`/`.review`). Its back-swipe lives **inside** the sheet (`.interactiveBackSwipe(slideOff: false) { goBack() }`) so it **steps back to `.pick` before closing** the sheet, mirroring the in-flow "Back" button — not bolted on at the presentation site (which would always dismiss the whole sheet). When a presented screen has its own internal navigation, give it `slideOff: false` and let it decide pop-vs-dismiss.
 
@@ -173,6 +199,8 @@ The "I can help" action creates a **help offer** which spawns a **1:1 conversati
 - Use `VideoShareRepository.share(dream:recipientId:note:)` for sending a feed video to another user inside Dream. Do not insert share rows directly from Swift.
 - Direct share chats are deliberately separate from help-offer chats: they reuse only conversations where `dream_id is null` and exactly two participants exist.
 - Shared video messages use `kind = 'dream_share'` plus `shared_dream_id` and `shared_video_id`; keep `MessageBubble` rendering distinct from plain text/system messages.
+- The SQL RPC stores body as `Shared "title"` (no note) or `Shared "title": user note`. `MessageBubble` strips this prefix via `extractShareNote(from:)` and shows only the user-typed part. Do not display raw `message.body` for `dream_share` messages.
+- **Tapping a shared video card in chat** calls `onOpenDream(dreamId)` → `ChatScreen` routes to `ActivityScreen`'s NavStack via `DreamDetailRoute` → `DreamDetailFromIdView` resolves the dream from the local feed cache (or fetches via `loadFeed()`) and shows `DreamDetailScreen`. `DreamDetailFromIdView` applies `.navigationBarHidden(true)` so the NavStack bar doesn't block the overlay buttons.
 - Native export/share (`VideoExporter`, `VideoActionsModel`, `ShareSheet`) is only for outside-the-app system sharing or saving to Photos.
 
 **Realtime cost conventions (don't regress these):**
