@@ -54,7 +54,7 @@ struct ActivityScreen: View {
                             }
                         }
                         .padding(.top, 4)
-                        .padding(.bottom, 130)
+                        .padding(.bottom, DreamTheme.Layout.tabBarClearance)
                     }
                 }
             }
@@ -386,11 +386,7 @@ struct ActivityScreen: View {
     // MARK: - Shared bits
 
     private func sectionHeader(_ t: String) -> some View {
-        Text(t.uppercased())
-            .font(DreamTheme.Font.text(11, weight: .bold))
-            .tracking(1.2)
-            .foregroundStyle(DreamTheme.ink3)
-            .frame(maxWidth: .infinity, alignment: .leading)
+        EyebrowLabel(text: t, color: DreamTheme.ink3)
             .padding(.horizontal, 20)
             .padding(.bottom, 4)
             .padding(.top, 8)

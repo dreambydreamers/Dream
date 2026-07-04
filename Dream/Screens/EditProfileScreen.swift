@@ -71,7 +71,7 @@ struct EditProfileScreen: View {
                     if let errorMessage {
                         Text(errorMessage)
                             .font(DreamTheme.Font.text(13))
-                            .foregroundStyle(.red)
+                            .foregroundStyle(DreamTheme.error)
                     }
                 }
                 .padding(.horizontal, 20)
@@ -141,14 +141,14 @@ struct EditProfileScreen: View {
             if avatarURL != nil {
                 Button("Remove photo", action: removeAvatar)
                     .font(DreamTheme.Font.text(13, weight: .semibold))
-                    .foregroundStyle(.red)
+                    .foregroundStyle(DreamTheme.error)
                     .disabled(avatarBusy)
             }
 
             if let avatarError {
                 Text(avatarError)
                     .font(DreamTheme.Font.text(12))
-                    .foregroundStyle(.red)
+                    .foregroundStyle(DreamTheme.error)
             }
         }
         .frame(maxWidth: .infinity)
@@ -349,9 +349,6 @@ struct EditProfileScreen: View {
     }
 
     private func eyebrow(_ text: String) -> some View {
-        Text(text.uppercased())
-            .font(DreamTheme.Font.text(11, weight: .bold))
-            .tracking(1.2)
-            .foregroundStyle(DreamTheme.ink2)
+        EyebrowLabel(text: text)
     }
 }

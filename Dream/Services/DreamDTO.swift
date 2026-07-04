@@ -18,6 +18,10 @@ struct ProfileDTO: Codable, Hashable {
         case avatarSeed = "avatar_seed"
         case avatarURL = "avatar_url"
     }
+
+    var avatarURLValue: URL? {
+        avatarURL.flatMap(URL.init(string:))
+    }
 }
 
 struct DreamDTO: Codable, Hashable {
@@ -108,23 +112,6 @@ struct ProfileStatsDTO: Codable, Hashable {
         case followersCount = "followers_count"
         case followingCount = "following_count"
         case offersCount = "offers_count"
-    }
-}
-
-struct HelpOfferDTO: Codable, Hashable {
-    let id: UUID
-    let dreamId: UUID
-    let supporterId: UUID
-    let skill: String
-    let message: String
-    let status: String
-    let createdAt: Date
-
-    enum CodingKeys: String, CodingKey {
-        case id, skill, message, status
-        case dreamId = "dream_id"
-        case supporterId = "supporter_id"
-        case createdAt = "created_at"
     }
 }
 

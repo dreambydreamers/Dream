@@ -164,7 +164,7 @@ struct AuthScreen: View {
             Text(message)
                 .font(DreamTheme.Font.text(13))
         }
-        .foregroundStyle(Color(hex: 0xD8453B))
+        .foregroundStyle(DreamTheme.error)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -237,6 +237,7 @@ struct AuthScreen: View {
                     .background(.white, in: Circle())
                     .overlay { Circle().stroke(DreamTheme.line, lineWidth: 1) }
             }
+            .accessibilityLabel("Close")
             Spacer()
         }
         .padding(.horizontal, 20)

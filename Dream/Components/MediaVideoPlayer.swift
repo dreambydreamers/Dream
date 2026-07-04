@@ -16,7 +16,8 @@ struct MediaVideoPlayer: View {
     let media: DreamMedia
     var onClose: () -> Void = {}
 
-    @State private var player: AVPlayer?
+    @State private var player: AVQueuePlayer?
+    @State private var looper: AVPlayerLooper?
     @StateObject private var videoActions = VideoActionsModel()
 
     var body: some View {
@@ -34,13 +35,13 @@ struct MediaVideoPlayer: View {
             VStack {
                 HStack(spacing: 12) {
                     Spacer()
-                    circleButton("arrow.down.to.line") {
+                    GlassCircleButton(systemName: "arrow.down.to.line", accessibilityLabel: "Save video") {
                         videoActions.save(storagePath: media.storagePath)
                     }
-                    circleButton("square.and.arrow.up") {
+                    GlassCircleButton(systemName: "square.and.arrow.up", accessibilityLabel: "Share video") {
                         videoActions.share(storagePath: media.storagePath)
                     }
-                    circleButton("xmark", action: onClose)
+                    GlassCircleButton(systemName: "xmark", accessibilityLabel: "Close", action: onClose)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 56)
@@ -48,20 +49,8 @@ struct MediaVideoPlayer: View {
             }
         }
         .task(id: media.id) { await start() }
-        .onDisappear { player?.pause() }
+        .onDisappear { stop() }
         .videoActions(videoActions)
-    }
-
-    private func circleButton(_ systemName: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: systemName)
-                .font(.system(size: 15, weight: .bold))
-                .foregroundStyle(.white)
-                .frame(width: 38, height: 38)
-                .background(Color.black.opacity(0.45), in: Circle())
-                .background(.ultraThinMaterial, in: Circle())
-        }
-        .buttonStyle(.plain)
     }
 
     private func start() async {
@@ -69,17 +58,18 @@ struct MediaVideoPlayer: View {
             return
         }
         let item = AVPlayerItem(url: url)
-        let p = AVPlayer(playerItem: item)
-        p.actionAtItemEnd = .none
-        NotificationCenter.default.addObserver(
-            forName: .AVPlayerItemDidPlayToEndTime,
-            object: item,
-            queue: .main
-        ) { _ in
-            p.seek(to: .zero)
-            p.play()
-        }
-        player = p
-        p.play()
+        let queue = AVQueuePlayer()
+        let loop = AVPlayerLooper(player: queue, templateItem: item)
+        stop()
+        player = queue
+        looper = loop
+        queue.play()
+    }
+
+    private func stop() {
+        player?.pause()
+        player?.removeAllItems()
+        player = nil
+        looper = nil
     }
 }

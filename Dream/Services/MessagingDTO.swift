@@ -97,7 +97,7 @@ struct MessageDTO: Codable, Hashable, Identifiable {
     let conversationId: UUID
     let senderId: UUID
     let body: String
-    let kind: String        // "text" | "system"
+    let kind: String        // "text" | "system" | "dream_share"
     let sharedDreamId: UUID?
     let sharedVideoId: UUID?
     let createdAt: Date
@@ -120,8 +120,6 @@ struct NotificationDTO: Codable, Hashable, Identifiable {
     let userId: UUID
     let type: String
     let actorId: UUID?
-    let dreamId: UUID?
-    let offerId: UUID?
     let conversationId: UUID?
     let preview: String
     let readAt: Date?
@@ -131,16 +129,13 @@ struct NotificationDTO: Codable, Hashable, Identifiable {
         case id, type, preview
         case userId = "user_id"
         case actorId = "actor_id"
-        case dreamId = "dream_id"
-        case offerId = "offer_id"
         case conversationId = "conversation_id"
         case readAt = "read_at"
         case createdAt = "created_at"
     }
 }
 
-/// Full help-offer row (extends the read-only `HelpOfferDTO` in DreamDTO.swift
-/// with the conversation link added in migration 0008).
+/// Full help-offer row, including the conversation link added in migration 0008.
 struct HelpOfferRow: Codable, Hashable, Identifiable {
     let id: UUID
     let dreamId: UUID

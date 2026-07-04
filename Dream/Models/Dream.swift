@@ -37,7 +37,6 @@ struct Dream: Identifiable, Hashable {
     /// Author's uploaded profile picture, or nil (falls back to the seed avatar).
     var avatarURL: URL? = nil
     let location: String
-    let distance: String
     let desc: String
     let journey: [JourneyStep]
     let supporters: Int
@@ -45,8 +44,6 @@ struct Dream: Identifiable, Hashable {
     let viewsLabel: String
     /// True if the owner picked this as their featured ("main") dream.
     var isFeatured: Bool = false
-    /// Optional URL for the primary uploaded video. `nil` for sample data.
-    var videoURL: URL? = nil
     /// Optional URL for the video poster image.
     var posterURL: URL? = nil
     /// Storage path of the video in the private `dream-videos` bucket.
@@ -63,10 +60,6 @@ struct Dream: Identifiable, Hashable {
 }
 
 extension Dream {
-    func matched(against skills: [String]) -> String? {
-        help.first(where: { skills.contains($0) })
-    }
-
     /// Identity for video-scoped feed concerns (per-video player cache + the
     /// SwiftUI view identity that drives playback). Falls back to the dream id
     /// for dreams without an uploaded video.

@@ -63,10 +63,9 @@ The **"+" tab button** routes based on whether the user already has a dream (`Dr
 - **`Models/Dream.swift`** — `Dream`, `JourneyStep` view models; `DreamStage` enum. `Dream` is one *video card* (see `feedID`, `displayTitle`, `videoId`, `videoTitle`).
 - **`Theme/DreamTheme.swift`** — all colors, fonts, `DreamCategory` + per-category palettes, `Color(hex:)`. **All theme colors are fixed (non-adaptive) light-mode values.**
 - **`Screens/`** — full screens (Discover, CreateDream, **PostUpdate**, DreamDetail, HelpSheet, Profile, EditProfile, Auth, Onboarding, **Activity**, **Chat**, placeholders).
-- **`Components/`** — reusable views (ActionButton, Avatar, CategoryBadge, **DreamTabBar**, DreamVideoBackground, FlowLayout, **InAppShareSheet**, **InteractiveBackSwipe**, JourneyTimeline, MediaVideoPlayer, PrimaryButton, ScenePoster, **ShareSheet**, VideoPicker, **VideoCompose**). `VideoCompose.swift` holds the shared compose pieces (`loadVideoThumbnail`, `VideoSourceCard`, `VideoPreviewCard`, `.videoSourcePicker(...)`) used by **both** CreateDream and PostUpdate — keep new compose UI here rather than duplicating it. `InAppShareSheet` is the Instagram-style send-to-friend sheet for sharing feed videos into direct chats. `DreamTabBar` is a **floating translucent capsule** (icon-only, animated active highlight via `matchedGeometryEffect`, blue accent "+", optional unread `badge`); `InteractiveBackSwipe.swift` holds the `.interactiveBackSwipe(...)` / `ConditionalBackSwipe` edge-swipe-back modifiers — see **Navigation & gestures**.
+- **`Components/`** — reusable views (ActionButton, Avatar, CategoryBadge, **DreamAchievements**, **DreamTabBar**, DreamVideoBackground, **EyebrowLabel**, FlowLayout, **FollowButton**, **GlassCircleButton**, **InAppShareSheet**, **InteractiveBackSwipe**, JourneyTimeline, MediaVideoPlayer, **PosterImage**, PrimaryButton, ScenePoster, **ShareSheet**, **StatCell**, **ThreeColumnGrid**, VideoPicker, **VideoCompose**). `VideoCompose.swift` holds the shared compose pieces (`loadVideoThumbnail`, `VideoSourceCard`, `VideoPreviewCard`, `.videoSourcePicker(...)`) used by **both** CreateDream and PostUpdate — keep new compose UI here rather than duplicating it. `PosterImage` is the shared cached remote-poster loader; use it for feed/share/detail/profile thumbnails instead of ad hoc `AsyncImage`. `FollowButton`, `GlassCircleButton`, `StatCell`, `EyebrowLabel`, and `ThreeColumnGrid` centralize repeated UI treatments. `InAppShareSheet` is the Instagram-style send-to-friend sheet for sharing feed videos into direct chats. `DreamTabBar` is a **floating translucent capsule** (icon-only, animated active highlight via `matchedGeometryEffect`, blue accent "+", optional unread `badge`); `InteractiveBackSwipe.swift` holds the `.interactiveBackSwipe(...)` / `ConditionalBackSwipe` edge-swipe-back modifiers — see **Navigation & gestures**.
 - **`Services/`** — Supabase client, repos (`DreamRepository`, `ProfileRepository`, `ActivityRepository`, `ChatRepository`, `HelpOfferRepository`, `VideoShareRepository`), DTOs (`DreamDTO`, `MessagingDTO`), uploaders/exporters (`AvatarUploader`, `VideoUploader`, `VideoTranscoder`, `VideoExporter`), auth, video preloader.
 - **`Config/SupabaseConfig.swift`** — Supabase URL + publishable (anon) key. Safe to ship; security is enforced by RLS.
-- **`scripts/shrink_existing_videos.sh`** — one-off backfill that re-encodes already-uploaded `dream-videos` to ~6 Mbps in place (mirrors `VideoTranscoder`). Needs a `service_role` key (env `SUPABASE_SERVICE_ROLE_KEY` or `/tmp/sb_service_key`). See Bandwidth & cost below.
 
 ### Discover screen features (`DiscoverScreen.swift`)
 Beyond the core video feed:
@@ -85,9 +84,9 @@ Beyond the core video feed:
   - `loadFeed()` → `enrichFeed(...)` emits **one card per video** (cover + updates), interleaved across dreams by the video's `created_at` desc; dreams with no video still emit one (gradient) card.
   - `dreams(ownedBy:)` → `enrich(...)` emits **one card per dream** using its primary video (used by the profile).
   - Also: `createDream(...)`, `myDream()` (the user's featured-or-latest dream, the update target), `setFeatured(...)`, `videos(forDream:)` → `[DreamMedia]`.
-- **`ProfileRepository.shared`** — profile fetch, `stats` (`profile_stats` view), profile edit, avatar URL update, follow/unfollow, and `followingProfiles()` for in-app share recipients.
-- **`ActivityRepository.shared`** — `@MainActor ObservableObject`, **app-wide singleton** (`start()` once signed in; keep it alive — the tab-bar badge depends on it, do **not** `stop()` on tab leave). Aggregates `notifications` + `conversations` + `offersMade`/`offersReceived` and a live `unreadCount` via a `notifications` Realtime channel. See Messaging & Activity below.
-- **`ChatRepository`** — **one instance per open `ChatScreen`** (`start()` on appear, `stop()` on disappear). Drives a single conversation: history, send, share-preview hydration for `dream_share` messages, and a `conversation:{id}` Realtime channel (message inserts, read-receipt updates, typing broadcast, presence). See Messaging & Activity below.
+- **`ProfileRepository.shared`** — `@MainActor ObservableObject` for profile fetch, batch `profiles(ids:)`, `stats` (`profile_stats` view), profile edit, avatar URL update, follow/unfollow, and `followingProfiles()` for in-app share recipients. It publishes `lastError` for user-visible failures.
+- **`ActivityRepository.shared`** — `@MainActor ObservableObject`, **app-wide singleton** (`start()` once signed in; keep it alive — the tab-bar badge depends on it, do **not** `stop()` on tab leave). Aggregates `notifications` + `conversations` + `offersMade`/`offersReceived`, publishes `lastError`, and keeps a live `unreadCount` via a `notifications` Realtime channel. See Messaging & Activity below.
+- **`ChatRepository`** — **one instance per open `ChatScreen`** (`start()` on appear, `stop()` on disappear). Drives a single conversation: bounded newest-first history fetch, send, share-preview hydration for `dream_share` messages, and a private `conversation:{id}` Realtime channel (`isPrivate = true`) for message inserts, read-receipt updates, typing broadcast, and presence. See Messaging & Activity below.
 - **`HelpOfferRepository.shared`** — thin RPC client for the help-offer workflow: `createOffer` (`create_help_offer`), `respond` (`respond_to_help_offer`), `cancel` (`cancel_help_offer`). All are `SECURITY DEFINER` RPCs.
 - **`VideoShareRepository.shared`** — thin RPC client for in-app video sharing. Calls `share_dream_video(recipient,dream,video,note)`, which creates/reuses a direct chat and inserts a structured `dream_share` message.
 - **`DreamDTO.swift`** — `Codable` row types with `snake_case` ⇄ camelCase `CodingKeys`, plus `DreamCategory.dbValue` / `.from(dbValue:)` and `DreamStage` mappings. `DreamVideoDTO` carries `title` (per-video heading) and `createdAt`.
@@ -119,6 +118,7 @@ Project ref `qlrqcymqtxrrpekdzgxx`. MCP server configured in `.mcp.json` (use th
 - `0016_harden_video_share_trigger.sql` — revokes direct RPC execution on trigger-only `on_message_insert()`.
 - `0017_search.sql` — full-text search: `fts tsvector` generated columns on `dreams` (English stemmer, title+description) and `profiles` (simple tokeniser, handle+name+location), GIN indexes, `search_dreams(query)` and `search_profiles(query)` RPCs (SECURITY DEFINER, STABLE, authenticated-only). **Must be applied to Supabase Dashboard → SQL Editor before search works.**
 - `0018_one_conversation_per_pair.sql` — **one conversation per user pair** (Instagram-style DMs): `get_or_create_direct_conversation(a,b)` helper (advisory-locked, internal-only), rewrites `create_help_offer` + `share_dream_video` to route through it, merges pre-existing duplicate threads (messages/offers/notifications moved to the oldest thread, read receipts merged), and retires `conversations.dream_id` (now always null).
+- `0019_security_hardening.sql` — tightens public/authenticated RLS: removes direct `help_offers` updates, limits broad read policies to authenticated users, restricts direct `messages` inserts to plain text only, adds a `profiles` update `WITH CHECK`, and adds private Realtime channel authorization for `conversation:<uuid>`.
 
 ### Tables (all have RLS enabled)
 - **`profiles`** (1:1 with `auth.users`, auto-created via `handle_new_user` trigger) — handle, name, avatar_seed, `avatar_url`, location, skills.
@@ -129,7 +129,7 @@ Project ref `qlrqcymqtxrrpekdzgxx`. MCP server configured in `.mcp.json` (use th
 - **`supporters`**, **`help_offers`** — backing + "I can help" offers. `help_offers.status` is the `help_offer_status` enum; rows carry a `conversation_id` link (added in 0008/0009).
 - **`conversations`** — **exactly one 1:1 thread per user pair** (`last_message_at`, `last_message_preview`); help offers, video shares and plain texts between the same two people all land in the same thread. `dream_id` is retired (always null since 0018) — dream context lives on `help_offers.dream_id` / `messages.shared_dream_id`.
 - **`conversation_participants`** — membership + per-user `last_read_at` (drives read receipts / unread).
-- **`messages`** — `conversation_id`, `sender_id`, `body`, `kind` (`text`/`system`/`dream_share`), optional `shared_dream_id` / `shared_video_id`, `created_at`.
+- **`messages`** — `conversation_id`, `sender_id`, `body`, `kind` (`text`/`system`/`dream_share`), optional `shared_dream_id` / `shared_video_id`, `created_at`. Client-side direct inserts are only for `kind = 'text'`; `system` and `dream_share` rows are created by RPCs/triggers.
 - **`notifications`** — per-user activity feed (`type`, `actor_id`, `dream_id`, `offer_id`, `conversation_id`, `preview`, `read_at`); the source of the tab-bar unread badge.
 - **`dream_stats`** (view) — derived supporters_count / offers_count. **`profile_stats`** (view) — videos/followers/following/offers counts.
 
@@ -179,14 +179,14 @@ Three cooperating gesture systems sit on top of the feed — when editing any of
 - **Snap-back when tabBarHidden.** If the user accidentally swipes to a different tab while `tabBarHidden == true` (they're inside a chat or dream detail), `MainShell.onChange(of: activeTab)` snaps them back to `.activity` via `DispatchQueue.main.async`. This prevents getting stranded on Explore with no visible tab bar.
 - **Edge-swipe back.** Covers have no native interactive dismiss, so `.interactiveBackSwipe(slideOff:_:)` (in `InteractiveBackSwipe.swift`) adds a left-edge strip that tracks a rightward drag and dismisses past a distance/velocity threshold. The strip is inset top/bottom so it never swallows a top-left back button or bottom CTA, and is narrow (24pt) so it doesn't block interior vertical scrolling. `slideOff: true` (default) now caps visible drag to a small amount and commits `onBack` during the drag once the threshold is crossed; it must **not** slide the whole screen off first, because that exposes SwiftUI's blank presentation host as a white flash. **`slideOff: false`** springs back in place and is for **popping a step within a still-mounted screen**.
   - `ChatScreen` can run inside `ActivityScreen`'s `NavigationStack`, so Activity passes an explicit `onBack` that removes the last `navPath` entry. Avoid combining `dismiss()` with `navPath.removeLast()` for the same swipe; that can produce delayed/default navigation animation.
-  - **Multi-step sheets own their back logic.** `HelpSheet` ("I can help" / "Offer your help") is a multi-step flow driven by an internal `mode` (`.pick` → `.configure`/`.review`). Its back-swipe lives **inside** the sheet (`.interactiveBackSwipe(slideOff: false) { goBack() }`) so it **steps back to `.pick` before closing** the sheet, mirroring the in-flow "Back" button — not bolted on at the presentation site (which would always dismiss the whole sheet). When a presented screen has its own internal navigation, give it `slideOff: false` and let it decide pop-vs-dismiss.
+  - **Multi-step sheets own their back logic.** `HelpSheet` ("I can help" / "Offer your help") is a multi-step flow driven by an internal `mode` (`.pick` → `.configure`). Its back-swipe lives **inside** the sheet (`.interactiveBackSwipe(slideOff: false) { goBack() }`) so it **steps back to `.pick` before closing** the sheet, mirroring the in-flow "Back" button — not bolted on at the presentation site (which would always dismiss the whole sheet). When a presented screen has its own internal navigation, give it `slideOff: false` and let it decide pop-vs-dismiss.
 
 ## Messaging & Activity (Realtime)
 
 The "I can help" action creates a **help offer** which posts into the pair's **1:1 conversation** and raises **notifications**, all via `SECURITY DEFINER` RPCs (so the workflow is atomic and RLS-safe). The Discover **Send** action opens `InAppShareSheet`, which lists `ProfileRepository.followingProfiles()` and calls `share_dream_video` through `VideoShareRepository`; that RPC inserts a `dream_share` message and relies on the normal message trigger to notify the recipient. **There is exactly one conversation per user pair** (since migration 0018): both RPCs resolve it via `get_or_create_direct_conversation(a,b)`, so offers, shares and texts between the same two people always share one thread — never create conversations directly from Swift or a new RPC without going through that helper. Two repos own the live surface:
 
 - **`ActivityRepository.shared`** (app-wide singleton) aggregates notifications + conversations + offers and keeps `unreadCount` live over one `activity:{userId}` channel subscribed to the user's `notifications` (INSERT + UPDATE). Its `load()` is an intentionally batched 3-phase fan-out (`async let`) that resolves ids → rows → referenced profiles/dreams. **Keep the channel alive even when the user leaves the Activity tab** — the tab-bar badge depends on it.
-- **`ChatRepository`** (one per `ChatScreen`) owns a `conversation:{conversationId}` channel with **four** streams: message INSERTs, `conversation_participants` UPDATEs (read receipts), a `typing` **broadcast**, and **presence**. It also hydrates `dream_share` messages into `SharedVideoPreview` cards by fetching referenced dreams/videos. It `track`s its own presence on subscribe and **must `stop()` on screen disappear** (`ChatScreen.onDisappear`) to tear the channel down.
+- **`ChatRepository`** (one per `ChatScreen`) owns a private `conversation:{conversationId}` channel with **four** streams: message INSERTs, `conversation_participants` UPDATEs (read receipts), a `typing` **broadcast**, and **presence**. It also hydrates `dream_share` messages into `SharedVideoPreview` cards by fetching referenced dreams/videos. It `track`s its own presence on subscribe and **must `stop()` on screen disappear** (`ChatScreen.onDisappear`) to tear the channel down.
 - **Activity is messages-first.** `ActivityScreen.Section` order is `Messages → Activity → Offers`, and the default selected section is `.messages`. Keep messages as the primary surface; Activity/Offers remain available as pills and retain badges where relevant.
 
 **In-app sharing conventions:**
@@ -206,15 +206,16 @@ The "I can help" action creates a **help offer** which posts into the pair's **1
 Video is ~99% of the byte cost, so the rules here matter:
 
 - **Always transcode before upload.** `VideoUploader.upload` runs `VideoTranscoder` first (target ~6 Mbps H.264, ≤1080p). Camera captures are ~15 Mbps full-HD — ~2.5× larger for no visible gain in a phone-sized vertical feed. Transcoding cuts stored size **and** every byte of playback egress ~60%. Don't add an upload path that bypasses it.
-- **Existing objects** can be shrunk in place with `scripts/shrink_existing_videos.sh` (needs a `service_role` key; only ever shrinks, skips clips already ≤7 Mbps, re-uploads to the same path so DB rows/posters/signed URLs stay valid). Verify with the bitrate query: join `storage.objects` to `dream_videos` and compute `size*8/duration_ms`.
 - **Keep prefetch tight** (`[0, 1, -1]`) — each prefetched card eagerly buffers ~1 s of video.
 - **Queries:** prefer explicit column `select(...)` over bare `select()`, and add `.limit(...)` to single-entity fetches (`dreams(ownedBy:)`, `videos(forDream:)`). ⚠️ **Do not** put a blanket `.limit()` on the `.in(...)` fan-out queries in `DreamRepository.fetchContext` — one limit caps *total* rows across all dreams and silently drops feed cards.
+- **Poster loading:** use `PosterImage` for poster URLs so thumbnails share the in-memory cache and avoid duplicate network/image decode work.
 
 ## Conventions
 
 - **Colors/fonts:** always use `DreamTheme` (`DreamTheme.blue`, `DreamTheme.Font.display/text`, `Color(hex:)`). Don't hardcode `Color(red:…)`.
 - **Light-mode only.** Every `DreamTheme` color is a fixed light value and `DreamApp` pins `.preferredColorScheme(.light)`. **Never rely on adaptive system colors** — a `TextField`/`Text` with no explicit color falls back to `.primary`, which turns white in a device's dark mode and vanishes on the app's light backgrounds. Always set an explicit text color on inputs (`DreamTheme.ink` / `Color.black`).
 - **Categories:** drive UI color from `dream.category.palette` (fg/bg/tint).
+- **Reusable UI:** prefer `FollowButton`, `GlassCircleButton`, `StatCell`, `EyebrowLabel`, `ThreeColumnGrid`, and `PosterImage` before creating another local copy of the same treatment.
 - **Concurrency:** services/repos that touch UI state are `@MainActor`. Use `async let` for independent Supabase fetches (see `loadFeed`).
 - **Singletons:** `*.shared` for services; inject nothing — call directly.
 - **Compose UI:** the new-dream and update flows (`CreateDreamScreen`, `PostUpdateScreen`) share their source cards, preview, thumbnail and pickers via `Components/VideoCompose.swift`. Reuse those rather than re-implementing — only each screen's unique fields (full dream form vs. a single heading) live in the screen.
@@ -224,18 +225,6 @@ Video is ~99% of the byte cost, so the rules here matter:
 
 ## Git
 
-`origin` has **two push URLs**, contacted in order on every `git push origin`:
-1. `git@github.com:dreambydreamers/Dream.git` (primary)
-2. `git@github.com:igabrilo/Dream.git`
+`origin` is a single remote — `git@github.com:dreambydreamers/Dream.git` — used for both fetch and push. `git push origin` and `git pull` go there and nowhere else.
 
-⚠️ **Silent partial-push trap:** git pushes to both URLs but only exits non-zero on failure — a successful URL's output can hide a rejected one. If `dreambydreamers` ever **diverges** (a commit on its `video` not in your local history), its push is rejected as non-fast-forward while `igabrilo` still succeeds, so the branches drift apart unnoticed. A correct push prints **two** result blocks (one per URL). After pushing, verify parity:
-
-```bash
-git rev-parse video
-git ls-remote git@github.com:dreambydreamers/Dream.git refs/heads/video | cut -f1
-git ls-remote git@github.com:igabrilo/Dream.git refs/heads/video | cut -f1   # all three must match
-```
-
-If dreambydreamers is behind, push it explicitly: `git push git@github.com:dreambydreamers/Dream.git video:video`.
-
-Main branch: `main`. Active feature branch: `activity` (the parity check above applies to whichever branch you push — substitute its name for `video`).
+Main branch: `main`. Active feature branch: `activity`.

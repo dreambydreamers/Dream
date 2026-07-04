@@ -24,7 +24,7 @@ struct SearchDreamResult: Codable, Identifiable {
         case avatarUrl  = "avatar_url"
     }
 
-    var resolvedCategory: DreamCategory { DreamCategory.from(dbValue: category) ?? .tech }
+    var resolvedCategory: DreamCategory { DreamCategory.from(dbValue: category) }
     var avatarURL: URL? { avatarUrl.flatMap(URL.init(string:)) }
 }
 
@@ -51,9 +51,9 @@ struct SearchProfileResult: Codable, Identifiable {
 final class SearchRepository: ObservableObject {
     static let shared = SearchRepository()
 
-    @Published var dreamResults: [SearchDreamResult] = []
-    @Published var profileResults: [SearchProfileResult] = []
-    @Published var isSearching = false
+    @Published private(set) var dreamResults: [SearchDreamResult] = []
+    @Published private(set) var profileResults: [SearchProfileResult] = []
+    @Published private(set) var isSearching = false
 
     private var searchTask: Task<Void, Never>?
 

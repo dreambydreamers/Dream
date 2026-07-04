@@ -14,6 +14,14 @@ final class DreamRepository: ObservableObject {
     private let client = SupabaseService.shared.client
     private init() {}
 
+    private enum Columns {
+        static let dream = "id,owner_id,title,description,category,stage,location,help_tags,views_count,is_featured,created_at"
+        static let profile = "id,handle,name,location,skills,avatar_seed,avatar_url"
+        static let dreamVideo = "id,dream_id,storage_path,poster_path,is_primary,title,created_at"
+        static let dreamStats = "dream_id,supporters_count,offers_count"
+        static let journeyStep = "id,dream_id,stage,date_label,note,done,sort_order"
+    }
+
     // MARK: - Fetch
 
     /// Loads dreams + author profiles + stats + primary video and produces view models.
@@ -24,7 +32,7 @@ final class DreamRepository: ObservableObject {
         do {
             let dreamRows: [DreamDTO] = try await client
                 .from("dreams")
-                .select()
+                .select(Columns.dream)
                 .order("created_at", ascending: false)
                 .limit(50)
                 .execute()
@@ -43,7 +51,7 @@ final class DreamRepository: ObservableObject {
         do {
             let dreamRows: [DreamDTO] = try await client
                 .from("dreams")
-                .select()
+                .select(Columns.dream)
                 .eq("owner_id", value: ownerId)
                 .order("created_at", ascending: false)
                 .limit(50)
@@ -71,17 +79,17 @@ final class DreamRepository: ObservableObject {
         let dreamIds = dreamRows.map(\.id)
 
         async let profiles: [ProfileDTO] = client
-            .from("profiles").select().in("id", values: ownerIds)
+            .from("profiles").select(Columns.profile).in("id", values: ownerIds)
             .execute().value
         async let stats: [DreamStatsDTO] = client
-            .from("dream_stats").select().in("dream_id", values: dreamIds)
+            .from("dream_stats").select(Columns.dreamStats).in("dream_id", values: dreamIds)
             .execute().value
         async let videos: [DreamVideoDTO] = client
-            .from("dream_videos").select().in("dream_id", values: dreamIds)
+            .from("dream_videos").select(Columns.dreamVideo).in("dream_id", values: dreamIds)
             .order("is_primary", ascending: false).order("created_at", ascending: false)
             .execute().value
         async let steps: [JourneyStepDTO] = client
-            .from("journey_steps").select().in("dream_id", values: dreamIds).order("sort_order", ascending: true)
+            .from("journey_steps").select(Columns.journeyStep).in("dream_id", values: dreamIds).order("sort_order", ascending: true)
             .execute().value
 
         let (p, s, v, j) = try await (profiles, stats, videos, steps)
@@ -144,7 +152,7 @@ final class DreamRepository: ObservableObject {
         do {
             let rows: [DreamVideoDTO] = try await client
                 .from("dream_videos")
-                .select()
+                .select(Columns.dreamVideo)
                 .eq("dream_id", value: dreamId)
                 .order("is_primary", ascending: false)
                 .order("created_at", ascending: false)
@@ -167,8 +175,23 @@ final class DreamRepository: ObservableObject {
     /// they've pinned one, else their most recent. `nil` if they have none yet.
     func myDream() async -> Dream? {
         guard let userId = try? await client.auth.session.user.id else { return nil }
-        let owned = await dreams(ownedBy: userId)
-        return owned.first(where: { $0.isFeatured }) ?? owned.first
+        do {
+            let rows: [DreamDTO] = try await client
+                .from("dreams")
+                .select(Columns.dream)
+                .eq("owner_id", value: userId)
+                .order("is_featured", ascending: false)
+                .order("created_at", ascending: false)
+                .limit(1)
+                .execute()
+                .value
+            guard let row = rows.first else { return nil }
+            return Self.mapToDream(row: row, profile: nil, stats: nil, video: nil, steps: [])
+        } catch {
+            lastError = "\(error)"
+            print("[DreamRepository] myDream failed: \(error)")
+            return nil
+        }
     }
 
     // MARK: - Featured ("main") dream
@@ -201,7 +224,7 @@ final class DreamRepository: ObservableObject {
         location: String?,
         helpTags: [String]
     ) async throws -> UUID {
-        guard let userId = try await client.auth.session.user.id as UUID? else {
+        guard let userId = try? await client.auth.session.user.id else {
             throw NSError(domain: "DreamRepository", code: 401,
                           userInfo: [NSLocalizedDescriptionKey: "Not signed in"])
         }
@@ -262,16 +285,14 @@ final class DreamRepository: ObservableObject {
             stage: DreamStage.from(dbValue: row.stage),
             help: row.helpTags,
             avatarSeed: profile?.avatarSeed ?? 0,
-            avatarURL: profile?.avatarURL.flatMap(URL.init(string:)),
+            avatarURL: profile?.avatarURLValue,
             location: row.location ?? profile?.location ?? "",
-            distance: "",
             desc: row.description,
             journey: journey,
             supporters: stats?.supportersCount ?? 0,
             offers: stats?.offersCount ?? 0,
             viewsLabel: formatCount(row.viewsCount),
             isFeatured: row.isFeatured,
-            videoURL: nil, // private bucket — fetch signed URL on demand
             posterURL: posterURL,
             videoStoragePath: video?.storagePath,
             videoId: video?.id,

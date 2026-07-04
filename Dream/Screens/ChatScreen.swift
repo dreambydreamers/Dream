@@ -63,6 +63,7 @@ struct ChatScreen: View {
                     .background(DreamTheme.bg, in: Circle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Back")
 
             Button { onOpenProfile(model.otherUserId) } label: {
                 HStack(spacing: 10) {
@@ -236,6 +237,7 @@ struct ChatScreen: View {
             }
             .buttonStyle(.plain)
             .disabled(!canSend)
+            .accessibilityLabel("Send message")
         }
         .padding(.horizontal, 16)
         .padding(.top, 10)

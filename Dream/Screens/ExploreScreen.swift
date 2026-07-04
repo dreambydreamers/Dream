@@ -67,7 +67,7 @@ struct ExploreScreen: View {
     @State private var searchText = ""
     @State private var selectedPost: ExplorePost? = nil
     @State private var profileForUser: UUID? = nil
-    @StateObject private var searchRepo = SearchRepository.shared
+    @ObservedObject private var searchRepo = SearchRepository.shared
 
     private var isSearching: Bool { !searchText.trimmingCharacters(in: .whitespaces).isEmpty }
 
@@ -129,11 +129,7 @@ struct ExploreScreen: View {
     }
 
     private func searchSectionHeader(_ title: String) -> some View {
-        Text(title.uppercased())
-            .font(DreamTheme.Font.text(11, weight: .bold))
-            .tracking(1.2)
-            .foregroundStyle(DreamTheme.ink3)
-            .frame(maxWidth: .infinity, alignment: .leading)
+        EyebrowLabel(text: title, color: DreamTheme.ink3)
             .padding(.top, 16)
             .padding(.bottom, 6)
     }
@@ -242,15 +238,9 @@ struct ExploreScreen: View {
     // MARK: - Grid
 
     private var exploreGrid: some View {
-        let cols = [GridItem(.flexible(), spacing: 2),
-                    GridItem(.flexible(), spacing: 2),
-                    GridItem(.flexible(), spacing: 2)]
-        let side = (UIScreen.main.bounds.width - 4) / 3
-
-        return LazyVGrid(columns: cols, spacing: 2) {
+        ThreeColumnGrid {
             ForEach(ExplorePost.mock) { post in
-                PostGridCell(post: post, size: CGSize(width: side, height: side))
-                    .frame(height: side)
+                PostGridCell(post: post)
                     .onTapGesture { selectedPost = post }
             }
         }
@@ -277,9 +267,18 @@ struct ExploreScreen: View {
 
 struct PostGridCell: View {
     let post: ExplorePost
-    let size: CGSize
 
     var body: some View {
+        Color.clear
+            .aspectRatio(1, contentMode: .fit)
+            .overlay {
+                GeometryReader { proxy in
+                    content(size: proxy.size)
+                }
+            }
+    }
+
+    private func content(size: CGSize) -> some View {
         ZStack(alignment: .bottomLeading) {
             // Gradient background simulating a photo
             LinearGradient(
@@ -289,8 +288,8 @@ struct PostGridCell: View {
             )
             .frame(width: size.width, height: size.height)
 
-                // Category emoji watermark
-            categorySymbol
+            // Category emoji watermark
+            categorySymbol(size: size)
                 .frame(width: size.width, height: size.height)
 
             // Bottom fade with author handle
@@ -309,7 +308,7 @@ struct PostGridCell: View {
         .clipped()
     }
 
-    private var categorySymbol: some View {
+    private func categorySymbol(size: CGSize) -> some View {
         Text(post.category.emoji)
             .font(.system(size: size.height * 0.32))
             .opacity(0.18)
@@ -439,6 +438,7 @@ struct PostDetailSheet: View {
                             .background(DreamTheme.bg, in: Circle())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Close")
                 }
             }
         }
@@ -462,17 +462,6 @@ extension DreamCategory {
         case .health:    return "❤️"
         case .music:     return "🎵"
         case .sport:     return "⚡"
-        }
-    }
-}
-
-extension DreamStage {
-    var shortLabel: String {
-        switch self {
-        case .idea:   return "Idea"
-        case .early:  return "Early"
-        case .needs:  return "Needs help"
-        case .almost: return "Almost there"
         }
     }
 }

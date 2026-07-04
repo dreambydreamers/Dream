@@ -41,23 +41,28 @@ struct OnlineDot: View {
 
 /// Animated "typing…" three-dot indicator.
 struct TypingIndicator: View {
-    @State private var phase = 0.0
+    @State private var isAnimating = false
     var body: some View {
         HStack(spacing: 4) {
             ForEach(0..<3) { i in
                 Circle()
                     .fill(DreamTheme.ink3)
                     .frame(width: 6, height: 6)
-                    .opacity(phase == Double(i) ? 1 : 0.3)
+                    .opacity(isAnimating ? 1 : 0.3)
+                    .scaleEffect(isAnimating ? 1 : 0.72)
+                    .animation(
+                        .easeInOut(duration: 0.55)
+                            .repeatForever(autoreverses: true)
+                            .delay(Double(i) * 0.16),
+                        value: isAnimating
+                    )
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
         .background(RoundedRectangle(cornerRadius: 14).fill(DreamTheme.bg))
         .onAppear {
-            withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: false)) {
-                phase = 2
-            }
+            isAnimating = true
         }
     }
 }
@@ -129,18 +134,7 @@ struct MessageBubble: View {
     private var sharedVideoCard: some View {
         VStack(alignment: .leading, spacing: 0) {
             ZStack(alignment: .center) {
-                if let posterURL = sharePreview?.posterURL {
-                    AsyncImage(url: posterURL) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image.resizable().scaledToFill()
-                        default:
-                            shareFallback
-                        }
-                    }
-                } else {
-                    shareFallback
-                }
+                PosterImage(url: sharePreview?.posterURL, category: sharePreview?.category ?? .tech)
 
                 // Play button overlay (Instagram-style)
                 Circle()
@@ -176,11 +170,6 @@ struct MessageBubble: View {
                 onOpenDream?(dreamId)
             }
         }
-    }
-
-    private var shareFallback: some View {
-        ScenePoster(category: sharePreview?.category ?? .tech)
-            .frame(width: 200, height: 260)
     }
 
     // The SQL RPC stores: Shared "title"  OR  Shared "title": user note

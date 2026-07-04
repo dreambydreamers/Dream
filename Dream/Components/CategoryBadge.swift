@@ -3,16 +3,13 @@ import SwiftUI
 struct CategoryBadge: View {
     let category: DreamCategory
     var dark: Bool = false
-    var showsDot: Bool = true
 
     var body: some View {
         let p = category.palette
         HStack(spacing: 7) {
-            if showsDot {
-                Circle()
-                    .fill(dark ? Color.white : p.fg)
-                    .frame(width: 6, height: 6)
-            }
+            Circle()
+                .fill(dark ? Color.white : p.fg)
+                .frame(width: 6, height: 6)
             Text(category.rawValue)
                 .font(DreamTheme.Font.text(12, weight: .semibold))
                 .foregroundStyle(dark ? Color.white : p.fg)

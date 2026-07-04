@@ -16,6 +16,7 @@ final class ChatRepository: ObservableObject {
     @Published private(set) var isOtherOnline = false
     @Published private(set) var isOtherTyping = false
     @Published private(set) var isLoading = false
+    @Published private(set) var lastError: String?
     @Published var draft: String = ""
 
     let conversationId: UUID
@@ -85,21 +86,24 @@ final class ChatRepository: ObservableObject {
         do {
             async let msgs: [MessageDTO] = client
                 .from("messages")
-                .select()
+                .select("id,conversation_id,sender_id,body,kind,shared_dream_id,shared_video_id,created_at")
                 .eq("conversation_id", value: conversationId)
-                .order("created_at", ascending: true)
+                .order("created_at", ascending: false)
+                .limit(200)
                 .execute().value
             async let parts: [ConversationParticipantDTO] = client
                 .from("conversation_participants")
-                .select()
+                .select("conversation_id,user_id,role,last_read_at")
                 .eq("conversation_id", value: conversationId)
                 .execute().value
 
             let (m, p) = try await (msgs, parts)
-            self.messages = m
+            self.messages = Array(m.reversed())
             self.otherLastReadAt = p.first(where: { $0.userId == otherUserId })?.lastReadAt
             await loadSharePreviews(for: m)
+            lastError = nil
         } catch {
+            lastError = "\(error)"
             print("[ChatRepository] loadMessages failed: \(error)")
         }
     }
@@ -117,13 +121,17 @@ final class ChatRepository: ObservableObject {
                 .from("messages")
                 .insert(NewMessagePayload(conversation_id: conversationId, sender_id: me, body: text),
                         returning: .representation)
-                .select()
+                .select("id,conversation_id,sender_id,body,kind,shared_dream_id,shared_video_id,created_at")
                 .single()
                 .execute().value
             append(inserted)
+            lastError = nil
         } catch {
+            lastError = "\(error)"
             print("[ChatRepository] send failed: \(error)")
-            draft = text   // restore so the user doesn't lose their message
+            if draft.isEmpty {
+                draft = text
+            }
         }
     }
 
@@ -134,6 +142,7 @@ final class ChatRepository: ObservableObject {
                 .rpc("mark_conversation_read", params: Param(p_conversation_id: conversationId))
                 .execute()
         } catch {
+            lastError = "\(error)"
             print("[ChatRepository] markRead failed: \(error)")
         }
     }
@@ -161,7 +170,11 @@ final class ChatRepository: ObservableObject {
     // MARK: - Realtime
 
     private func subscribe() async {
-        let ch = client.channel("conversation:\(conversationId.uuidString)")
+        // Private channel: broadcast/presence are gated by the realtime.messages
+        // policies from migration 0019 (participants only).
+        let ch = client.channel("conversation:\(conversationId.uuidString)") {
+            $0.isPrivate = true
+        }
         self.channel = ch
 
         let inserts = ch.postgresChange(InsertAction.self, schema: "public", table: "messages",
@@ -171,7 +184,11 @@ final class ChatRepository: ObservableObject {
         let typing = ch.broadcastStream(event: "typing")
         let presence = ch.presenceChange()
 
-        try? await ch.subscribeWithError()
+        do {
+            try await ch.subscribeWithError()
+        } catch {
+            print("[ChatRepository] channel subscribe failed: \(error)")
+        }
         await ch.track(state: ["user_id": .string(me.uuidString)])
 
         streamTasks = [

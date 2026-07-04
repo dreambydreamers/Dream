@@ -175,39 +175,3 @@ private struct DemoMessage: Identifiable {
     let isMine: Bool
     let minutesAgo: Int
 }
-
-// Also preview the shared video card style
-struct DemoSharedVideoCard: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ZStack(alignment: .center) {
-                LinearGradient(
-                    colors: [Color(hex: 0x1E3A5F), Color(hex: 0x2D6A4F)],
-                    startPoint: .topLeading, endPoint: .bottomTrailing
-                )
-                Circle()
-                    .fill(Color.black.opacity(0.35))
-                    .frame(width: 48, height: 48)
-                    .overlay(
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(.white)
-                            .offset(x: 2)
-                    )
-            }
-            .frame(width: 200, height: 260)
-            .clipped()
-
-            Text("Climate Risk API")
-                .font(DreamTheme.Font.text(13, weight: .semibold))
-                .foregroundStyle(DreamTheme.ink)
-                .padding(.horizontal, 12)
-                .padding(.top, 10)
-                .padding(.bottom, 10)
-                .frame(width: 200, alignment: .leading)
-                .background(Color.white)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .shadow(color: .black.opacity(0.12), radius: 14, y: 6)
-    }
-}
