@@ -10,7 +10,12 @@ final class SupabaseService {
     private init() {
         self.client = SupabaseClient(
             supabaseURL: SupabaseConfig.url,
-            supabaseKey: SupabaseConfig.publishableKey
+            supabaseKey: SupabaseConfig.publishableKey,
+            options: SupabaseClientOptions(
+                auth: SupabaseClientOptions.AuthOptions(
+                    emitLocalSessionAsInitialSession: true
+                )
+            )
         )
     }
 }

@@ -25,8 +25,11 @@ Apply migrations in order from `supabase/migrations/`.
 - `0014_avatar_storage_rls.sql` — avatar overwrite/remove RLS repair
 - `0015_video_shares.sql` — in-app video sharing (`dream_share` messages and `share_dream_video`)
 - `0016_harden_video_share_trigger.sql` — keep `on_message_insert()` trigger-only
+- `0017_search.sql` — full-text search RPCs and indexes for dreams/profiles
+- `0018_one_conversation_per_pair.sql` — one direct 1:1 conversation per user pair; help offers, shares, and texts all route through it
+- `0019_security_hardening.sql` — authenticated read hardening, direct-message insert restrictions, safer profile updates, and private Realtime channel policies
 
-The live project currently has migrations through `0016_harden_video_share_trigger`.
+Apply all migrations through `0019_security_hardening.sql` for the current app code.
 
 ## Applying Migrations
 
@@ -80,9 +83,9 @@ Important tables:
 - `dream_videos` — storage path, poster path, dimensions, primary flag, per-video title
 - `follows` — follower/followed graph; used by the Discover follow button and share recipient list
 - `help_offers` — structured "I can help" offers with lifecycle status and optional conversation
-- `conversations` — help-offer chats (`dream_id` set) or direct share chats (`dream_id` null)
+- `conversations` — one direct 1:1 thread per user pair; `dream_id` is retired and always null after `0018`
 - `conversation_participants` — membership, roles, read receipts
-- `messages` — text/system/share messages; `dream_share` messages carry `shared_dream_id` and `shared_video_id`
+- `messages` — text/system/share messages; `dream_share` messages carry `shared_dream_id` and `shared_video_id`; direct client inserts may only create plain `text` messages after `0019`
 - `notifications` — Activity tab events and unread badge source
 
 Views:
@@ -94,13 +97,14 @@ Views:
 
 All cross-user workflow writes go through RPCs so authorization and multi-row writes stay atomic.
 
-- `create_help_offer(p_dream_id, p_skill, p_message)` — creates/reuses an active help offer, opens a help conversation, posts a system message, notifies the owner
+- `create_help_offer(p_dream_id, p_skill, p_message)` — creates/reuses an active help offer, routes it into the pair's direct conversation, posts a system message, notifies the owner
 - `respond_to_help_offer(p_offer_id, p_status)` — owner advances offer lifecycle, posts system message, notifies supporter
 - `cancel_help_offer(p_offer_id)` — supporter cancels their offer, posts system message, notifies owner
 - `mark_conversation_read(p_conversation_id)` — updates read receipt and clears unread message notifications
 - `mark_notifications_read(p_ids)` — marks selected notifications read
 - `mark_all_notifications_read()` — marks all current user's notifications read
-- `share_dream_video(p_recipient_id, p_dream_id, p_video_id, p_note)` — creates/reuses a direct 1:1 chat, inserts a `dream_share` message, and lets the message trigger notify the recipient
+- `share_dream_video(p_recipient_id, p_dream_id, p_video_id, p_note)` — creates/reuses the pair's direct 1:1 chat, inserts a `dream_share` message, and lets the message trigger notify the recipient
+- `get_or_create_direct_conversation(p_a, p_b)` — internal helper used by RPCs only; do not grant direct client execution
 
 Trigger-only functions such as `on_message_insert()` should not be executable through `/rpc`.
 
@@ -138,7 +142,7 @@ Realtime is enabled for:
 - `conversations`
 - `help_offers`
 
-`ActivityRepository` subscribes to notification inserts/updates for the signed-in user. `ChatRepository` subscribes per open conversation for message inserts, participant updates/read receipts, typing broadcasts, and presence.
+`ActivityRepository` subscribes to notification inserts/updates for the signed-in user. `ChatRepository` subscribes per open conversation for message inserts, participant updates/read receipts, typing broadcasts, and presence on a private `conversation:<uuid>` channel. The private channel authorization policies live on `realtime.messages` in `0019_security_hardening.sql`; the Swift client must set `isPrivate = true`.
 
 Cost conventions:
 
@@ -170,4 +174,5 @@ Cost conventions:
 
 - Do not add a blanket `.limit()` to fan-out `.in(...)` queries in `DreamRepository.fetchContext`; it can silently drop feed cards.
 - Keep video prefetch tight (`[0, 1, -1]`) because every prefetched card eagerly buffers video.
-- Keep share chats separate from help-offer chats by reusing only conversations with `dream_id is null`.
+- Never create conversations directly from Swift. Use `create_help_offer` or `share_dream_video`; both route through `get_or_create_direct_conversation`.
+- Keep Realtime chat channels private and topic-scoped to `conversation:<uuid>`.

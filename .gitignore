@@ -1,0 +1,26 @@
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Xcode user state
+xcuserdata/
+*.xcuserstate
+
+# Build products
+build/
+DerivedData/
+
+# Local agent/tool state
+.agents/
+.claude/settings.local.json
+.claude/skills/
+skills-lock.json
+*.swp
+
+# Secrets / keys — never commit these
+*.env
+.env*
+*sb_service*
+*.pem
+*.p12
+*.mobileprovision

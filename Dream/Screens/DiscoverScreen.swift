@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct DiscoverScreen: View {
-    @StateObject private var repo = DreamRepository.shared
+    @ObservedObject private var repo = DreamRepository.shared
     @ObservedObject private var auth = AuthService.shared
     /// Shrinks the floating tab bar while the user pages through the feed.
     var tabBarCollapsed: Binding<Bool> = .constant(false)
@@ -18,7 +18,7 @@ struct DiscoverScreen: View {
     @State private var profileForUser: UUID?
     @State private var isMuted: Bool = false
     @StateObject private var videoActions = VideoActionsModel()
-    @StateObject private var savedStore = SavedDreamsStore.shared
+    @ObservedObject private var savedStore = SavedDreamsStore.shared
     @State private var moreMenuDream: Dream? = nil
     @State private var expandedDesc: Set<UUID> = []
     @State private var followedOwners: Set<UUID> = []
@@ -73,6 +73,7 @@ struct DiscoverScreen: View {
                                     .background(Color.black.opacity(0.45), in: Circle())
                             }
                             .buttonStyle(.plain)
+                            .accessibilityLabel("Show controls")
                             .padding(.trailing, 16)
                             .padding(.top, 8)
                         }
@@ -159,7 +160,7 @@ struct DiscoverScreen: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
                 .background(Color.black.opacity(0.74), in: Capsule())
-                .padding(.bottom, 118)
+                .padding(.bottom, DreamTheme.Layout.tabBarClearance)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
@@ -285,13 +286,13 @@ struct DiscoverScreen: View {
                     Spacer(minLength: 24)
 
                     HStack(alignment: .bottom, spacing: 12) {
-                        bottomInfo(for: d, isActive: isActive)
+                        bottomInfo(for: d)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                        rightRail(for: d, isActive: isActive)
+                        rightRail(for: d)
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.bottom, 132)
+                .padding(.bottom, DreamTheme.Layout.tabBarClearance)
                 .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
             }
         }
@@ -360,32 +361,33 @@ struct DiscoverScreen: View {
             Spacer()
 
             HStack(spacing: 10) {
-                circleButton(systemImage: isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill") {
+                circleButton(
+                    systemImage: isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill",
+                    accessibilityLabel: isMuted ? "Unmute video" : "Mute video"
+                ) {
                     isMuted.toggle()
                 }
                 // Clears all overlay chrome so the video fills the screen.
                 // Tap the × corner button that appears to restore the UI.
-                circleButton(systemImage: "arrow.up.left.and.arrow.down.right") {
+                circleButton(systemImage: "arrow.up.left.and.arrow.down.right", accessibilityLabel: "Hide controls") {
                     withAnimation(.easeInOut(duration: 0.22)) { cleanDisplay = true }
                 }
             }
         }
     }
 
-    private func circleButton(systemImage: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: systemImage)
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 40, height: 40)
-                .background(Color.white.opacity(0.16), in: Circle())
-                .background(.ultraThinMaterial, in: Circle())
-                .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5))
-        }
-        .buttonStyle(.plain)
+    private func circleButton(systemImage: String, accessibilityLabel: String, action: @escaping () -> Void) -> some View {
+        GlassCircleButton(
+            systemName: systemImage,
+            accessibilityLabel: accessibilityLabel,
+            size: 40,
+            background: Color.white.opacity(0.16),
+            action: action
+        )
+        .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5))
     }
 
-    private func bottomInfo(for d: Dream, isActive: Bool) -> some View {
+    private func bottomInfo(for d: Dream) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 CategoryBadge(category: d.category, dark: true)
@@ -401,7 +403,7 @@ struct DiscoverScreen: View {
                 .overlay(Capsule().strokeBorder(Color.white.opacity(0.3), lineWidth: 0.5))
             }
 
-            authorRow(for: d, isActive: isActive)
+            authorRow(for: d)
 
             Button { presentedDream = d } label: {
                 Text(d.displayTitle)
@@ -427,21 +429,19 @@ struct DiscoverScreen: View {
         }
     }
 
+    @ViewBuilder
     private func descriptionBlock(for d: Dream) -> some View {
         let expanded = expandedDesc.contains(d.feedID)
         let long = d.desc.count > 90
 
         if expanded || !long {
-            return AnyView(
-                Text(d.desc)
-                    .font(DreamTheme.Font.text(13))
-                    .foregroundStyle(.white.opacity(0.9))
-                    .lineSpacing(2)
-                    .fixedSize(horizontal: false, vertical: true)
-            )
-        }
-        let snippet = String(d.desc.prefix(90))
-        return AnyView(
+            Text(d.desc)
+                .font(DreamTheme.Font.text(13))
+                .foregroundStyle(.white.opacity(0.9))
+                .lineSpacing(2)
+                .fixedSize(horizontal: false, vertical: true)
+        } else {
+            let snippet = String(d.desc.prefix(90))
             (Text(snippet + "… ")
                 .font(DreamTheme.Font.text(13))
                 .foregroundStyle(Color.white.opacity(0.9))
@@ -456,10 +456,10 @@ struct DiscoverScreen: View {
                     _ = expandedDesc.insert(id)
                 }
             }
-        )
+        }
     }
 
-    private func rightRail(for d: Dream, isActive: Bool) -> some View {
+    private func rightRail(for d: Dream) -> some View {
         VStack(spacing: 16) {
             ActionButton(systemImage: "heart.fill", label: "I can help") {
                 helpForDream = d
@@ -481,7 +481,7 @@ struct DiscoverScreen: View {
         .frame(width: 64)
     }
 
-    private func authorRow(for d: Dream, isActive: Bool) -> some View {
+    private func authorRow(for d: Dream) -> some View {
         HStack(spacing: 8) {
             Button { profileForUser = d.ownerId } label: {
                 Avatar(name: d.name, seed: d.avatarSeed, size: 34, url: d.avatarURL)
@@ -489,6 +489,7 @@ struct DiscoverScreen: View {
                     .shadow(color: .black.opacity(0.28), radius: 7, y: 2)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Open \(d.name)'s profile")
 
             Button { profileForUser = d.ownerId } label: {
                 Text("@\(d.handle)")
@@ -497,27 +498,16 @@ struct DiscoverScreen: View {
                     .lineLimit(1)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Open @\(d.handle)'s profile")
 
             if !isOwnDream(d) {
-                Button { toggleFollow(for: d) } label: {
-                    Text(isFollowingOwner(d) ? "Following" : "Follow")
-                        .font(DreamTheme.Font.text(12, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .background(Capsule().fill(Color.white.opacity(0.18)))
-                        .overlay(Capsule().strokeBorder(Color.white.opacity(0.3), lineWidth: 0.5))
+                FollowButton(
+                    isFollowing: isFollowingOwner(d),
+                    style: .feed,
+                    isBusy: followBusyOwners.contains(d.ownerId)
+                ) {
+                    toggleFollow(for: d)
                 }
-                .buttonStyle(.plain)
-                .disabled(followBusyOwners.contains(d.ownerId))
-            }
-
-            if !d.distance.isEmpty {
-                Circle().fill(.white.opacity(0.5)).frame(width: 3, height: 3)
-                Text(d.distance)
-                    .font(DreamTheme.Font.text(14))
-                    .foregroundStyle(.white.opacity(0.8))
-                    .lineLimit(1)
             }
         }
     }

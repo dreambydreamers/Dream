@@ -169,8 +169,14 @@ final class FeedVideoPreloader {
             return cached.url
         }
         guard let url = try? await VideoUploader.shared.signedVideoURL(storagePath: path) else { return nil }
+        pruneExpiredSignedURLs()
         signedURLs[dream.feedID] = (url, Date().addingTimeInterval(3600))
         return url
+    }
+
+    private func pruneExpiredSignedURLs() {
+        let cutoff = Date().addingTimeInterval(120)
+        signedURLs = signedURLs.filter { $0.value.expires > cutoff }
     }
 
     // MARK: - LRU bookkeeping

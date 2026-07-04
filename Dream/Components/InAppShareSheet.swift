@@ -71,18 +71,7 @@ struct InAppShareSheet: View {
     private var preview: some View {
         HStack(spacing: 12) {
             ZStack(alignment: .bottomLeading) {
-                if let poster = dream.posterURL {
-                    AsyncImage(url: poster) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image.resizable().scaledToFill()
-                        default:
-                            ScenePoster(category: dream.category)
-                        }
-                    }
-                } else {
-                    ScenePoster(category: dream.category)
-                }
+                PosterImage(url: dream.posterURL, category: dream.category)
                 Image(systemName: "play.fill")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(.white)
@@ -139,7 +128,7 @@ struct InAppShareSheet: View {
                 if let errorMessage {
                     Text(errorMessage)
                         .font(DreamTheme.Font.text(12))
-                        .foregroundStyle(.red)
+                        .foregroundStyle(DreamTheme.error)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 16)
                         .padding(.bottom, 8)
@@ -173,7 +162,7 @@ struct InAppShareSheet: View {
     private func recipientRow(_ profile: ProfileDTO) -> some View {
         HStack(spacing: 12) {
             Avatar(name: profile.name ?? "Dreamer", seed: profile.avatarSeed, size: 44,
-                   url: profile.avatarURL.flatMap(URL.init(string:)))
+                   url: profile.avatarURLValue)
             VStack(alignment: .leading, spacing: 2) {
                 Text(profile.name ?? "Dreamer")
                     .font(DreamTheme.Font.text(15, weight: .semibold))

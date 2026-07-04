@@ -10,11 +10,16 @@ enum DreamTheme {
     static let ink2  = Color(hex: 0x56636C)
     static let ink3  = Color(hex: 0x8E99A2)
     static let line  = Color(hex: 0xE8ECEE)
+    static let error = Color(hex: 0xB83D45)
 
     static let bg     = Color(hex: 0xFAF8F4)
     static let cream  = Color(hex: 0xF6F1E8)
     static let warm   = Color(hex: 0xEFE6D6)
     static let paper  = Color(hex: 0xFBF8F2)
+
+    enum Layout {
+        static let tabBarClearance: CGFloat = 132
+    }
 
     enum Font {
         static func display(_ size: CGFloat, weight: SwiftUI.Font.Weight = .regular, italic: Bool = false) -> SwiftUI.Font {

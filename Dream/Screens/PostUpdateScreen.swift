@@ -42,6 +42,7 @@ struct PostUpdateScreen: View {
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundStyle(DreamTheme.ink)
                         }
+                        .accessibilityLabel("Back")
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -50,6 +51,7 @@ struct PostUpdateScreen: View {
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(DreamTheme.ink2)
                     }
+                    .accessibilityLabel("Close")
                 }
             }
             .videoSourcePicker(showCamera: $showCamera, showLibrary: $showLibrary, onPick: handlePicked)
@@ -125,7 +127,7 @@ struct PostUpdateScreen: View {
                 if let postError {
                     Text(postError)
                         .font(DreamTheme.Font.text(13))
-                        .foregroundStyle(Color(hex: 0xB83D45))
+                        .foregroundStyle(DreamTheme.error)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 PrimaryButton(

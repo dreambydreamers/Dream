@@ -49,10 +49,9 @@ enum OfferKind: String, CaseIterable, Identifiable {
         case .custom: return .init(fg: DreamTheme.ink2, bg: DreamTheme.bg, tint: DreamTheme.bg)
         }
     }
-    var requiresConfig: Bool { self != .custom }
 }
 
-private enum SheetMode { case pick, configure, review }
+private enum SheetMode { case pick, configure }
 
 struct HelpSheet: View {
     let dream: Dream
@@ -65,8 +64,8 @@ struct HelpSheet: View {
     @State private var duration: Int = 60
     @State private var slot: String = "thu"
     @State private var scope: Set<String> = ["logo"]
-    @State private var introWho: String = "Lila Park — runs Sparrow Café in Fort Greene"
-    @State private var introWhy: String = "Lila opened Sparrow on a similar budget last year."
+    @State private var introWho: String = ""
+    @State private var introWhy: String = ""
     @State private var note: String = ""
 
     @State private var sending = false
@@ -77,7 +76,7 @@ struct HelpSheet: View {
             VStack(spacing: 0) {
                 switch mode {
                 case .pick: pickStep
-                case .configure, .review: configureStep
+                case .configure: configureStep
                 }
             }
             .background(Color.white.ignoresSafeArea())
@@ -91,6 +90,7 @@ struct HelpSheet: View {
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(DreamTheme.ink2)
                     }
+                    .accessibilityLabel("Close")
                 }
             }
         }
@@ -140,7 +140,17 @@ struct HelpSheet: View {
             let items = scope.sorted().joined(separator: ", ")
             return "Design help: \(items)." + (trimmedNote.isEmpty ? "" : " \(trimmedNote)")
         case .connect:
-            return "Intro to \(introWho). \(introWhy)"
+            let who = introWho.trimmingCharacters(in: .whitespacesAndNewlines)
+            let why = introWhy.trimmingCharacters(in: .whitespacesAndNewlines)
+            if who.isEmpty && why.isEmpty {
+                return "Offering to make an intro."
+            }
+            return [
+                who.isEmpty ? nil : "Intro to \(who).",
+                why.isEmpty ? nil : why
+            ]
+            .compactMap { $0 }
+            .joined(separator: " ")
         case .custom, .none:
             return trimmedNote
         }
@@ -198,7 +208,7 @@ struct HelpSheet: View {
         let p = kind.palette
         return Button {
             selected = kind
-            mode = kind.requiresConfig ? .configure : .review
+            mode = .configure
         } label: {
             HStack(spacing: 12) {
                 ZStack {
@@ -266,7 +276,7 @@ struct HelpSheet: View {
                 if let sendError {
                     Text(sendError)
                         .font(DreamTheme.Font.text(13))
-                        .foregroundStyle(DreamCategory.health.palette.fg)
+                        .foregroundStyle(DreamTheme.error)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 HStack(spacing: 10) {
@@ -499,10 +509,6 @@ struct HelpSheet: View {
     }
 
     private func eyebrow(_ text: String) -> some View {
-        Text(text.uppercased())
-            .font(DreamTheme.Font.text(11, weight: .bold))
-            .tracking(1.2)
-            .foregroundStyle(DreamTheme.ink2)
-            .frame(maxWidth: .infinity, alignment: .leading)
+        EyebrowLabel(text: text)
     }
 }

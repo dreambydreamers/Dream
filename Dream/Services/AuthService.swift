@@ -25,11 +25,14 @@ final class AuthService: ObservableObject {
     private init() {
         authListener = Task { [weak self] in
             guard let stream = self?.client.auth.authStateChanges else { return }
-            for await _ in stream {
-                await self?.refresh()
+            for await change in stream {
+                if change.event == .initialSession, change.session?.isExpired == true {
+                    await self?.refresh()
+                } else {
+                    self?.apply(session: change.session)
+                }
             }
         }
-        Task { await refresh() }
     }
 
     /// Call on app launch. Restores any persisted session; does nothing if there
@@ -69,8 +72,9 @@ final class AuthService: ObservableObject {
     }
 
     func signOut() async {
-        try? await client.auth.signOut()
-        await refresh()
+        await run {
+            try await self.client.auth.signOut()
+        }
     }
 
     /// Wraps an auth call with busy/error bookkeeping and a session refresh.
@@ -89,6 +93,10 @@ final class AuthService: ObservableObject {
 
     private func refresh() async {
         let session = try? await client.auth.session
+        apply(session: session)
+    }
+
+    private func apply(session: Session?) {
         self.userId = session?.user.id
         self.isSignedIn = session != nil
     }

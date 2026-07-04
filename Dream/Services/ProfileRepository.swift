@@ -1,14 +1,19 @@
+import Combine
 import Foundation
 import Supabase
 
 /// Reads user profiles from Supabase. The profile screen owns its own loaded
 /// state, so this is a thin, stateless fetch helper (unlike `DreamRepository`).
 @MainActor
-final class ProfileRepository {
+final class ProfileRepository: ObservableObject {
     static let shared = ProfileRepository()
+
+    @Published private(set) var lastError: String?
 
     private let client = SupabaseService.shared.client
     private init() {}
+
+    private let profileColumns = "id,handle,name,location,skills,avatar_seed,avatar_url"
 
     /// Fetches a single profile row by `auth.users` id. Returns `nil` if missing
     /// or on failure (the screen falls back to a minimal placeholder).
@@ -16,14 +21,35 @@ final class ProfileRepository {
         do {
             return try await client
                 .from("profiles")
-                .select()
+                .select(profileColumns)
                 .eq("id", value: userId)
                 .single()
                 .execute()
                 .value
         } catch {
+            lastError = "\(error)"
             print("[ProfileRepository] profile(userId:) failed: \(error)")
             return nil
+        }
+    }
+
+    /// Fetches several profile rows at once. IDs are uniqued before querying.
+    func profiles(ids: [UUID]) async -> [ProfileDTO] {
+        let uniqueIds = Array(Set(ids))
+        guard !uniqueIds.isEmpty else { return [] }
+        do {
+            let rows: [ProfileDTO] = try await client
+                .from("profiles")
+                .select(profileColumns)
+                .in("id", values: uniqueIds)
+                .execute()
+                .value
+            lastError = nil
+            return rows
+        } catch {
+            lastError = "\(error)"
+            print("[ProfileRepository] profiles(ids:) failed: \(error)")
+            return []
         }
     }
 
@@ -39,6 +65,7 @@ final class ProfileRepository {
                 .execute()
                 .value
         } catch {
+            lastError = "\(error)"
             print("[ProfileRepository] stats(userId:) failed: \(error)")
             return nil
         }
@@ -108,13 +135,9 @@ final class ProfileRepository {
                 .value
             let ids = follows.map(\.followed_id)
             guard !ids.isEmpty else { return [] }
-            return try await client
-                .from("profiles")
-                .select("id,handle,name,location,skills,avatar_seed,avatar_url")
-                .in("id", values: ids)
-                .execute()
-                .value
+            return await profiles(ids: ids)
         } catch {
+            lastError = "\(error)"
             print("[ProfileRepository] followingProfiles failed: \(error)")
             return []
         }

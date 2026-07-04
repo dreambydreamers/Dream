@@ -73,6 +73,7 @@ final class ActivityRepository: ObservableObject {
     @Published private(set) var offersMade: [OfferSummary] = []
     @Published private(set) var unreadCount = 0
     @Published private(set) var isLoading = false
+    @Published private(set) var lastError: String?
 
     private let client = SupabaseService.shared.client
     private var channel: RealtimeChannelV2?
@@ -128,7 +129,7 @@ final class ActivityRepository: ObservableObject {
             // Phase 1: independent fetches.
             async let notifRows: [NotificationDTO] = client
                 .from("notifications")
-                .select("id,type,preview,user_id,actor_id,dream_id,offer_id,conversation_id,read_at,created_at")
+                .select("id,type,preview,user_id,actor_id,conversation_id,read_at,created_at")
                 .eq("user_id", value: me)
                 .order("created_at", ascending: false).limit(60).execute().value
             async let myParts: [ConversationParticipantDTO] = client
@@ -139,7 +140,7 @@ final class ActivityRepository: ObservableObject {
                 .from("help_offers")
                 .select("id,dream_id,supporter_id,skill,message,status,conversation_id,created_at")
                 .eq("supporter_id", value: me)
-                .order("created_at", ascending: false).execute().value
+                .order("created_at", ascending: false).limit(60).execute().value
             async let myDreams: [DreamLite] = client
                 .from("dreams").select("id,title,owner_id").eq("owner_id", value: me).execute().value
 
@@ -161,7 +162,7 @@ final class ActivityRepository: ObservableObject {
                 .from("help_offers")
                 .select("id,dream_id,supporter_id,skill,message,status,conversation_id,created_at")
                 .in("dream_id", values: myDreamIds)
-                .order("created_at", ascending: false).execute().value
+                .order("created_at", ascending: false).limit(60).execute().value
 
             let (convs, allParts, offersReceivedRows) = try await (convRows, allPartRows, received)
 
@@ -173,14 +174,11 @@ final class ActivityRepository: ObservableObject {
             offersReceivedRows.forEach { mutableProfileIds.insert($0.supporterId) }
             let profileIds = mutableProfileIds
 
-            async let profileRows: [ProfileDTO] = profileIds.isEmpty ? [] : client
-                .from("profiles")
-                .select("id,handle,name,location,skills,avatar_seed,avatar_url")
-                .in("id", values: Array(profileIds)).execute().value
             async let offerDreamRows: [DreamLite] = offerDreamIds.isEmpty ? [] : client
                 .from("dreams").select("id,title,owner_id").in("id", values: Array(offerDreamIds)).execute().value
 
-            let (profiles, offerDreams) = try await (profileRows, offerDreamRows)
+            let offerDreams = try await offerDreamRows
+            let profiles = await ProfileRepository.shared.profiles(ids: Array(profileIds))
 
             let profileById = Dictionary(profiles.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
             var dreamById = Dictionary(offerDreams.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
@@ -192,7 +190,7 @@ final class ActivityRepository: ObservableObject {
                 return ActivityNotification(
                     id: n.id, type: n.type, preview: n.preview,
                     actorName: p?.name ?? "Someone", actorSeed: p?.avatarSeed ?? 0,
-                    actorAvatarURL: p?.avatarURL.flatMap(URL.init(string:)),
+                    actorAvatarURL: p?.avatarURLValue,
                     actorId: n.actorId, conversationId: n.conversationId,
                     createdAt: n.createdAt, isRead: n.readAt != nil)
             }
@@ -214,7 +212,7 @@ final class ActivityRepository: ObservableObject {
                     otherUserId: other?.userId ?? me,
                     otherName: op?.name ?? "Someone",
                     otherSeed: op?.avatarSeed ?? 0,
-                    otherAvatarURL: op?.avatarURL.flatMap(URL.init(string:)),
+                    otherAvatarURL: op?.avatarURLValue,
                     dreamId: conv.dreamId,
                     preview: conv.lastMessagePreview ?? "",
                     lastMessageAt: conv.lastMessageAt,
@@ -229,7 +227,7 @@ final class ActivityRepository: ObservableObject {
                     id: row.id, dreamId: row.dreamId, dreamTitle: d?.title ?? "a dream",
                     counterpartId: d?.ownerId ?? row.supporterId,
                     counterpartName: owner?.name ?? "Dreamer", counterpartSeed: owner?.avatarSeed ?? 0,
-                    counterpartAvatarURL: owner?.avatarURL.flatMap(URL.init(string:)),
+                    counterpartAvatarURL: owner?.avatarURLValue,
                     skill: row.skill, message: row.message,
                     status: .from(dbValue: row.status), conversationId: row.conversationId,
                     createdAt: row.createdAt, incoming: false)
@@ -240,12 +238,14 @@ final class ActivityRepository: ObservableObject {
                     id: row.id, dreamId: row.dreamId, dreamTitle: dreamById[row.dreamId]?.title ?? "your dream",
                     counterpartId: row.supporterId,
                     counterpartName: sup?.name ?? "Someone", counterpartSeed: sup?.avatarSeed ?? 0,
-                    counterpartAvatarURL: sup?.avatarURL.flatMap(URL.init(string:)),
+                    counterpartAvatarURL: sup?.avatarURLValue,
                     skill: row.skill, message: row.message,
                     status: .from(dbValue: row.status), conversationId: row.conversationId,
                     createdAt: row.createdAt, incoming: true)
             }
+            lastError = nil
         } catch {
+            lastError = "\(error)"
             print("[ActivityRepository] load failed: \(error)")
         }
     }
@@ -254,6 +254,8 @@ final class ActivityRepository: ObservableObject {
         // Optimistic local update — no need for a full reload (8–10 queries)
         // just to flip read flags we already hold.
         guard unreadCount > 0 else { return }
+        let previousNotifications = notifications
+        let previousUnreadCount = unreadCount
         notifications = notifications.map { n in
             n.isRead ? n : ActivityNotification(
                 id: n.id, type: n.type, preview: n.preview,
@@ -265,7 +267,11 @@ final class ActivityRepository: ObservableObject {
         unreadCount = 0
         do {
             try await client.rpc("mark_all_notifications_read").execute()
+            lastError = nil
         } catch {
+            notifications = previousNotifications
+            unreadCount = previousUnreadCount
+            lastError = "\(error)"
             print("[ActivityRepository] markAllRead failed: \(error)")
         }
     }

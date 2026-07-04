@@ -32,17 +32,7 @@ struct DreamVideoBackground: View {
             ZStack {
                 // Base layer: poster image if we have one, else the gradient.
                 // Always visible — never replaced by a black frame.
-                if let posterURL = dream.posterURL {
-                    AsyncImage(url: posterURL) { phase in
-                        if let image = phase.image {
-                            image.resizable().scaledToFill()
-                        } else {
-                            ScenePoster(category: dream.category)
-                        }
-                    }
-                } else {
-                    ScenePoster(category: dream.category)
-                }
+                PosterImage(url: dream.posterURL, category: dream.category)
 
                 // Video plays on top once its signed URL is ready.
                 // opacity(0) while the layer hasn't rendered its first frame so the

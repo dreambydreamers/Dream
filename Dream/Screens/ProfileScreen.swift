@@ -167,18 +167,12 @@ struct ProfileScreen: View {
                         .overlay(Circle().stroke(DreamTheme.line, lineWidth: 1))
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Sign out")
             }
         } else {
-            Button { Task { await model.toggleFollow(userId: userId) } } label: {
-                Text(model.isFollowing ? "Following" : "Follow")
-                    .font(DreamTheme.Font.text(14, weight: .semibold))
-                    .foregroundStyle(model.isFollowing ? DreamTheme.blueDeep : .white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 11)
-                    .background(Capsule().fill(model.isFollowing ? Color.white : DreamTheme.blue))
-                    .overlay(Capsule().strokeBorder(DreamTheme.blue, lineWidth: 1.5))
+            FollowButton(isFollowing: model.isFollowing, style: .fullWidth) {
+                Task { await model.toggleFollow(userId: userId) }
             }
-            .buttonStyle(.plain)
         }
     }
 
@@ -204,26 +198,13 @@ struct ProfileScreen: View {
 
     private var stats: some View {
         HStack(spacing: 10) {
-            statCell("\(model.videosCount)", "Videos")
-            statCell("\(model.followersCount)", "Followers")
-            statCell("\(model.offersCount)", "Offers")
+            StatCell(value: "\(model.videosCount)", label: "Videos")
+            StatCell(value: "\(model.followersCount)", label: "Followers")
+            StatCell(value: "\(model.offersCount)", label: "Offers")
         }
         .padding(.vertical, 16)
         .overlay(alignment: .top) { Rectangle().fill(DreamTheme.line).frame(height: 1) }
         .overlay(alignment: .bottom) { Rectangle().fill(DreamTheme.line).frame(height: 1) }
-    }
-
-    private func statCell(_ n: String, _ l: String) -> some View {
-        VStack(spacing: 2) {
-            Text(n)
-                .font(DreamTheme.Font.display(22, weight: .medium))
-                .foregroundStyle(DreamTheme.ink)
-            Text(l.uppercased())
-                .font(DreamTheme.Font.text(11, weight: .semibold))
-                .tracking(0.3)
-                .foregroundStyle(DreamTheme.ink2)
-        }
-        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Profile tab bar (Dreams / Updates)
@@ -259,75 +240,59 @@ struct ProfileScreen: View {
 
     // MARK: - Updates grid (daily life posts from this user)
 
+    @ViewBuilder
     private var updatesGrid: some View {
         let userPosts = ExplorePost.mock.filter { $0.handle == model.handle }
-        let cols = [GridItem(.flexible(), spacing: 2),
-                    GridItem(.flexible(), spacing: 2),
-                    GridItem(.flexible(), spacing: 2)]
-        let side = (UIScreen.main.bounds.width - 40 - 4) / 3
 
         if userPosts.isEmpty {
-            return AnyView(
-                VStack(spacing: 10) {
-                    Image(systemName: "photo.on.rectangle.angled")
-                        .font(.system(size: 28, weight: .light))
-                        .foregroundStyle(DreamTheme.ink3)
-                    Text("No updates yet.")
-                        .font(DreamTheme.Font.text(14))
-                        .foregroundStyle(DreamTheme.ink2)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 48)
-            )
-        }
-
-        return AnyView(
-            LazyVGrid(columns: cols, spacing: 2) {
+            VStack(spacing: 10) {
+                Image(systemName: "photo.on.rectangle.angled")
+                    .font(.system(size: 28, weight: .light))
+                    .foregroundStyle(DreamTheme.ink3)
+                Text("No updates yet.")
+                    .font(DreamTheme.Font.text(14))
+                    .foregroundStyle(DreamTheme.ink2)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 48)
+        } else {
+            ThreeColumnGrid {
                 ForEach(userPosts) { post in
-                    PostGridCell(post: post, size: CGSize(width: side, height: side))
-                        .frame(height: side)
+                    PostGridCell(post: post)
                 }
             }
-        )
+        }
     }
 
     // MARK: - Saved grid
 
+    @ViewBuilder
     private var savedGrid: some View {
         let saved = feedRepo.dreams.filter { savedStore.isSaved($0.feedID) }
-        let cols = [GridItem(.flexible(), spacing: 2),
-                    GridItem(.flexible(), spacing: 2),
-                    GridItem(.flexible(), spacing: 2)]
-        let side = (UIScreen.main.bounds.width - 40 - 4) / 3
 
         if saved.isEmpty {
-            return AnyView(
-                VStack(spacing: 10) {
-                    Image(systemName: "bookmark")
-                        .font(.system(size: 28, weight: .light))
-                        .foregroundStyle(DreamTheme.ink3)
-                    Text("No saved videos yet.")
-                        .font(DreamTheme.Font.text(14))
-                        .foregroundStyle(DreamTheme.ink2)
-                    Text("Tap the bookmark on any video in the feed.")
-                        .font(DreamTheme.Font.text(13))
-                        .foregroundStyle(DreamTheme.ink3)
-                        .multilineTextAlignment(.center)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 48)
-                .padding(.horizontal, 20)
-            )
-        }
-
-        return AnyView(
-            LazyVGrid(columns: cols, spacing: 2) {
+            VStack(spacing: 10) {
+                Image(systemName: "bookmark")
+                    .font(.system(size: 28, weight: .light))
+                    .foregroundStyle(DreamTheme.ink3)
+                Text("No saved videos yet.")
+                    .font(DreamTheme.Font.text(14))
+                    .foregroundStyle(DreamTheme.ink2)
+                Text("Tap the bookmark on any video in the feed.")
+                    .font(DreamTheme.Font.text(13))
+                    .foregroundStyle(DreamTheme.ink3)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 48)
+            .padding(.horizontal, 20)
+        } else {
+            ThreeColumnGrid {
                 ForEach(saved) { dream in
                     ZStack(alignment: .topTrailing) {
-                        savedCell(dream, side: side)
+                        savedCell(dream)
                             .onTapGesture { presentedDream = dream }
 
-                        // Send button — shares the saved video like the feed Send button
                         Button { shareFromSaved = dream } label: {
                             Image(systemName: "paperplane.fill")
                                 .font(.system(size: 10, weight: .bold))
@@ -336,29 +301,19 @@ struct ProfileScreen: View {
                                 .background(DreamTheme.blue.opacity(0.85), in: Circle())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("Send saved video")
                         .padding(5)
                     }
+                    .aspectRatio(1, contentMode: .fit)
                 }
             }
-        )
+        }
     }
 
-    private func savedCell(_ dream: Dream, side: CGFloat) -> some View {
+    private func savedCell(_ dream: Dream) -> some View {
         ZStack(alignment: .bottomLeading) {
-            Group {
-                if let url = dream.posterURL {
-                    AsyncImage(url: url) { phase in
-                        if let image = phase.image {
-                            image.resizable().scaledToFill()
-                        } else {
-                            ScenePoster(category: dream.category)
-                        }
-                    }
-                } else {
-                    ScenePoster(category: dream.category)
-                }
-            }
-            .frame(width: side, height: side)
+            PosterImage(url: dream.posterURL, category: dream.category)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipped()
 
             LinearGradient(colors: [.clear, .black.opacity(0.45)], startPoint: .center, endPoint: .bottom)
@@ -369,7 +324,7 @@ struct ProfileScreen: View {
                 .padding(5)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
         }
-        .frame(width: side, height: side)
+        .aspectRatio(1, contentMode: .fit)
         .clipped()
     }
 
@@ -403,14 +358,8 @@ struct ProfileScreen: View {
                 Group {
                     if dream.videoStoragePath != nil {
                         DreamVideoBackground(dream: dream, isMuted: true)
-                    } else if let url = dream.posterURL {
-                        AsyncImage(url: url) { phase in
-                            if let image = phase.image {
-                                image.resizable().scaledToFill()
-                            } else {
-                                ScenePoster(category: dream.category)
-                            }
-                        }
+                    } else if dream.posterURL != nil {
+                        PosterImage(url: dream.posterURL, category: dream.category)
                     } else {
                         ScenePoster(category: dream.category)
                     }
@@ -489,17 +438,7 @@ struct ProfileScreen: View {
 
     private func clipThumbnail(_ media: DreamMedia, category: DreamCategory) -> some View {
         ZStack {
-            if let url = media.posterURL {
-                AsyncImage(url: url) { phase in
-                    if let image = phase.image {
-                        image.resizable().scaledToFill()
-                    } else {
-                        ScenePoster(category: category)
-                    }
-                }
-            } else {
-                ScenePoster(category: category)
-            }
+            PosterImage(url: media.posterURL, category: category)
             Image(systemName: "play.circle.fill")
                 .font(.system(size: 30))
                 .foregroundStyle(.white.opacity(0.9))
@@ -537,6 +476,7 @@ struct ProfileScreen: View {
                     .overlay(Circle().strokeBorder(DreamTheme.line, lineWidth: 0.5))
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Back")
             Spacer()
         }
         .padding(.horizontal, 16)
@@ -544,10 +484,7 @@ struct ProfileScreen: View {
     }
 
     private func eyebrow(_ text: String) -> some View {
-        Text(text.uppercased())
-            .font(DreamTheme.Font.text(11, weight: .bold))
-            .tracking(1.2)
-            .foregroundStyle(DreamTheme.ink2)
+        EyebrowLabel(text: text)
     }
 }
 
@@ -592,7 +529,7 @@ final class ProfileViewModel: ObservableObject {
             handle = p.handle ?? "anon"
             location = p.location ?? ""
             avatarSeed = p.avatarSeed
-            avatarURL = p.avatarURL.flatMap(URL.init(string:))
+            avatarURL = p.avatarURLValue
             skills = p.skills
         } else if let first = d.first {
             // Fall back to the author info embedded in their dreams.

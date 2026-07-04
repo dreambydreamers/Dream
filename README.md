@@ -1,246 +1,164 @@
 <p align="center">
-  <h1 align="center">DREAM</h1>
-  <p align="center"><em>Where Dreams Meet Opportunity</em></p>
-  <p align="center">Built by dreamers, for dreamers.</p>
+  <img src="https://img.shields.io/badge/Dream-open%20source-0F7CFF?style=for-the-badge" alt="Dream is open source" />
+  <img src="https://img.shields.io/badge/iOS-26.4-black?style=for-the-badge" alt="iOS 26.4" />
+  <img src="https://img.shields.io/badge/SwiftUI-native-F05138?style=for-the-badge" alt="SwiftUI native app" />
+  <img src="https://img.shields.io/badge/Supabase-backend-3ECF8E?style=for-the-badge" alt="Supabase backend" />
+</p>
+
+<h1 align="center">Dream</h1>
+
+<p align="center">
+  <strong>Where dreams meet the people who can build them.</strong>
 </p>
 
 <p align="center">
-  <a href="#-about">About</a> •
-  <a href="#-the-problem">The Problem</a> •
-  <a href="#-features">Features</a> •
-  <a href="#%EF%B8%8F-tech-stack">Tech Stack</a> •
-  <a href="#-architecture">Architecture</a> •
-  <a href="#-getting-started">Getting Started</a> •
-  <a href="#-contributing">Contributing</a> •
-  <a href="#-roadmap">Roadmap</a> •
-  <a href="#-license">License</a>
+  Dream is an open-source iOS app for sharing dreams through short video, finding collaborators, and turning "I have an idea" into a first conversation.
+</p>
+
+<p align="center">
+  <a href="#why-dream">Why Dream</a> |
+  <a href="#product">Product</a> |
+  <a href="#how-it-works">How It Works</a> |
+  <a href="#technology">Technology</a> |
+  <a href="#getting-started">Getting Started</a> |
+  <a href="#contributing">Contributing</a> |
+  <a href="#license">License</a>
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="AGPL-3.0 license" /></a>
+  <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/contributions-welcome-brightgreen.svg" alt="Contributions welcome" /></a>
 </p>
 
 ---
 
-## 💭 About
+## Why Dream
 
-Dream is an open-source platform where people share their unfulfilled dreams through short videos and connect with those who can help make them real. A dreamer records a 60-second video answering one question — *"What's your dream?"* — and the platform connects them with developers, designers, mentors, investors, and anyone willing to help.
+Most platforms celebrate finished things: launches, polished identities, perfect pitch decks, and final outcomes.
 
-Inspired by [Simon Squibb's](https://www.youtube.com/@SimonSquibb) "What's Your Dream?" video series. Simon proves every day that a single question can change someone's life. Dream builds the infrastructure for that energy — a place where inspiration stops being a moment you scroll past and becomes the beginning of something real.
+Dream is for the earlier, more vulnerable moment: the bakery someone has always wanted to open, the health app a nurse keeps thinking about, the children's book a retired teacher has never had help starting, the community project that needs one designer, one developer, or one brave first supporter.
 
----
+The core question is simple:
 
-## 🔥 The Problem
+> What is your dream?
 
-Most people carry a dream they've never told anyone about. There's nowhere to share it.
+Dream gives that answer a place to live, then helps the right people raise their hand and say: I can help.
 
-- **LinkedIn** is for career status, not raw aspiration.
-- **Instagram** rewards polished results, not "I have this idea and I don't know where to start."
-- **Kickstarter** needs a finished product and a pitch. Most dreams aren't there yet.
-- **Startup platforms** are intimidating if your dream isn't a venture-scale business.
+## Product
 
-A 17-year-old who wants to open a bakery has no platform. A nurse with a health app idea has no way to find a developer. A retired teacher who wants to write children's books has no community backing them.
+Dream is built around a full-screen vertical video feed. A dream's cover clip and every update clip the owner posts each appear as their own feed card, interleaved by recency across the whole community.
 
-**Dream is that platform.**
-
-It's for ALL dreams — not just startups, not just tech, not just business. And it connects people not through algorithms optimised for engagement, but through genuine human resonance. You see someone's dream, it moves you, you offer to help.
-
----
-
-## ✨ Features
-
-### 🎥 Dream Videos
-Record a 60–90 second video telling the world what your dream is. Use the in-app camera or upload from your library. Videos are compressed on-device before upload. Add a title, pick a category, set your dream's stage, and tag what help you need.
-
-### 📱 Video Feed
-A full-screen, TikTok-style vertical feed of dream videos. Swipe to discover. Each dream shows the dreamer's name, title, category, and stage overlaid on the video. Auto-playing, memory-efficient, infinite scroll.
-
-### 🤝 "I Can Help"
-The core interaction. See a dream that resonates? Tap "I Can Help", select what you can offer (coding, design, funding, mentorship, marketing, legal, or other), write a short message, and send. The dreamer gets notified and can accept or decline. It's structured — not a random DM — so every offer is meaningful.
-
-### 💬 Real-Time Chat
-When a dreamer accepts your offer, a conversation opens. Messages delivered in real time. Full chat with bubbles, timestamps, read status, and unread badges.
-
-### 🔍 Search & Filter
-Find dreams by category, stage, help type needed, or distance from you. Text search across titles and descriptions with debounced input.
-
-### 🗺️ Explore Map
-Discover dreams near you on a map. Custom pins for each category. Tap to preview, tap again to dive into the full dream.
-
-### 👤 Profiles
-Your avatar, name, bio, roles (Dreamer / Supporter / Backer), and skills. A grid of your dreams. Incoming support offers with accept/decline. Draft dreams saved locally so you can record now and publish later.
-
----
-
-## 🛠️ Tech Stack
-
-### iOS App
-
-| Technology | Purpose |
+| Surface | What it does |
 |---|---|
-| **SwiftUI** | Declarative UI — views, navigation, state management |
-| **Combine** | Reactive streams — API responses, debounced search, real-time updates |
-| **AVFoundation** | Video recording, playback, and compression |
-| **PhotosUI** | Media picker for existing videos and photos |
-| **CoreLocation** | User location for proximity-based discovery |
-| **MapKit** | Explore map with dream annotations |
-| **SwiftData** | Local persistence — draft dreams, offline feed cache |
-| **AuthenticationServices** | Sign in with Apple |
-| **Swift Concurrency** | async/await, actors for thread-safe video player pool |
+| Discover | TikTok-style feed with private signed video playback, saved videos, native sharing, in-app sends, follows, dream detail, and "I can help". |
+| Explore | Visual grid plus Supabase full-text search across dreams and people. |
+| Activity | Messages-first inbox with notifications, help offers, unread badges, and live Realtime updates. |
+| Chat | One direct 1:1 conversation per user pair, with text, shared dream videos, typing, presence, and read receipts. |
+| Profile | Dreams, updates, saved videos, achievements, follows, avatar upload, profile editing, and post-update entry points. |
+| Create and Update | Shared compose flow for new dreams and update clips, with on-device video transcoding before upload. |
 
-### Backend — Supabase (open source)
+## How It Works
 
-| Service | Purpose |
+Dream is a native SwiftUI app backed by Supabase. The iOS app owns the product experience; Supabase owns auth, Postgres data, row-level security, storage, Realtime, search, and workflow RPCs.
+
+```text
+DreamApp
++-- ContentView -> RootView
+    +-- OnboardingScreen / AuthScreen
+    +-- MainShell
+        +-- DiscoverScreen
+        +-- ExploreScreen
+        +-- ActivityScreen
+        |   +-- ChatScreen
+        |   +-- DreamDetailFromIdView
+        +-- ProfileScreen
+        +-- + action -> CreateDreamScreen / PostUpdateScreen
+```
+
+Important directories:
+
+| Path | Purpose |
 |---|---|
-| **PostgreSQL** | Database with Row Level Security |
-| **PostgREST** | Auto-generated REST API |
-| **Auth** | Sign in with Apple token exchange |
-| **Storage** | Video files, thumbnails, avatars with CDN |
-| **Realtime** | WebSocket for live chat and offer notifications |
-| **Edge Functions** | Push notification dispatch via APNs |
+| `Dream/Screens` | Full-screen SwiftUI product surfaces. |
+| `Dream/Components` | Reusable UI, media, navigation, sharing, and compose pieces. |
+| `Dream/Services` | Supabase repositories, auth, chat/activity, upload/export/transcode, and video preloading. |
+| `Dream/Models` | App-facing value models. |
+| `Dream/Theme` | Fixed light-mode colors, fonts, and category palettes. |
+| `supabase/migrations` | Database schema, RLS, storage, Realtime, RPCs, search, and security hardening. |
 
----
+For deeper implementation notes, read [AGENTS.md](AGENTS.md).
 
-## 🏗 Architecture
+## Technology
 
-**MVVM (Model-View-ViewModel)** with protocol-oriented services for testability.
+| Layer | Stack |
+|---|---|
+| App | SwiftUI, Swift 5.0, Swift concurrency, Combine |
+| Media | AVFoundation, PhotosUI, on-device video transcoding |
+| Backend | Supabase Postgres, Auth, Storage, Realtime |
+| Security | Row Level Security, authenticated RPC workflows, private Realtime channel policies |
+| Storage | Private `dream-videos` bucket with signed URLs; public poster and avatar buckets |
+| Target | iOS 26.4 |
 
-```
-dream-ios/
-├── App/                # Entry point, dependency injection, tab navigation
-├── Models/             # User, Dream, SupportOffer, Conversation, ChatMessage
-├── Views/              # SwiftUI views by feature
-├── ViewModels/         # Business logic, state, service communication
-├── Services/           # APIService, AuthService, VideoService, ChatService
-├── Components/         # Reusable UI components
-├── Utilities/          # Extensions, Keychain helper, constants
-└── Resources/          # Assets, localisation
-```
+## Getting Started
 
-### Database
-
-```
-users           → profiles, roles, skills, location
-dreams          → video, metadata, category, stage, help needed (FK → users)
-support_offers  → offer type, message, status (FK → users, dreams)
-conversations   → dreamer + supporter link (FK → users, dreams)
-chat_messages   → content, read status (FK → conversations, users)
-```
-
-### Navigation
-
-```
-TabView
-├── Discover     → Video feed → Dream detail → Dreamer profile
-├── Explore      → Map / List → Dream detail
-├── Create       → Camera / Picker → Metadata form → Publish
-├── Messages     → Conversations → Chat view
-└── Profile      → My dreams, Offers, Settings
-```
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- Xcode 16+
-- iOS 17+
-- [Supabase](https://supabase.com) project (free tier)
-- Apple Developer account
-
-### Setup
+Clone the repo and open the project:
 
 ```bash
-git clone https://github.com/dreambydreamers/dream.git
-cd dream/dream-ios
+git clone git@github.com:dreambydreamers/Dream.git
+cd Dream
+open Dream.xcodeproj
 ```
 
-Create `Config.xcconfig` (gitignored):
+Build from the command line with a concrete simulator id:
 
+```bash
+xcrun simctl list devices available
+SIM=<simulator-udid>
+
+xcodebuild -project Dream.xcodeproj -scheme Dream \
+  -destination "id=$SIM" \
+  -derivedDataPath DerivedData \
+  build
 ```
-SUPABASE_URL = https://your-project.supabase.co
-SUPABASE_ANON_KEY = your-anon-key
-```
 
-Run the database migrations from `dream-backend/migrations/` in your Supabase SQL editor.
+There is no test suite yet. Verification is build, simulator launch, and a screenshot.
 
-Create three storage buckets:
+For the full developer setup, backend options, build caveats, and preflight checklist, see [DEVELOPERS.md](DEVELOPERS.md).
 
-| Bucket | Access | Max Size |
-|---|---|---|
-| `dream-videos` | Public read, authenticated write | 100MB |
-| `thumbnails` | Public read, authenticated write | 5MB |
-| `avatars` | Public read, owner write | 5MB |
+## Contributing
 
-Open `Dream.xcodeproj` and run (⌘R).
+Dream is open source because the product itself is about shared effort. Developers, designers, writers, testers, and community builders are welcome.
 
----
+Good first places to help:
 
-## 🤝 Contributing
+- Improve the SwiftUI product experience.
+- Tighten video playback, upload, and feed performance.
+- Expand accessibility and localization.
+- Improve Supabase migrations, policies, and Realtime workflows.
+- Add tests and better verification scripts.
+- Polish documentation for new contributors.
 
-Dream is open source because the app itself is a dream — and dreams are built together.
+Before opening a pull request:
 
-### How You Can Help
+1. Search existing issues and pull requests.
+2. Open an issue or discussion first for larger product changes.
+3. Read [CONTRIBUTING.md](CONTRIBUTING.md) and [DEVELOPERS.md](DEVELOPERS.md).
+4. Build locally and include screenshots for UI changes.
 
-- **Code** — SwiftUI frontend, Supabase Edge Functions, infrastructure
-- **Design** — UI/UX, icons, animations, Figma files
-- **Translation** — Make Dream accessible in more languages
-- **Docs** — Guides, tutorials, setup improvements
-- **Testing** — Bug reports, test cases, device testing
-- **Community** — Spread the word, onboard users, give feedback
+## Community
 
-### Workflow
+- [Report a bug](https://github.com/dreambydreamers/Dream/issues)
+- [Request a feature](https://github.com/dreambydreamers/Dream/issues)
+- [Start a discussion](https://github.com/dreambydreamers/Dream/discussions)
 
-1. Fork the repo
-2. Create a branch (`git checkout -b feature/your-feature`)
-3. Make your changes
-4. Commit clearly (`git commit -m "Add: video compression progress bar"`)
-5. Push and open a Pull Request
+## License
 
-Look for **`good first issue`** labels if you're new. Read our [Code of Conduct](CODE_OF_CONDUCT.md) and [Contributing Guide](CONTRIBUTING.md) before starting.
+Dream is open source under the [GNU Affero General Public License v3.0](LICENSE).
 
-### The Builders Wall
-
-Every contributor gets their name on the **Builders Wall** inside the app — a dedicated section showing everyone who helped build Dream. Not just a credits page. Proof that this thing was built by real people who believed in it.
-
----
-
-## 🗺 Roadmap
-
-### Phase 1 — MVP
-- [ ] Sign in with Apple
-- [ ] Dream video recording, compression, upload
-- [ ] TikTok-style video feed
-- [ ] Filtering and search
-- [ ] "I Can Help" flow
-- [ ] Real-time chat
-- [ ] User profiles
-- [ ] Explore map
-
-### Phase 2 — Community
-- [ ] Dream Journey (milestone progress updates)
-- [ ] Smarter dream-supporter matching
-- [ ] Accessibility (VoiceOver, Dynamic Type)
-- [ ] Localisation (English, Spanish, Croatian)
-- [ ] Android app
-
-### Phase 3 — Growth
-- [ ] Micro-backing (small financial contributions)
-- [ ] Sponsored dream challenges
-- [ ] Companion web app
-- [ ] Simon's Corner (curated editorial section)
-
----
-
-## 📄 License
-
-Open source under [AGPL-3.0](LICENSE). Free to use, modify, and distribute. If you run a modified version as a service, your changes must be open source too.
+That means you can use, study, modify, and share Dream. If you run a modified version over a network, the AGPL requires you to make the corresponding source code available under the same license.
 
 ---
 
 <p align="center">
-  <strong>Everyone has a dream worth pursuing. Let's build the place where they come true.</strong>
-</p>
-
-<p align="center">
-  <a href="https://github.com/dreambydreamers/dream/issues">Report a Bug</a> •
-  <a href="https://github.com/dreambydreamers/dream/issues">Request a Feature</a> •
-  <a href="https://github.com/dreambydreamers/dream/discussions">Discuss</a>
+  <strong>Everyone has a dream worth pursuing. Let's build the place where they begin.</strong>
 </p>

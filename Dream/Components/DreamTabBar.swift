@@ -82,6 +82,7 @@ struct DreamTabBar: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabel(for: tab))
     }
 
     private var createButton: some View {
@@ -97,6 +98,16 @@ struct DreamTabBar: View {
                 .shadow(color: DreamTheme.blue.opacity(0.5), radius: 8, y: 3)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Create")
         .frame(maxWidth: .infinity)
+    }
+
+    private func accessibilityLabel(for tab: DreamTab) -> String {
+        switch tab {
+        case .discover: return "Discover"
+        case .explore: return "Explore"
+        case .activity: return "Activity"
+        case .profile: return "Profile"
+        }
     }
 }
