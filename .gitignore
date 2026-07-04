@@ -1,5 +1,6 @@
 # macOS
 .DS_Store
+**/.DS_Store
 
 # Xcode user state
 xcuserdata/
@@ -8,6 +9,13 @@ xcuserdata/
 # Build products
 build/
 DerivedData/
+
+# Local agent/tool state
+.agents/
+.claude/settings.local.json
+.claude/skills/
+skills-lock.json
+*.swp
 
 # Secrets / keys — never commit these
 *.env

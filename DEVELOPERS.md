@@ -63,7 +63,7 @@ For backend details, read [supabase/README.md](supabase/README.md).
 
 ## Build
 
-Use a concrete simulator id. Generic destinations can trip over the stale nested project reference currently present in the Xcode project.
+Use a concrete simulator id for reproducible command-line builds.
 
 ```bash
 xcrun simctl list devices available

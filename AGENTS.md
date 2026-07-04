@@ -16,7 +16,7 @@ Guidance for working in this repository. Read this before building features so c
 There is no test suite. Verification = build + launch in the simulator and screenshot.
 
 ```bash
-# Build (use a concrete simulator id — see caveat below)
+# Build (use a concrete simulator id)
 xcodebuild -project Dream.xcodeproj -scheme Dream \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
 
@@ -31,8 +31,7 @@ xcrun simctl launch "$SIM" ig.Dream
 xcrun simctl io "$SIM" screenshot /tmp/dream.png
 ```
 
-**Build caveats:**
-- The pbxproj contains a stale **nested `Dream/Dream.xcodeproj` reference** that makes some `xcodebuild` invocations fail with *"missing its project.pbxproj file"* / *"Supported platforms ... is empty."* Work around it by always passing `-project Dream.xcodeproj` and a **concrete destination id** (`-destination 'id=<udid>'`) rather than `generic/platform=iOS`.
+**Build caveat:**
 - **SourceKit/IDE diagnostics are unreliable here** — they frequently evaluate files against the macOS SDK and report bogus errors like *"No such module 'UIKit'"*, *"'AVAudioSession' is unavailable in macOS"*, or *"Cannot find type 'Dream' in scope"* (cross-file). **Trust `BUILD SUCCEEDED`, not the diagnostics.**
 
 ## Architecture

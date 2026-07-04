@@ -5,7 +5,7 @@ import UIKit
 /// Uploads a profile picture to the public `avatars` bucket and returns its
 /// public URL (with a cache-busting query). Mirrors `VideoUploader`'s storage
 /// conventions — most importantly the lowercased user-id path folder, which the
-/// storage RLS policy requires (see CLAUDE.md "Storage RLS path gotcha").
+/// storage RLS policy requires (see AGENTS.md "Storage RLS path gotcha").
 @MainActor
 final class AvatarUploader {
     static let shared = AvatarUploader()
