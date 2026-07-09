@@ -14,6 +14,7 @@ struct ProfileScreen: View {
     @StateObject private var model = ProfileViewModel()
     @ObservedObject private var auth = AuthService.shared
     @ObservedObject private var feedRepo = DreamRepository.shared
+    @ObservedObject private var exploreRepo = ExploreMediaRepository.shared
     @ObservedObject private var savedStore = SavedDreamsStore.shared
     @State private var presentedDream: Dream?
     @State private var playingMedia: DreamMedia?
@@ -21,6 +22,8 @@ struct ProfileScreen: View {
     @State private var postingUpdate = false
     @State private var profileTab: ProfileTab = .dreams
     @State private var shareFromSaved: Dream?
+    @State private var selectedUpdate: ExploreMediaItem?
+    @State private var profileForUser: UUID?
 
     enum ProfileTab { case dreams, updates, saved }
 
@@ -81,6 +84,25 @@ struct ProfileScreen: View {
                 )
             }
         }
+        .fullScreenCover(item: $selectedUpdate) { item in
+            ExploreMediaDetailSheet(
+                initialItem: item,
+                items: exploreRepo.items.isEmpty ? model.updateMedia : exploreRepo.items,
+                onOpenProfile: { openedItem in
+                    selectedUpdate = nil
+                    if openedItem.ownerId != userId {
+                        DispatchQueue.main.async { profileForUser = openedItem.ownerId }
+                    }
+                },
+                onOpenDream: { openedItem in
+                    selectedUpdate = nil
+                    DispatchQueue.main.async { presentedDream = openedItem.dream }
+                }
+            )
+        }
+        .fullScreenCover(item: $profileForUser) { uid in
+            ProfileScreen(userId: uid, onBack: { profileForUser = nil })
+        }
         .sheet(item: $shareFromSaved) { d in
             InAppShareSheet(dream: d, onClose: { shareFromSaved = nil })
         }
@@ -109,6 +131,9 @@ struct ProfileScreen: View {
         // Only the pushed-over-feed profile (onBack != nil) gets edge-swipe back;
         // the root profile tab is reached by tab/page swipe instead.
         .modifier(ConditionalBackSwipe(onBack: onBack))
+        .onChange(of: exploreRepo.items.map(\.id)) { _, _ in
+            Task { await model.reload(userId: userId, isCurrentUser: isCurrentUser) }
+        }
     }
 
     // MARK: - Header
@@ -242,9 +267,7 @@ struct ProfileScreen: View {
 
     @ViewBuilder
     private var updatesGrid: some View {
-        let userPosts = ExplorePost.mock.filter { $0.handle == model.handle }
-
-        if userPosts.isEmpty {
+        if model.updateMedia.isEmpty {
             VStack(spacing: 10) {
                 Image(systemName: "photo.on.rectangle.angled")
                     .font(.system(size: 28, weight: .light))
@@ -257,8 +280,9 @@ struct ProfileScreen: View {
             .padding(.vertical, 48)
         } else {
             ThreeColumnGrid {
-                ForEach(userPosts) { post in
-                    PostGridCell(post: post)
+                ForEach(model.updateMedia) { item in
+                    ExploreMediaGridCell(item: item)
+                        .onTapGesture { selectedUpdate = item }
                 }
             }
         }
@@ -500,6 +524,7 @@ final class ProfileViewModel: ObservableObject {
     @Published var dreams: [Dream] = []
     @Published var featuredDream: Dream?
     @Published var otherVideos: [DreamMedia] = []
+    @Published var updateMedia: [ExploreMediaItem] = []
     @Published var videosCount = 0
     @Published var followersCount = 0
     @Published var offersCount = 0
@@ -522,7 +547,8 @@ final class ProfileViewModel: ObservableObject {
         async let dreams = DreamRepository.shared.dreams(ownedBy: userId)
         async let stats = ProfileRepository.shared.stats(userId: userId)
         async let following = isCurrentUser ? false : ProfileRepository.shared.isFollowing(userId)
-        let (p, d, s, f) = await (profile, dreams, stats, following)
+        async let updates = ExploreMediaRepository.shared.media(ownedBy: userId, includePrimaryVideos: false)
+        let (p, d, s, f, u) = await (profile, dreams, stats, following, updates)
 
         if let p {
             name = p.name ?? "Dreamer"
@@ -544,6 +570,7 @@ final class ProfileViewModel: ObservableObject {
         followersCount = s?.followersCount ?? 0
         offersCount = s?.offersCount ?? 0
         isFollowing = f
+        updateMedia = u
 
         // Featured dream = the one the user pinned, else their most recent.
         let featured = d.first(where: { $0.isFeatured }) ?? d.first

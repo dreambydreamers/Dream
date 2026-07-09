@@ -423,7 +423,7 @@ struct DiscoverScreen: View {
                 .clipShape(Capsule())
                 .shadow(color: d.category.palette.fg.opacity(0.7), radius: 6)
 
-            if !d.desc.isEmpty {
+            if !d.displayDescription.isEmpty {
                 descriptionBlock(for: d)
             }
         }
@@ -431,25 +431,26 @@ struct DiscoverScreen: View {
 
     @ViewBuilder
     private func descriptionBlock(for d: Dream) -> some View {
+        let text = d.displayDescription
         let expanded = expandedDesc.contains(d.feedID)
-        let long = d.desc.count > 90
+        let long = text.count > 90
 
         if expanded || !long {
-            Text(d.desc)
+            Text(text)
                 .font(DreamTheme.Font.text(13))
                 .foregroundStyle(.white.opacity(0.9))
                 .lineSpacing(2)
                 .fixedSize(horizontal: false, vertical: true)
         } else {
-            let snippet = String(d.desc.prefix(90))
-            (Text(snippet + "… ")
-                .font(DreamTheme.Font.text(13))
-                .foregroundStyle(Color.white.opacity(0.9))
-             + Text("more")
+            let snippet = String(text.prefix(90))
+            let moreText = Text("more")
                 .font(DreamTheme.Font.text(13, weight: .semibold))
                 .foregroundStyle(Color.white.opacity(0.65))
-            )
-            .lineSpacing(2)
+
+            Text("\(snippet)… \(moreText)")
+                .font(DreamTheme.Font.text(13))
+                .foregroundStyle(Color.white.opacity(0.9))
+                .lineSpacing(2)
             .onTapGesture {
                 let id = d.feedID
                 withAnimation(.easeInOut(duration: 0.2)) {

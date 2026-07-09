@@ -57,6 +57,9 @@ struct Dream: Identifiable, Hashable {
     /// Per-video heading for "update" clips. `nil` for the cover video, which
     /// shows the dream's own `title`. See `displayTitle`.
     var videoTitle: String? = nil
+    /// Per-video caption for update clips. `nil` for older rows and cover
+    /// videos, which fall back to the dream's own description.
+    var videoCaption: String? = nil
 }
 
 extension Dream {
@@ -70,5 +73,15 @@ extension Dream {
     var displayTitle: String {
         if let videoTitle, !videoTitle.isEmpty { return videoTitle }
         return title
+    }
+
+    /// Description shown on a feed card: an update clip's own caption when it
+    /// has one, otherwise the parent dream description.
+    var displayDescription: String {
+        if let caption = videoCaption?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !caption.isEmpty {
+            return caption
+        }
+        return desc
     }
 }

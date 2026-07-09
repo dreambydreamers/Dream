@@ -263,9 +263,10 @@
 				DEVELOPMENT_TEAM = 782VJ9SVA3;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSCameraUsageDescription = "Dream uses the camera so you can record a video of your dream.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Dream uses the camera so you can record photos and videos for your dream.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Dream uses the microphone to record sound for your dream video.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Dream saves videos to your photo library.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Dream uses your photo library so you can choose photos and videos for updates.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -299,9 +300,10 @@
 				DEVELOPMENT_TEAM = 782VJ9SVA3;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSCameraUsageDescription = "Dream uses the camera so you can record a video of your dream.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Dream uses the camera so you can record photos and videos for your dream.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Dream uses the microphone to record sound for your dream video.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Dream saves videos to your photo library.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Dream uses your photo library so you can choose photos and videos for updates.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

@@ -37,6 +37,9 @@ private struct MainShell: View {
     @State private var tabBarCollapsed = false
     /// Hides the tab bar while inside a pushed ChatScreen.
     @State private var tabBarHidden = false
+    /// Hides the tab bar while Explore search is focused so it never rides above
+    /// the keyboard.
+    @State private var exploreSearchFocused = false
     /// App-wide activity feed — drives the tab bar's unread badge and keeps it
     /// live over Realtime even when the user isn't on the Activity tab.
     @ObservedObject private var activity = ActivityRepository.shared
@@ -47,9 +50,9 @@ private struct MainShell: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             DreamTabBar(active: $activeTab, collapsed: $tabBarCollapsed, dark: activeTab == .discover, badgeCount: activity.unreadCount, onCreate: { Task { await handleCreateTap() } })
-                .offset(y: tabBarHidden ? 150 : 0)
-                .animation(.easeInOut(duration: 0.22), value: tabBarHidden)
-                .allowsHitTesting(!tabBarHidden)
+                .offset(y: shouldHideTabBar ? 150 : 0)
+                .animation(.easeInOut(duration: 0.22), value: shouldHideTabBar)
+                .allowsHitTesting(!shouldHideTabBar)
                 // Stay at the physical bottom when the keyboard opens (e.g. the
                 // Explore search) instead of riding up on top of it.
                 .ignoresSafeArea(.keyboard, edges: .bottom)
@@ -67,6 +70,9 @@ private struct MainShell: View {
         .task { await activity.start() }
         .onChange(of: activeTab) { _, tab in
             tabBarCollapsed = false
+            if tab != .explore {
+                exploreSearchFocused = false
+            }
             if tabBarHidden {
                 // Tab bar is hidden = user is inside a pushed screen (chat / dream detail).
                 // An accidental swipe to another tab would leave them stranded with no nav.
@@ -127,6 +133,10 @@ private struct MainShell: View {
         }
     }
 
+    private var shouldHideTabBar: Bool {
+        tabBarHidden || exploreSearchFocused
+    }
+
     private var publishedToast: some View {
         HStack(spacing: 10) {
             Image(systemName: "sparkles")
@@ -148,7 +158,7 @@ private struct MainShell: View {
         TabView(selection: $activeTab) {
             DiscoverScreen(tabBarCollapsed: $tabBarCollapsed, activeTab: $activeTab)
                 .tag(DreamTab.discover)
-            ExploreScreen()
+            ExploreScreen(isSearchFocused: $exploreSearchFocused)
                 .tag(DreamTab.explore)
             ActivityScreen(isTabBarHidden: $tabBarHidden)
                 .tag(DreamTab.activity)

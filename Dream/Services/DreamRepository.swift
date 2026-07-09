@@ -17,7 +17,7 @@ final class DreamRepository: ObservableObject {
     private enum Columns {
         static let dream = "id,owner_id,title,description,category,stage,location,help_tags,views_count,is_featured,created_at"
         static let profile = "id,handle,name,location,skills,avatar_seed,avatar_url"
-        static let dreamVideo = "id,dream_id,storage_path,poster_path,is_primary,title,created_at"
+        static let dreamVideo = "id,dream_id,storage_path,poster_path,is_primary,title,caption,created_at"
         static let dreamStats = "dream_id,supporters_count,offers_count"
         static let journeyStep = "id,dream_id,stage,date_label,note,done,sort_order"
     }
@@ -296,7 +296,8 @@ final class DreamRepository: ObservableObject {
             posterURL: posterURL,
             videoStoragePath: video?.storagePath,
             videoId: video?.id,
-            videoTitle: video?.title
+            videoTitle: video?.title,
+            videoCaption: video?.caption
         )
     }
 

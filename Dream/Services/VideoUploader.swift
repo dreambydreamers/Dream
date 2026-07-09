@@ -24,11 +24,13 @@ final class VideoUploader {
     ///   - markPrimary: whether to mark this as the primary/cover video
     ///   - title: optional per-video heading (used by "update" clips); the cover
     ///     video leaves this nil and inherits the dream's title in the feed.
+    ///   - caption: optional per-video caption used by Explore update details.
     func upload(
         localVideoURL: URL,
         dreamId: UUID,
         markPrimary: Bool = true,
-        title: String? = nil
+        title: String? = nil,
+        caption: String? = nil
     ) async throws -> UploadResult {
         guard let userId = try? await client.auth.session.user.id else {
             throw NSError(domain: "VideoUploader", code: 401,
@@ -91,7 +93,8 @@ final class VideoUploader {
             width: Int(size.width) > 0 ? Int(size.width) : nil,
             height: Int(size.height) > 0 ? Int(size.height) : nil,
             is_primary: markPrimary,
-            title: title
+            title: title,
+            caption: caption
         )
         _ = try await client.from("dream_videos").insert(payload).execute()
 

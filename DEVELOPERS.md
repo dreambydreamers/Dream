@@ -44,7 +44,7 @@ For backend work, create a Supabase project and apply the migrations in order:
 ```text
 supabase/migrations/0001_init.sql
 ...
-supabase/migrations/0019_security_hardening.sql
+supabase/migrations/0020_explore_photo_updates.sql
 ```
 
 Then update `Dream/Config/SupabaseConfig.swift` locally with your project URL and publishable key.
@@ -55,6 +55,7 @@ Storage buckets:
 |---|---|---|
 | `dream-videos` | Private | 500 MB |
 | `dream-posters` | Public | 5 MB |
+| `dream-images` | Public | 5 MB |
 | `avatars` | Public | 2 MB |
 
 Never commit service role keys, certificates, private keys, provisioning profiles, or local `.env` files. The `.gitignore` already blocks common secret files.
@@ -101,6 +102,7 @@ SourceKit and IDE diagnostics can be noisy in this repo, especially around SDK s
 | `Dream/DreamApp.swift` | App entry point and launch session restore. |
 | `Dream/RootView.swift` | Auth routing, tab shell, plus-button routing, global activity repository. |
 | `Dream/Screens/DiscoverScreen.swift` | Vertical video feed and feed presentations. |
+| `Dream/Screens/ExploreScreen.swift` | Real mixed-media Explore grid and media detail browsing. |
 | `Dream/Screens/ActivityScreen.swift` | Inbox, notifications, offers, and navigation into chat. |
 | `Dream/Screens/ChatScreen.swift` | Live 1:1 conversation surface. |
 | `Dream/Screens/ProfileScreen.swift` | User profile, dreams, updates, saved videos, avatar/edit flows. |
@@ -119,6 +121,8 @@ Read [AGENTS.md](AGENTS.md) before touching core app behavior. The most importan
 - `FeedVideoPreloader` owns signed URL caching, warm players, and feed pause/resume.
 - Screens covering Discover must pause and restore the feed correctly.
 - Help offers, in-app video shares, and system messages are created through Supabase RPCs.
+- Explore media comes from `ExploreMediaRepository`, merging `dream_videos` with `dream_photo_updates`.
+- Photo updates are uploaded through `DreamImageUploader` into `dream-images` as lowercased `{user_id}/{dream_id}/{media_id}.jpg` paths.
 - Direct chat inserts from the client are plain text only.
 - Storage paths must start with the lowercased user id.
 - Realtime reloads, read receipts, and typing broadcasts should stay debounced or throttled.

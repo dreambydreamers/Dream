@@ -60,6 +60,19 @@ enum DreamCategory: String, CaseIterable, Hashable {
         case .sport:     return .init(fg: .init(hex: 0x1A8588), bg: .init(hex: 0xC9E4E5), tint: .init(hex: 0xEBF6F6))
         }
     }
+
+    var emoji: String {
+        switch self {
+        case .tech:      return "💡"
+        case .food:      return "🍽️"
+        case .art:       return "🎨"
+        case .impact:    return "🌍"
+        case .education: return "📚"
+        case .health:    return "❤️"
+        case .music:     return "🎵"
+        case .sport:     return "⚡"
+        }
+    }
 }
 
 extension Color {
