@@ -130,6 +130,11 @@ Project ref `ohmtchfldrqobwrtyhmz`. MCP server configured in `.mcp.json` / `.cod
 - `0018_one_conversation_per_pair.sql` — **one conversation per user pair** (Instagram-style DMs): `get_or_create_direct_conversation(a,b)` helper (advisory-locked, internal-only), rewrites `create_help_offer` + `share_dream_video` to route through it, merges pre-existing duplicate threads (messages/offers/notifications moved to the oldest thread, read receipts merged), and retires `conversations.dream_id` (now always null).
 - `0019_security_hardening.sql` — tightens public/authenticated RLS: removes direct `help_offers` updates, limits broad read policies to authenticated users, restricts direct `messages` inserts to plain text only, adds a `profiles` update `WITH CHECK`, and adds private Realtime channel authorization for `conversation:<uuid>`.
 - `0020_explore_photo_updates.sql` — adds `dream_videos.caption`, creates `dream_photo_updates` with RLS + explicit authenticated Data API grants, and creates the public `dream-images` storage bucket with owner-only upload/delete policies.
+- `0021_help_types.sql` — canonical `help_type` enum (`code/design/funding/mentorship/marketing/legal/space/other`), `to_help_type(text)` normalizer, trigger-synced `dreams.help_types` (derived from free-text `help_tags`, GIN-indexed), and `supporter_profiles` (per-user help types offered, capacity, category interests, stage preferences; own-row RLS).
+- `0022_engagement.sql` — `engagement_events` log (view/watch_progress/complete/skip/offer_help/save/share/follow/not_relevant, generated `completion_ratio`), per-viewer `dream_seen` seen-set (TTL'd feed exclusion + dismissal), `dream_exposure_counters` (impressions/distinct_viewers/offers_received; trigger-maintained), and the `log_engagement_batch(jsonb)` ingestion RPC.
+- `0023_offer_lifecycle.sql` — connection-funnel instrumentation: `help_offers.accepted_at/completed_at` + `help_offer_events` transition log (offer_sent→accepted→conversation→support_delivered), trigger-driven.
+- `0024_feed_candidates.sql` — recommendation read RPCs (SECURITY INVOKER): `get_viewer_ranking_profile()` (capabilities + follows + viewer-local category affinity from own last-30d events) and `get_feed_candidates(limit, seen_ttl_days, underexposed_viewer_floor)` (multi-source CTE union — help-type match, skill overlap, category affinity, geo, followed, fresh, underexposed — with per-dream `sources[]` tags and exposure counters).
+- `0025_comments.sql` — `dream_comments` (per-dream, optional per-video; author-or-owner delete), `dream_comment_counts` view for feed badges, and a `comment` notification to the dream owner (trigger, skips self-comments).
 
 ### Tables (all have RLS enabled)
 - **`profiles`** (1:1 with `auth.users`, auto-created via `handle_new_user` trigger) — handle, name, avatar_seed, `avatar_url`, location, skills.
@@ -144,6 +149,9 @@ Project ref `ohmtchfldrqobwrtyhmz`. MCP server configured in `.mcp.json` / `.cod
 - **`messages`** — `conversation_id`, `sender_id`, `body`, `kind` (`text`/`system`/`dream_share`), optional `shared_dream_id` / `shared_video_id`, `created_at`. Client-side direct inserts are only for `kind = 'text'`; `system` and `dream_share` rows are created by RPCs/triggers.
 - **`notifications`** — per-user activity feed (`type`, `actor_id`, `dream_id`, `offer_id`, `conversation_id`, `preview`, `read_at`); the source of the tab-bar unread badge.
 - **`dream_stats`** (view) — derived supporters_count / offers_count. **`profile_stats`** (view) — videos/followers/following/offers counts.
+- **`supporter_profiles`** — what a user can offer (help_types[], weekly capacity, categories_of_interest, preferred_stages); own-row RLS; no UI yet (written via `RecommendationRepository.upsertSupporterProfile`).
+- **`engagement_events`** / **`dream_seen`** / **`dream_exposure_counters`** / **`help_offer_events`** — recommendation instrumentation (see "Recommendation system" below). Client writes go ONLY through `log_engagement_batch`.
+- **`dream_comments`** — comments on dreams (optional `video_id` for the specific clip). Insert as self only; delete by author or the dream's owner (moderation). Counts come from the `dream_comment_counts` view; the owner gets a `comment` notification. UI: `CommentsSheet` from the feed's comment button (`CommentRepository`).
 
 DB enum values are short lowercase forms: category `tech/food/art/impact/education/health/music/sport`; stage `idea/early/needs/almost`. **Always map through `DreamCategory.dbValue` / `DreamStage.dbValue`** — never send the human-readable `rawValue`.
 
@@ -223,6 +231,16 @@ Video is ~99% of the byte cost, so the rules here matter:
 - **Keep prefetch tight** (`[0, 1, -1]`) — each prefetched card eagerly buffers ~1 s of video.
 - **Queries:** prefer explicit column `select(...)` over bare `select()`, and add `.limit(...)` to single-entity fetches (`dreams(ownedBy:)`, `videos(forDream:)`). ⚠️ **Do not** put a blanket `.limit()` on the `.in(...)` fan-out queries in `DreamRepository.fetchContext` — one limit caps *total* rows across all dreams and silently drops feed cards.
 - **Poster loading:** use `PosterImage` for poster URLs so thumbnails share the in-memory cache and avoid duplicate network/image decode work.
+
+## Recommendation system (feed ranking)
+
+Two-sided matching, NOT an engagement feed: the success metric is successful connections (help offers → conversations → delivered support). Full tuning guide: `docs/RANKING_TUNING.md`.
+
+- **Pure ranker:** local Swift package `Packages/DreamRanking` (zero deps; `cd Packages/DreamRanking && swift test`). `DreamRanker.rank(candidates:viewer:config:now:seed:)` runs fairness pass → scoring → diversity assembly → reasons. Every weight lives in `RankingConfig`. `swift run ranking-demo <candidates.json> <profile.json>` prints a ranked feed from RPC output.
+- **Split of labor:** SQL (`get_feed_candidates`) generates ~300 multi-source candidates with exposure counters; ALL scoring happens on-device in the package. Add new candidate sources (e.g. embeddings) as another CTE in the RPC + a `CandidateSource` case — nothing else changes.
+- **App wiring (LIVE):** `FeatureFlags.rankedFeedEnabled` = true routes `DreamRepository.loadFeed()` → `loadRankedFeed()` → `FeedQueueService` (device-local ranked queue, refills below 20) → existing enrich pipeline, with a chronological fallback when the queue is empty. `EngagementLogger` batches events to `log_engagement_batch` (flush at 10 events / 15 s / background). DiscoverScreen logs: `view` once per dream per session (the virtual loop must NOT inflate impressions), watch-time on card change (< 3 s → `skip`, ≥ clip length → `complete`, else `watch_progress`), `save`/`follow`/`share`/`offer_help`/`comment` at their action sites, and `not_relevant` from the More menu ("Not interested" — hides the dream locally + dismisses server-side). Supporter capabilities ("How You Can Help" + "Interests") are captured in `EditProfileScreen` → `supporter_profiles`.
+- **Invariants (do not break):** (1) fairness slots (positions 2 & 7 per page) are filled by exposure deficit BEFORE scoring; (2) watch/skip signals shape only the watching viewer's own affinity — `DreamCandidate` deliberately carries no aggregate watch field, and `dream_seen` is one row per (user, dream) so repeat skips can't move global counters; (3) production quality (`hasVideo`) is never a ranking input.
+- **Seed/inspection:** `supabase/seed.sql` is **local-only** (writes `auth.users`; guarded). `supabase/queries/fairness_report.sql` reports exposure/offers per dream, zero-offer share after 30 d, and the offer funnel. `supabase/tests/ranking_test.sql` is the transactional pgTAP suite (safe on hosted — rolls back).
 
 ## Conventions
 

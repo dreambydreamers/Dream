@@ -25,6 +25,7 @@ struct ActivityNotification: Identifiable, Hashable {
         case "offer_completed":   return "flag.checkered"
         case "offer_cancelled":   return "slash.circle"
         case "new_message":       return "bubble.left.fill"
+        case "comment":           return "text.bubble.fill"
         default:                  return "bell.fill"
         }
     }

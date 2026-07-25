@@ -210,6 +210,7 @@ struct InAppShareSheet: View {
                     recipientId: profile.id,
                     note: note.trimmingCharacters(in: .whitespacesAndNewlines)
                 )
+                EngagementLogger.shared.log(.share, dreamId: dream.id)
                 sent.insert(profile.id)
                 let name = profile.name ?? profile.handle ?? "friend"
                 onSent(name)

@@ -1,0 +1,61 @@
+{
+  "": {
+    "swift-dependencies": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/primary.swiftdeps"
+  },
+  "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/DiversityReranker.swift": {
+    "dependencies": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/DiversityReranker.d",
+    "object": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/DiversityReranker.swift.o",
+    "swiftmodule": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/DiversityReranker~partial.swiftmodule",
+    "swift-dependencies": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/DiversityReranker.swiftdeps",
+    "diagnostics": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/DiversityReranker.dia"
+  },
+  "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/DreamRanker.swift": {
+    "dependencies": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/DreamRanker.d",
+    "object": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/DreamRanker.swift.o",
+    "swiftmodule": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/DreamRanker~partial.swiftmodule",
+    "swift-dependencies": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/DreamRanker.swiftdeps",
+    "diagnostics": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/DreamRanker.dia"
+  },
+  "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/FairnessPass.swift": {
+    "dependencies": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/FairnessPass.d",
+    "object": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/FairnessPass.swift.o",
+    "swiftmodule": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/FairnessPass~partial.swiftmodule",
+    "swift-dependencies": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/FairnessPass.swiftdeps",
+    "diagnostics": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/FairnessPass.dia"
+  },
+  "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/HelpType.swift": {
+    "dependencies": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/HelpType.d",
+    "object": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/HelpType.swift.o",
+    "swiftmodule": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/HelpType~partial.swiftmodule",
+    "swift-dependencies": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/HelpType.swiftdeps",
+    "diagnostics": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/HelpType.dia"
+  },
+  "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/Models.swift": {
+    "dependencies": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/Models.d",
+    "object": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/Models.swift.o",
+    "swiftmodule": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/Models~partial.swiftmodule",
+    "swift-dependencies": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/Models.swiftdeps",
+    "diagnostics": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/Models.dia"
+  },
+  "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/RankingConfig.swift": {
+    "dependencies": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/RankingConfig.d",
+    "object": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/RankingConfig.swift.o",
+    "swiftmodule": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/RankingConfig~partial.swiftmodule",
+    "swift-dependencies": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/RankingConfig.swiftdeps",
+    "diagnostics": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/RankingConfig.dia"
+  },
+  "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/Reasons.swift": {
+    "dependencies": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/Reasons.d",
+    "object": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/Reasons.swift.o",
+    "swiftmodule": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/Reasons~partial.swiftmodule",
+    "swift-dependencies": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/Reasons.swiftdeps",
+    "diagnostics": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/Reasons.dia"
+  },
+  "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/Scoring.swift": {
+    "dependencies": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/Scoring.d",
+    "object": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/Scoring.swift.o",
+    "swiftmodule": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/Scoring~partial.swiftmodule",
+    "swift-dependencies": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/Scoring.swiftdeps",
+    "diagnostics": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/Scoring.dia"
+  }
+}

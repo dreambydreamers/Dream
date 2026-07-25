@@ -15,6 +15,18 @@ struct DiscoverScreen: View {
     @State private var presentedDream: Dream?
     @State private var helpForDream: Dream?
     @State private var shareDream: Dream?
+    @State private var commentsForDream: Dream?
+    /// Live comment counts (updated by CommentsSheet) layered over the counts
+    /// loaded with the feed.
+    @State private var commentCountOverrides: [UUID: Int] = [:]
+    /// Watch-time tracking for the engagement log: which card is being
+    /// watched and since when. Finalized into skip/watch_progress/complete
+    /// when the card changes or the feed disappears.
+    @State private var watchedDream: Dream?
+    @State private var watchStartedAt: Date?
+    /// One `view` (impression) per dream per feed session — the virtual loop
+    /// re-shows the same cards, which must not inflate exposure counters.
+    @State private var viewLoggedDreams: Set<UUID> = []
     @State private var profileForUser: UUID?
     @State private var isMuted: Bool = false
     @StateObject private var videoActions = VideoActionsModel()
@@ -114,6 +126,7 @@ struct DiscoverScreen: View {
         }
         .onDisappear {
             FeedVideoPreloader.shared.feedActiveID = nil
+            finalizeWatch()
         }
         .fullScreenCover(item: $presentedDream, onDismiss: restoreFeedAfterPresentation) { d in
             DreamDetailScreen(dream: d, onBack: { presentedDream = nil })
@@ -133,6 +146,15 @@ struct DiscoverScreen: View {
         .fullScreenCover(item: $profileForUser, onDismiss: restoreFeedAfterPresentation) { userId in
             ProfileScreen(userId: userId, onBack: { profileForUser = nil })
         }
+        .sheet(item: $commentsForDream, onDismiss: restoreFeedAfterPresentation) { d in
+            CommentsSheet(
+                dream: d,
+                onClose: { commentsForDream = nil },
+                onCountChanged: { commentCountOverrides[d.id] = $0 }
+            )
+            .presentationDetents([.medium, .large])
+            .pausesDiscoverFeed()
+        }
         .videoActions(videoActions)
         .confirmationDialog("", isPresented: Binding(
             get: { moreMenuDream != nil },
@@ -144,6 +166,11 @@ struct DiscoverScreen: View {
                 }
                 Button("Share outside Dream") {
                     videoActions.share(storagePath: d.videoStoragePath)
+                }
+                if !isOwnDream(d) {
+                    Button("Not interested", role: .destructive) {
+                        markNotRelevant(d)
+                    }
                 }
                 Button("Cancel", role: .cancel) { }
             }
@@ -171,6 +198,59 @@ struct DiscoverScreen: View {
         guard !dreams.isEmpty else { return }
         FeedVideoPreloader.shared.feedActiveID = currentFeedID
         FeedVideoPreloader.shared.feedMuted = isMuted
+        trackWatch()
+    }
+
+    // MARK: - Engagement tracking
+
+    /// Starts the watch clock for the newly-centered card and logs its
+    /// impression. Called from every activation path (appear, slot change,
+    /// feed reload); no-ops while the same card stays centered.
+    private func trackWatch() {
+        guard !dreams.isEmpty else { return }
+        let d = dream
+        guard watchedDream?.feedID != d.feedID else { return }
+        finalizeWatch()
+        watchedDream = d
+        watchStartedAt = Date()
+        if !viewLoggedDreams.contains(d.id) {
+            viewLoggedDreams.insert(d.id)
+            EngagementLogger.shared.log(.view, dreamId: d.id)
+        }
+    }
+
+    /// Classifies the finished watch: under 3 s is a skip ("wrong viewer" —
+    /// this only tunes the watcher's own profile), a full clip length is a
+    /// complete, anything else is watch progress.
+    private func finalizeWatch() {
+        guard let d = watchedDream, let start = watchStartedAt else { return }
+        watchedDream = nil
+        watchStartedAt = nil
+        let elapsedMs = Int(Date().timeIntervalSince(start) * 1000)
+        guard elapsedMs >= 500 else { return } // transition noise
+        let duration = d.videoDurationMs
+        if let duration, duration > 0, elapsedMs >= duration {
+            EngagementLogger.shared.log(.complete, dreamId: d.id,
+                                        watchMs: duration, videoDurationMs: duration)
+        } else if elapsedMs < 3_000 {
+            EngagementLogger.shared.log(.skip, dreamId: d.id,
+                                        watchMs: elapsedMs, videoDurationMs: duration)
+        } else {
+            EngagementLogger.shared.log(.watchProgress, dreamId: d.id,
+                                        watchMs: elapsedMs, videoDurationMs: duration)
+        }
+    }
+
+    /// "Not interested": dismisses the dream for this viewer server-side (via
+    /// the not_relevant event) and removes its cards from the current feed.
+    private func markNotRelevant(_ d: Dream) {
+        if watchedDream?.id == d.id {
+            watchedDream = nil
+            watchStartedAt = nil
+        }
+        EngagementLogger.shared.log(.notRelevant, dreamId: d.id)
+        repo.hideDream(d.id)
+        Task { await EngagementLogger.shared.flush() }
     }
 
     private func dreamIndex(forSlot slot: Int) -> Int {
@@ -465,6 +545,9 @@ struct DiscoverScreen: View {
             ActionButton(systemImage: "heart.fill", label: "I can help") {
                 helpForDream = d
             }
+            ActionButton(systemImage: "bubble.right.fill", label: commentLabel(for: d)) {
+                commentsForDream = d
+            }
             ActionButton(systemImage: "paperplane.fill", label: "Send") {
                 shareDream = d
             }
@@ -473,7 +556,11 @@ struct DiscoverScreen: View {
                 label: savedStore.isSaved(d.feedID) ? "Saved" : "Save"
             ) {
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                let wasSaved = savedStore.isSaved(d.feedID)
                 savedStore.toggle(d.feedID)
+                if !wasSaved {
+                    EngagementLogger.shared.log(.save, dreamId: d.id)
+                }
             }
             ActionButton(systemImage: "ellipsis", label: "More") {
                 moreMenuDream = d
@@ -517,6 +604,11 @@ struct DiscoverScreen: View {
         auth.userId == d.ownerId
     }
 
+    private func commentLabel(for d: Dream) -> String {
+        let count = commentCountOverrides[d.id] ?? d.comments
+        return count > 0 ? "\(count)" : "Comment"
+    }
+
     private func isFollowingOwner(_ d: Dream) -> Bool {
         followedOwners.contains(d.ownerId)
     }
@@ -549,6 +641,7 @@ struct DiscoverScreen: View {
                     try await ProfileRepository.shared.unfollow(ownerId)
                 } else {
                     try await ProfileRepository.shared.follow(ownerId)
+                    EngagementLogger.shared.log(.follow, dreamId: d.id)
                 }
             } catch {
                 if wasFollowing { followedOwners.insert(ownerId) } else { followedOwners.remove(ownerId) }

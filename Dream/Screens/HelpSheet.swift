@@ -121,6 +121,7 @@ struct HelpSheet: View {
                 dreamId: dream.id,
                 skill: selected?.skill ?? "Other",
                 message: composedMessage)
+            EngagementLogger.shared.log(.offerHelp, dreamId: dream.id)
             onClose()
         } catch {
             sendError = "Couldn't send your offer. Please try again."
