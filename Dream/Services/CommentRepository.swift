@@ -21,12 +21,18 @@ struct DreamCommentDTO: Codable, Hashable {
     }
 }
 
+/// One row per comment thread. `threadId` = video_id when the thread belongs
+/// to a specific clip, else the dream id — the same key as `Dream.feedID`.
 struct DreamCommentCountDTO: Codable, Hashable {
     let dreamId: UUID
+    let videoId: UUID?
+    let threadId: UUID
     let commentsCount: Int
 
     enum CodingKeys: String, CodingKey {
         case dreamId = "dream_id"
+        case videoId = "video_id"
+        case threadId = "thread_id"
         case commentsCount = "comments_count"
     }
 }
@@ -57,16 +63,23 @@ final class CommentRepository: ObservableObject {
     private enum Columns {
         static let comment = "id,dream_id,video_id,user_id,body,created_at"
         static let profile = "id,handle,name,location,skills,avatar_seed,avatar_url"
-        static let count = "dream_id,comments_count"
+        static let count = "dream_id,video_id,thread_id,comments_count"
     }
 
-    /// Oldest-first thread for a dream, with author profiles resolved.
-    func comments(forDream dreamId: UUID, limit: Int = 200) async -> [DreamComment] {
+    /// Oldest-first thread for one feed card, with author profiles resolved.
+    /// Threads are per-update: pass the card's `videoId` to get that clip's
+    /// own thread. `nil` (videoless gradient card) fetches the dream-level
+    /// thread — such dreams have no clips, so all their comments live there.
+    func comments(forDream dreamId: UUID, videoId: UUID?, limit: Int = 200) async -> [DreamComment] {
         do {
-            let rows: [DreamCommentDTO] = try await client
+            var query = client
                 .from("dream_comments")
                 .select(Columns.comment)
                 .eq("dream_id", value: dreamId)
+            if let videoId {
+                query = query.eq("video_id", value: videoId)
+            }
+            let rows: [DreamCommentDTO] = try await query
                 .order("created_at", ascending: true)
                 .limit(limit)
                 .execute()
@@ -132,7 +145,9 @@ final class CommentRepository: ObservableObject {
             .execute()
     }
 
-    /// Comment counts for a batch of dreams (feed badges).
+    /// Per-thread comment counts for a batch of dreams, keyed by thread id
+    /// (`video_id` for clip threads, dream id for videoless dreams — matches
+    /// `Dream.feedID`).
     func counts(forDreams dreamIds: [UUID]) async -> [UUID: Int] {
         guard !dreamIds.isEmpty else { return [:] }
         do {
@@ -142,7 +157,7 @@ final class CommentRepository: ObservableObject {
                 .in("dream_id", values: dreamIds)
                 .execute()
                 .value
-            return Dictionary(rows.map { ($0.dreamId, $0.commentsCount) }, uniquingKeysWith: { a, _ in a })
+            return Dictionary(rows.map { ($0.threadId, $0.commentsCount) }, uniquingKeysWith: { a, _ in a })
         } catch {
             print("[CommentRepository] counts(forDreams:) failed: \(error)")
             return [:]

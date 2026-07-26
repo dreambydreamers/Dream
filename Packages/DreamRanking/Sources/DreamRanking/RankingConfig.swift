@@ -90,5 +90,27 @@ public struct RankingConfig: Sendable, Equatable {
 
     public init() {}
 
+    /// Discover: capability-matching-first. "Which dream can THIS person
+    /// actually help" dominates every other signal.
     public static let `default` = RankingConfig()
+
+    /// Explore: browsing-first. Recency and the viewer's interests lead,
+    /// capability matching stays present but no longer dominates, and the
+    /// seen-set is NOT applied (`seenTTLDays = 0` — everything stays
+    /// browsable; only "Not interested" dismissals are excluded, which the
+    /// candidates RPC enforces regardless of TTL).
+    ///
+    /// Fairness is deliberately untouched: the exposure floor, fairness
+    /// slots, and under-served boost run at full strength on every surface.
+    public static let explore: RankingConfig = {
+        var config = RankingConfig()
+        config.helpTypeMatchWeight = 1.5     // matching present, not dominant
+        config.skillOverlapWeight = 1.0
+        config.categoryAffinityWeight = 2.0  // interest-driven browsing
+        config.declaredInterestAffinity = 0.9
+        config.recencyMaxBonus = 2.0         // fresh-first character
+        config.recencyHalfLifeHours = 96
+        config.seenTTLDays = 0
+        return config
+    }()
 }

@@ -40,6 +40,16 @@ struct EngagementEventPayload: Codable, Hashable {
     }
 }
 
+/// Minimal projection of the viewer's own `dream_seen` rows (RLS-scoped).
+/// Used for seen-aware clip selection and dismissed-dream filtering.
+struct SeenDreamRow: Codable, Hashable {
+    let dreamId: UUID
+
+    enum CodingKeys: String, CodingKey {
+        case dreamId = "dream_id"
+    }
+}
+
 // MARK: - Viewer ranking profile (RPC get_viewer_ranking_profile)
 
 struct ViewerRankingProfileDTO: Codable {

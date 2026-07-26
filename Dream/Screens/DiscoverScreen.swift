@@ -17,7 +17,7 @@ struct DiscoverScreen: View {
     @State private var shareDream: Dream?
     @State private var commentsForDream: Dream?
     /// Live comment counts (updated by CommentsSheet) layered over the counts
-    /// loaded with the feed.
+    /// loaded with the feed. Keyed by `feedID` — threads are per-update.
     @State private var commentCountOverrides: [UUID: Int] = [:]
     /// Watch-time tracking for the engagement log: which card is being
     /// watched and since when. Finalized into skip/watch_progress/complete
@@ -150,7 +150,7 @@ struct DiscoverScreen: View {
             CommentsSheet(
                 dream: d,
                 onClose: { commentsForDream = nil },
-                onCountChanged: { commentCountOverrides[d.id] = $0 }
+                onCountChanged: { commentCountOverrides[d.feedID] = $0 }
             )
             .presentationDetents([.medium, .large])
             .pausesDiscoverFeed()
@@ -605,7 +605,7 @@ struct DiscoverScreen: View {
     }
 
     private func commentLabel(for d: Dream) -> String {
-        let count = commentCountOverrides[d.id] ?? d.comments
+        let count = commentCountOverrides[d.feedID] ?? d.comments
         return count > 0 ? "\(count)" : "Comment"
     }
 

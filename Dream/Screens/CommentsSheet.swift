@@ -1,7 +1,9 @@
 import SwiftUI
 
-/// Comment thread for a feed card. Presented as a sheet from Discover; posts
-/// as the signed-in user and lets authors (or the dream owner) delete.
+/// Comment thread for one feed card. Threads are per-update: each clip
+/// (cover or update video) owns its own comment section, keyed by the card's
+/// `videoId` (videoless dreams use a dream-level thread). Posts as the
+/// signed-in user; authors (or the dream owner) can delete.
 struct CommentsSheet: View {
     let dream: Dream
     var onClose: () -> Void = {}
@@ -42,7 +44,8 @@ struct CommentsSheet: View {
         .background(DreamTheme.paper)
         .keyboardDoneButton()
         .task {
-            comments = await CommentRepository.shared.comments(forDream: dream.id)
+            comments = await CommentRepository.shared.comments(
+                forDream: dream.id, videoId: dream.videoId)
             isLoading = false
         }
     }

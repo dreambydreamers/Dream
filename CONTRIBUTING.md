@@ -7,6 +7,7 @@ This guide covers contribution flow. For local setup, build commands, backend no
 ## Ways To Help
 
 - iOS product work: SwiftUI screens, interaction design, navigation, accessibility, performance.
+- Recommendation work: ranking heuristics, fairness metrics, weight tuning against the fairness report (`docs/RANKING_TUNING.md`, `Packages/DreamRanking`).
 - Media work: capture, upload, transcoding, playback, signed URL caching, poster rendering.
 - Supabase work: migrations, RLS policies, RPC workflows, Realtime, search, storage.
 - Design work: flows, visual polish, iconography, empty states, motion, accessibility.
@@ -65,6 +66,7 @@ Pull requests should include:
 Before requesting review:
 
 - The app builds with `xcodebuild -project Dream.xcodeproj -scheme Dream`.
+- Ranking changes pass `swift test` in `Packages/DreamRanking` — the fairness and viewer-isolation tests are non-negotiable.
 - UI changes have simulator screenshots.
 - Supabase changes include migrations and relevant docs updates.
 - No service role keys, private keys, certificates, profiles, or local `.env` files are committed.

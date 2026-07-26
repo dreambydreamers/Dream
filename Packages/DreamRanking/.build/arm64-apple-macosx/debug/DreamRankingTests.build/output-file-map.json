@@ -16,6 +16,13 @@
     "swift-dependencies": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/DiversityTests.swiftdeps",
     "diagnostics": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/DiversityTests.dia"
   },
+  "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/ExploreConfigTests.swift": {
+    "dependencies": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/ExploreConfigTests.d",
+    "object": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/ExploreConfigTests.swift.o",
+    "swiftmodule": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/ExploreConfigTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/ExploreConfigTests.swiftdeps",
+    "diagnostics": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/ExploreConfigTests.dia"
+  },
   "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/FairnessSlotTests.swift": {
     "dependencies": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/FairnessSlotTests.d",
     "object": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/FairnessSlotTests.swift.o",

@@ -292,6 +292,10 @@
         },
         {
           "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/ExploreConfigTests.swift"
+        },
+        {
+          "kind" : "file",
           "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/FairnessSlotTests.swift"
         },
         {
@@ -333,6 +337,7 @@
       "objects" : [
         "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/CandidateFilterTests.swift.o",
         "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/DiversityTests.swift.o",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/ExploreConfigTests.swift.o",
         "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/FairnessSlotTests.swift.o",
         "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/ScoringTests.swift.o",
         "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/SevenDaySimulationTests.swift.o",
@@ -400,6 +405,10 @@
         },
         {
           "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/ExploreConfigTests.swift.o"
+        },
+        {
+          "kind" : "file",
           "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/FairnessSlotTests.swift.o"
         },
         {
@@ -431,6 +440,7 @@
       "sources" : [
         "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/CandidateFilterTests.swift",
         "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/DiversityTests.swift",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/ExploreConfigTests.swift",
         "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/FairnessSlotTests.swift",
         "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/ScoringTests.swift",
         "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/SevenDaySimulationTests.swift",
@@ -677,6 +687,7 @@
       "-c",
       "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/CandidateFilterTests.swift",
       "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/DiversityTests.swift",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/ExploreConfigTests.swift",
       "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/FairnessSlotTests.swift",
       "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/ScoringTests.swift",
       "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/SevenDaySimulationTests.swift",
@@ -941,6 +952,10 @@
         },
         {
           "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/ExploreConfigTests.swift.o"
+        },
+        {
+          "kind" : "file",
           "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/FairnessSlotTests.swift.o"
         },
         {
@@ -980,6 +995,10 @@
         {
           "kind" : "file",
           "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/DiversityTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/ExploreConfigTests.swift"
         },
         {
           "kind" : "file",

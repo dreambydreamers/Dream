@@ -9,6 +9,23 @@ All weights live in one struct: `Packages/DreamRanking/Sources/DreamRanking/Rank
 The pipeline: candidate generation (SQL, `get_feed_candidates`) → **fairness
 pass** → scoring → diversity assembly → reasons (`DreamRanker.rank`, pure Swift).
 
+## Presets: which surface uses which config
+
+| Surface | Preset | Character |
+|---|---|---|
+| Discover (vertical feed) | `RankingConfig.default` | Capability-matching-first: help-type overlap (3.0) dominates. Seen dreams excluded for `seenTTLDays` = 14. |
+| Explore (grid) | `RankingConfig.explore` | Browsing-first: recency (2.0, 96 h half-life) and category affinity (2.0) lead; help-type drops to 1.5 but stays present. `seenTTLDays` = 0 — everything stays browsable; only "Not interested" dismissals are hidden. |
+
+Fairness (exposure floor, reserved slots, under-served boost) and diversity run
+at **full, identical strength in both presets** — Explore is not allowed to be
+an engagement feed either. `ExploreConfigTests` pins the character difference:
+the same candidate pairs must invert their ordering between the presets.
+
+Related surface behavior (not a config knob): Discover's ranked cards are
+seen-aware — a dream's first impression leads with its cover clip (the pitch);
+when a previously-seen dream re-enters the queue it leads with its newest clip
+instead (`DreamRepository.loadRankedFeed`).
+
 ## Two invariants you must NOT tune away
 
 1. **Fairness slots come before scoring.** Positions 2 and 7 of every page are
@@ -79,7 +96,10 @@ Score = sum of the components below. With defaults, a strong capability match
    and the invariant tests must stay green.
 3. Seed a local stack (`supabase db reset`, runs `supabase/seed.sql`) and
    inspect candidates/ranked output for a few personas (funding-only backer,
-   coder, local supporter).
+   coder, local supporter). To eyeball a full ranked feed with reasons, dump
+   the `get_feed_candidates` / `get_viewer_ranking_profile` JSON for a persona
+   and run it through the CLI:
+   `cd Packages/DreamRanking && swift run ranking-demo candidates.json profile.json`.
 4. In production, watch `fairness_report.sql` section 2: the share of 30-day
    dreams with zero offers is the number this system exists to shrink; section
    4's funnel conversion tells you whether matches were real. If zero-offer

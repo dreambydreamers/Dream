@@ -18,7 +18,7 @@ final class DreamRepository: ObservableObject {
         static let dream = "id,owner_id,title,description,category,stage,location,help_tags,views_count,is_featured,created_at"
         static let profile = "id,handle,name,location,skills,avatar_seed,avatar_url"
         static let dreamVideo = "id,dream_id,storage_path,poster_path,duration_ms,is_primary,title,caption,created_at"
-        static let commentCount = "dream_id,comments_count"
+        static let commentCount = "dream_id,video_id,thread_id,comments_count"
         static let dreamStats = "dream_id,supporters_count,offers_count"
         static let journeyStep = "id,dream_id,stage,date_label,note,done,sort_order"
     }
@@ -60,8 +60,9 @@ final class DreamRepository: ObservableObject {
     /// Ranked (recommendation) path: dream ids come from the precomputed
     /// per-viewer queue (FeedQueueService → DreamRanking), rows are enriched
     /// through the existing pipeline, and the queue's order is preserved —
-    /// one card per dream, its primary video. Reachable only behind
-    /// `FeatureFlags.rankedFeedEnabled`.
+    /// one card per dream. The clip is seen-aware: a first encounter leads
+    /// with the cover (the pitch); a returning viewer gets the newest clip
+    /// (what's new since). Reachable only behind `FeatureFlags.rankedFeedEnabled`.
     func loadRankedFeed() async {
         isLoading = true
         defer { isLoading = false }
@@ -73,14 +74,37 @@ final class DreamRepository: ObservableObject {
                 return
             }
             let ids = entries.map(\.id)
-            let dreamRows: [DreamDTO] = try await client
+            async let dreamRowsFetch: [DreamDTO] = client
                 .from("dreams")
                 .select(Columns.dream)
                 .in("id", values: ids)
                 .execute()
                 .value
+            // RLS scopes dream_seen to the viewer's own rows.
+            async let seenRowsFetch: [SeenDreamRow] = client
+                .from("dream_seen")
+                .select("dream_id")
+                .in("dream_id", values: ids)
+                .execute()
+                .value
+            let (dreamRows, seenRows) = try await (dreamRowsFetch, seenRowsFetch)
+            let seenIds = Set(seenRows.map(\.dreamId))
 
-            let enriched = try await enrich(dreamRows)
+            let ctx = try await fetchContext(dreamRows)
+            let enriched = dreamRows.map { row -> Dream in
+                let videos = ctx.videosByDream[row.id] ?? []
+                let video = seenIds.contains(row.id)
+                    ? videos.max(by: { $0.createdAt < $1.createdAt }) // newest clip
+                    : videos.first                                    // primary (cover) first
+                return Self.mapToDream(
+                    row: row,
+                    profile: ctx.profileByOwner[row.ownerId],
+                    stats: ctx.statsByDream[row.id],
+                    video: video,
+                    steps: ctx.stepsByDream[row.id] ?? [],
+                    comments: ctx.commentsByThread[video?.id ?? row.id] ?? 0
+                )
+            }
             let byId = Dictionary(enriched.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
             self.dreams = ids.compactMap { byId[$0] }
         } catch {
@@ -121,7 +145,9 @@ final class DreamRepository: ObservableObject {
         let statsByDream: [UUID: DreamStatsDTO]
         let videosByDream: [UUID: [DreamVideoDTO]]   // primary first, then newest
         let stepsByDream: [UUID: [JourneyStepDTO]]
-        let commentsByDream: [UUID: Int]
+        /// Per-thread comment counts, keyed like `Dream.feedID`
+        /// (video id for clip threads, dream id for videoless dreams).
+        let commentsByThread: [UUID: Int]
     }
 
     /// Fetches author profiles, stats, *all* videos and journey steps for a set
@@ -154,7 +180,7 @@ final class DreamRepository: ObservableObject {
             statsByDream: Dictionary(s.map { ($0.dreamId, $0) }, uniquingKeysWith: { a, _ in a }),
             videosByDream: Dictionary(grouping: v, by: \.dreamId),
             stepsByDream: Dictionary(grouping: j, by: \.dreamId),
-            commentsByDream: Dictionary(c.map { ($0.dreamId, $0.commentsCount) }, uniquingKeysWith: { a, _ in a })
+            commentsByThread: Dictionary(c.map { ($0.threadId, $0.commentsCount) }, uniquingKeysWith: { a, _ in a })
         )
     }
 
@@ -164,13 +190,14 @@ final class DreamRepository: ObservableObject {
         guard !dreamRows.isEmpty else { return [] }
         let ctx = try await fetchContext(dreamRows)
         return dreamRows.map { row in
-            Self.mapToDream(
+            let video = ctx.videosByDream[row.id]?.first   // primary first
+            return Self.mapToDream(
                 row: row,
                 profile: ctx.profileByOwner[row.ownerId],
                 stats: ctx.statsByDream[row.id],
-                video: ctx.videosByDream[row.id]?.first,   // primary first
+                video: video,
                 steps: ctx.stepsByDream[row.id] ?? [],
-                comments: ctx.commentsByDream[row.id] ?? 0
+                comments: ctx.commentsByThread[video?.id ?? row.id] ?? 0
             )
         }
     }
@@ -190,14 +217,16 @@ final class DreamRepository: ObservableObject {
             let steps = ctx.stepsByDream[row.id] ?? []
             let videos = ctx.videosByDream[row.id] ?? []
 
-            let comments = ctx.commentsByDream[row.id] ?? 0
             if videos.isEmpty {
                 cards.append((row.createdAt,
-                              Self.mapToDream(row: row, profile: profile, stats: stats, video: nil, steps: steps, comments: comments)))
+                              Self.mapToDream(row: row, profile: profile, stats: stats, video: nil, steps: steps,
+                                              comments: ctx.commentsByThread[row.id] ?? 0)))
             } else {
                 for video in videos {
+                    // Each clip carries its own comment thread.
                     cards.append((video.createdAt,
-                                  Self.mapToDream(row: row, profile: profile, stats: stats, video: video, steps: steps, comments: comments)))
+                                  Self.mapToDream(row: row, profile: profile, stats: stats, video: video, steps: steps,
+                                                  comments: ctx.commentsByThread[video.id] ?? 0)))
                 }
             }
         }
