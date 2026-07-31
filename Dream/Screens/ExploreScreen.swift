@@ -49,7 +49,7 @@ struct ExploreScreen: View {
         .onPreferenceChange(ExploreHeaderHeightKey.self) { height in
             headerHeight = max(height, 178)
         }
-        .task { await mediaRepo.loadRecent() }
+        .task { await mediaRepo.loadFeed() }
         .onChange(of: searchText) { _, new in searchRepo.search(new) }
         .onChange(of: searchFieldFocused) { _, focused in isSearchFocused = focused }
         .onDisappear { isSearchFocused = false }
@@ -348,6 +348,10 @@ struct ExploreMediaDetailSheet: View {
     @State private var externalShareItem: ShareItem?
     @State private var shareToast: String?
     @State private var shareToastTask: Task<Void, Never>?
+    /// One `view` impression per dream per sheet presentation. Grid
+    /// thumbnails deliberately don't log — only the full-screen viewer counts
+    /// as exposure.
+    @State private var loggedViewDreams: Set<UUID> = []
 
     init(
         initialItem: ExploreMediaItem,
@@ -380,6 +384,8 @@ struct ExploreMediaDetailSheet: View {
         }
         .ignoresSafeArea()
         .statusBarHidden(currentItem.kind == .video)
+        .onAppear { logView(currentItem) }
+        .onChange(of: currentItem.id) { _, _ in logView(currentItem) }
         .videoActions(videoActions)
         .sheet(item: $helpDream) { dream in
             HelpSheet(dream: dream, onClose: { helpDream = nil })
@@ -691,6 +697,12 @@ struct ExploreMediaDetailSheet: View {
 
     private func help(_ item: ExploreMediaItem) {
         helpDream = item.dream
+    }
+
+    private func logView(_ item: ExploreMediaItem) {
+        guard !loggedViewDreams.contains(item.dreamId) else { return }
+        loggedViewDreams.insert(item.dreamId)
+        EngagementLogger.shared.log(.view, dreamId: item.dreamId)
     }
 
     private func share(_ item: ExploreMediaItem) {

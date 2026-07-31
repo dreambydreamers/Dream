@@ -44,10 +44,12 @@ For backend work, create a Supabase project and apply the migrations in order:
 ```text
 supabase/migrations/0001_init.sql
 ...
-supabase/migrations/0020_explore_photo_updates.sql
+supabase/migrations/0027_comments_cascade_with_clip.sql
 ```
 
 Then update `Dream/Config/SupabaseConfig.swift` locally with your project URL and publishable key.
+
+For a local stack (`supabase start`), `supabase db reset` applies all migrations and then `supabase/seed.sql`, which creates 30 fake supporters and 60 dreams shaped for inspecting the recommendation feed (seed users sign in with password `password123`). The seed refuses to run against a database with real users — never point it at a hosted project.
 
 Storage buckets:
 
@@ -78,9 +80,20 @@ xcodebuild -project Dream.xcodeproj -scheme Dream \
 
 If you build in Xcode, select the `Dream` scheme and a concrete iPhone simulator.
 
-## Launch And Verify
+## Test And Verify
 
-There is no test suite yet. The current verification loop is build, launch, and screenshot.
+Three layers of verification:
+
+**1. Ranking tests** — the recommendation ranker is a pure Swift package with a real test suite (scoring, fairness, diversity, viewer isolation, and a 7-day feed simulation through the production serving path):
+
+```bash
+cd Packages/DreamRanking
+swift test
+```
+
+**2. Backend tests** — transactional pgTAP suites in `supabase/tests/` (`messaging_test.sql`, `ranking_test.sql`, `comments_test.sql`). Each runs inside one transaction and rolls back, so they are safe against a live project. Run them via psql or the Supabase MCP `execute_sql` tool; the final row must report `failures = 0`.
+
+**3. App UI** — there is no XCTest target for the app itself; the loop is build, launch, and screenshot.
 
 ```bash
 SIM=<simulator-udid>
@@ -109,7 +122,10 @@ SourceKit and IDE diagnostics can be noisy in this repo, especially around SDK s
 | `Dream/Components` | Shared UI, feed media, compose pieces, tab bar, sharing, navigation helpers. |
 | `Dream/Services` | Supabase repositories, auth, messaging, media upload/export/transcode, video preloader. |
 | `Dream/Theme/DreamTheme.swift` | App colors, typography, categories, and stage presentation. |
-| `supabase/migrations` | Database schema, storage, RLS, functions, search, Realtime policies. |
+| `Packages/DreamRanking` | Pure recommendation ranker: models, `RankingConfig` presets, pipeline, tests, simulation, `ranking-demo` CLI. |
+| `supabase/migrations` | Database schema, storage, RLS, functions, search, Realtime policies, recommendation instrumentation. |
+| `supabase/tests` | Transactional pgTAP suites for messaging, ranking, and comments. |
+| `docs/RANKING_TUNING.md` | What every ranking weight does and how to evaluate changes. |
 
 ## Development Notes
 
@@ -126,6 +142,9 @@ Read [AGENTS.md](AGENTS.md) before touching core app behavior. The most importan
 - Direct chat inserts from the client are plain text only.
 - Storage paths must start with the lowercased user id.
 - Realtime reloads, read receipts, and typing broadcasts should stay debounced or throttled.
+- All ranking logic lives in `Packages/DreamRanking`; repositories only move data. Two fairness invariants must never be broken: fairness slots are filled by exposure deficit before scoring, and watch/skip signals shape only the watching viewer's own profile.
+- Engagement writes go only through the `log_engagement_batch` RPC (`EngagementLogger`), never direct table inserts.
+- Comment threads are per-clip: keyed by `coalesce(video_id, dream_id)` = `Dream.feedID`, and they cascade-delete with the clip.
 
 ## Pull Request Preflight
 
@@ -136,6 +155,9 @@ xcodebuild -project Dream.xcodeproj -scheme Dream \
   -destination "id=$SIM" \
   -derivedDataPath DerivedData \
   build
+
+# If you touched ranking code:
+cd Packages/DreamRanking && swift test
 ```
 
 Then include:

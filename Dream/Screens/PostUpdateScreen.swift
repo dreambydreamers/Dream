@@ -233,7 +233,7 @@ struct PostUpdateScreen: View {
             case nil:
                 return
             }
-            await ExploreMediaRepository.shared.loadRecent()
+            await ExploreMediaRepository.shared.loadFeed()
             onPosted()
         } catch {
             postError = "Couldn't post your update. Please try again."

@@ -1,4 +1,5 @@
 import Combine
+import DreamRanking
 import Foundation
 import Supabase
 
@@ -53,16 +54,85 @@ final class ExploreMediaRepository: ObservableObject {
         static let step = "id,dream_id,stage,date_label,note,done,sort_order"
     }
 
-    func loadRecent(limit: Int = 120) async {
+    /// Loads the Explore grid through the ranker with the browsing preset
+    /// (`RankingConfig.explore`: fresh + interests first, fairness at full
+    /// strength, no seen-TTL — only "Not interested" dreams stay hidden).
+    /// Falls back to the plain recency grid on any ranking failure, and
+    /// degrades to recency ordering by construction when the ranked list is
+    /// empty, so Explore is never blank.
+    func loadFeed(limit: Int = 150) async {
         isLoading = true
         defer { isLoading = false }
         do {
-            items = try await fetchMedia(limit: limit, ownerId: nil, includePrimaryVideos: true)
+            items = try await fetchRankedMedia(limit: limit)
             lastError = nil
         } catch {
-            lastError = "\(error)"
-            print("[ExploreMediaRepository] loadRecent failed: \(error)")
+            print("[ExploreMediaRepository] ranked load failed, falling back to recency: \(error)")
+            do {
+                items = try await fetchMedia(limit: limit, ownerId: nil, includePrimaryVideos: true)
+                lastError = nil
+            } catch {
+                lastError = "\(error)"
+                print("[ExploreMediaRepository] loadFeed failed: \(error)")
+            }
         }
+    }
+
+    /// Ranked grid: dreams ordered by the explore-config ranker, each dream's
+    /// media newest-first, unranked leftovers (own dreams, anything outside
+    /// the candidate pool) trailing by recency. The media pool is the recent
+    /// window PLUS media for the top-ranked dreams, so under-exposed dreams
+    /// keep grid presence even when their clips are old.
+    private func fetchRankedMedia(limit: Int) async throws -> [ExploreMediaItem] {
+        let config = RankingConfig.explore
+        let recommendations = RecommendationRepository.shared
+
+        async let viewerFetch = recommendations.fetchViewerProfile()
+        async let candidatesFetch = recommendations.fetchCandidates(config: config)
+        async let dismissedFetch: [SeenDreamRow] = client
+            .from("dream_seen")
+            .select("dream_id")
+            .eq("dismissed", value: true)
+            .execute()
+            .value
+        let (viewer, candidates, dismissedRows) = try await (viewerFetch, candidatesFetch, dismissedFetch)
+
+        let ranked = DreamRanker.rank(
+            candidates: candidates, viewer: viewer, config: config, now: Date())
+        var rankIndexByDream: [UUID: Int] = [:]
+        for (index, item) in ranked.enumerated() { rankIndexByDream[item.id] = index }
+        let dismissed = Set(dismissedRows.map(\.dreamId))
+
+        let recentVideos = await fetchVideos(limit: 120, dreamIds: nil, includePrimaryVideos: true)
+        let recentPhotos = await fetchPhotos(limit: 120, dreamIds: nil)
+        var rankedVideos: [DreamVideoDTO] = []
+        var rankedPhotos: [DreamPhotoUpdateDTO] = []
+        let topRankedIds = Array(ranked.prefix(60).map(\.id))
+        if !topRankedIds.isEmpty {
+            rankedVideos = await fetchVideos(limit: 120, dreamIds: topRankedIds, includePrimaryVideos: true)
+            rankedPhotos = await fetchPhotos(limit: 120, dreamIds: topRankedIds)
+        }
+
+        var videoById: [UUID: DreamVideoDTO] = [:]
+        for row in recentVideos + rankedVideos { videoById[row.id] = row }
+        var photoById: [UUID: DreamPhotoUpdateDTO] = [:]
+        for row in recentPhotos + rankedPhotos { photoById[row.id] = row }
+
+        let built = try await buildItems(
+            videos: Array(videoById.values),
+            photos: Array(photoById.values),
+            limit: Int.max
+        )
+        return built
+            .filter { !dismissed.contains($0.dreamId) }
+            .sorted { lhs, rhs in
+                let leftRank = rankIndexByDream[lhs.dreamId] ?? Int.max
+                let rightRank = rankIndexByDream[rhs.dreamId] ?? Int.max
+                if leftRank != rightRank { return leftRank < rightRank }
+                return lhs.createdAt > rhs.createdAt
+            }
+            .prefix(limit)
+            .map { $0 }
     }
 
     func media(ownedBy ownerId: UUID, includePrimaryVideos: Bool = false, limit: Int = 120) async -> [ExploreMediaItem] {

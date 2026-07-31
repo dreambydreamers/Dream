@@ -75,6 +75,7 @@ final class AuthService: ObservableObject {
         await run {
             try await self.client.auth.signOut()
         }
+        FeedQueueService.shared.reset()
     }
 
     /// Wraps an auth call with busy/error bookkeeping and a session refresh.

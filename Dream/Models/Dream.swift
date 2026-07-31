@@ -16,7 +16,7 @@ struct JourneyStep: Identifiable, Hashable {
     }
 }
 
-enum DreamStage: String {
+enum DreamStage: String, CaseIterable {
     case idea = "Just an Idea"
     case early = "Early Progress"
     case needs = "Needs Help"
@@ -60,6 +60,11 @@ struct Dream: Identifiable, Hashable {
     /// Per-video caption for update clips. `nil` for older rows and cover
     /// videos, which fall back to the dream's own description.
     var videoCaption: String? = nil
+    /// Duration of this card's clip. Drives watch-time classification
+    /// (skip / watch_progress / complete) in the engagement logger.
+    var videoDurationMs: Int? = nil
+    /// Comment count shown on the feed's comment button.
+    var comments: Int = 0
 }
 
 extension Dream {
