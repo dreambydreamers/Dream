@@ -286,6 +286,21 @@ enum DreamAchievementAccent {
     static let almost = Color(hex: 0x2ECC71)
 }
 
+/// The dawn scene behind the welcome screen. Illustration rather than UI, so the
+/// values are fixed in both modes — a sunrise doesn't invert.
+enum DreamSceneColor {
+    static let skyTop = Color(hex: 0xF4E8D0)
+    static let skyUpper = Color(hex: 0xF0DAB8)
+    static let skyLower = Color(hex: 0xE5C6A8)
+    static let skyHorizon = Color(hex: 0xD4A89E)
+
+    static let sunCore = Color(hex: 0xFFE5B4)
+    static let sunMid = Color(hex: 0xF4B074)
+    static let sunEdge = Color(hex: 0xD4815A)
+
+    static let ridge = Color(hex: 0x4A2E23)
+}
+
 /// Procedural avatar gradients (`--avatar-*`), picked by `abs(seed) % 5`.
 enum DreamAvatarGradient {
     static let pairs: [(Color, Color)] = [

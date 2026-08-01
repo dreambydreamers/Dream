@@ -21,10 +21,10 @@ struct WelcomeSkyBackground: View {
         ZStack {
             LinearGradient(
                 colors: [
-                    Color(hex: 0xF4E8D0),
-                    Color(hex: 0xF0DAB8),
-                    Color(hex: 0xE5C6A8),
-                    Color(hex: 0xD4A89E),
+                    DreamSceneColor.skyTop,
+                    DreamSceneColor.skyUpper,
+                    DreamSceneColor.skyLower,
+                    DreamSceneColor.skyHorizon,
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -35,9 +35,9 @@ struct WelcomeSkyBackground: View {
                 .fill(
                     RadialGradient(
                         colors: [
-                            Color(hex: 0xFFE5B4),
-                            Color(hex: 0xF4B074),
-                            Color(hex: 0xD4815A),
+                            DreamSceneColor.sunCore,
+                            DreamSceneColor.sunMid,
+                            DreamSceneColor.sunEdge,
                         ],
                         center: .init(x: 0.35, y: 0.35),
                         startRadius: 0,
@@ -61,7 +61,7 @@ struct WelcomeSkyBackground: View {
                     p.addLine(to: .init(x: 0,     y: 200))
                     p.closeSubpath()
                 }
-                .fill(Color(hex: 0x4A2E23).opacity(0.35))
+                .fill(DreamSceneColor.ridge.opacity(0.35))
                 .offset(y: geo.size.height - 200)
             }
         }

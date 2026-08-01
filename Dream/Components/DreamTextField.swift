@@ -24,9 +24,14 @@ struct DreamTextField: View {
     var characterLimit: Int? = nil
     var hint: String? = nil
     var error: String? = nil
+    /// Optional external focus, for screens that chain fields with the keyboard's
+    /// Next button. The field styles itself from whichever binding is in play, so
+    /// there is never a second `.focused` competing with the internal one.
+    var focus: FocusState<Bool>.Binding? = nil
 
-    @FocusState private var isFocused: Bool
+    @FocusState private var localFocus: Bool
 
+    private var isFocused: Bool { focus?.wrappedValue ?? localFocus }
     private var isMultiline: Bool { (lineLimit ?? 1) > 1 }
 
     var body: some View {
@@ -46,11 +51,10 @@ struct DreamTextField: View {
                         .animation(DreamMotion.smooth(DreamMotion.fast), value: isFocused)
                 }
 
-                field
+                focusedField
                     .dreamStyle(.body(15))
                     .foregroundStyle(DreamTheme.Text.primary)
                     .tint(DreamTheme.Accent.base)
-                    .focused($isFocused)
                     .keyboardType(keyboard)
                     .textContentType(textContentType)
                     .textInputAutocapitalization(autocapitalization)
@@ -73,6 +77,17 @@ struct DreamTextField: View {
             } else if let hint {
                 footnote(hint, icon: nil, color: DreamTheme.Text.tertiary)
             }
+        }
+    }
+
+    /// Binds the editor to whichever focus state is in play — the caller's if it
+    /// supplied one, otherwise the local one that drives the border styling.
+    @ViewBuilder
+    private var focusedField: some View {
+        if let focus {
+            field.focused(focus)
+        } else {
+            field.focused($localFocus)
         }
     }
 
