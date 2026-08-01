@@ -66,7 +66,7 @@ struct EditProfileScreen: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            DreamTheme.paper.ignoresSafeArea()
+            DreamTheme.Surface.page.ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 26) {
@@ -123,7 +123,7 @@ struct EditProfileScreen: View {
         .padding(.horizontal, 20)
         .padding(.top, 18)
         .padding(.bottom, 12)
-        .background(DreamTheme.paper)
+        .background(DreamTheme.Surface.page)
     }
 
     // MARK: - Avatar
@@ -241,7 +241,7 @@ struct EditProfileScreen: View {
             }
             .padding(.vertical, 12)
             .padding(.horizontal, 14)
-            .background(Color.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(DreamTheme.Surface.card, in: DreamShape.sm)
             .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(DreamTheme.line, lineWidth: 1))
         }
     }
@@ -284,7 +284,7 @@ struct EditProfileScreen: View {
             }
             .padding(.vertical, 12)
             .padding(.horizontal, 14)
-            .background(Color.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(DreamTheme.Surface.card, in: DreamShape.sm)
             .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(DreamTheme.line, lineWidth: 1))
         }
     }
@@ -341,7 +341,7 @@ struct EditProfileScreen: View {
             }
             .padding(.vertical, 10)
             .padding(.horizontal, 14)
-            .background(Color.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(DreamTheme.Surface.card, in: DreamShape.sm)
             .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(DreamTheme.line, lineWidth: 1))
         }
     }
@@ -438,7 +438,7 @@ struct EditProfileScreen: View {
                 }
             }
             .padding(.horizontal, 14)
-            .background(Color.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(DreamTheme.Surface.card, in: DreamShape.sm)
             .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(DreamTheme.line, lineWidth: 1))
         }
     }

@@ -27,7 +27,7 @@ struct DreamDetailScreen: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            DreamTheme.paper.ignoresSafeArea()
+            DreamTheme.Surface.page.ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 0) {
@@ -103,16 +103,16 @@ struct DreamDetailScreen: View {
 
             VStack {
                 HStack {
-                    GlassCircleButton(systemName: "chevron.left", accessibilityLabel: "Back", action: onBack)
+                    IconButton(systemName: "arrow.left", accessibilityLabel: "Back", action: onBack)
                     Spacer()
                     if heroDream.videoStoragePath != nil {
-                        GlassCircleButton(systemName: isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill", accessibilityLabel: isMuted ? "Unmute video" : "Mute video") {
+                        IconButton(systemName: isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill", accessibilityLabel: isMuted ? "Unmute video" : "Mute video") {
                             isMuted.toggle()
                         }
-                        GlassCircleButton(systemName: "arrow.down.to.line", accessibilityLabel: "Save video") {
+                        IconButton(systemName: "arrow.down.to.line", accessibilityLabel: "Save video") {
                             videoActions.save(storagePath: heroDream.videoStoragePath)
                         }
-                        GlassCircleButton(systemName: "square.and.arrow.up", accessibilityLabel: "Share video") {
+                        IconButton(systemName: "square.and.arrow.up", accessibilityLabel: "Share video") {
                             videoActions.share(storagePath: heroDream.videoStoragePath)
                         }
                     }
@@ -178,32 +178,22 @@ struct DreamDetailScreen: View {
 
     private var title: some View {
         Text(dream.title)
-            .font(DreamTheme.Font.display(32, weight: .regular))
-            .tracking(-0.7)
-            .foregroundStyle(DreamTheme.ink)
+            .dreamStyle(.display(26))
+            .foregroundStyle(DreamTheme.Text.primary)
             .fixedSize(horizontal: false, vertical: true)
     }
 
     private var badges: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: DreamSpace.s3) {
             CategoryBadge(category: dream.category)
-            HStack(spacing: 4) {
-                Text("◐")
-                Text(dream.stage.rawValue)
-            }
-            .font(DreamTheme.Font.text(12, weight: .semibold))
-            .foregroundStyle(Color(hex: 0x7A5828))
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background(Capsule().fill(DreamTheme.warm))
+            StagePill(stage: dream.stage)
         }
     }
 
     private var description: some View {
         Text(dream.desc)
-            .font(DreamTheme.Font.display(18))
-            .foregroundStyle(DreamTheme.ink)
-            .lineSpacing(5)
+            .dreamStyle(.body(15, relaxed: true))
+            .foregroundStyle(DreamTheme.Text.secondary)
             .fixedSize(horizontal: false, vertical: true)
     }
 
@@ -251,15 +241,16 @@ struct DreamDetailScreen: View {
 
     private var stickyCTA: some View {
         VStack(spacing: 0) {
-            Rectangle().fill(DreamTheme.line).frame(height: 1)
-            PrimaryButton(title: "I can help", icon: "heart.fill", background: dream.category.palette.fg) {
+            Rectangle().fill(DreamTheme.Border.standard).frame(height: 1)
+            DreamButton(title: "I can help", icon: "heart", fullWidth: true,
+                        tone: dream.category.palette.fg) {
                 helpForDream = dream
             }
-                .padding(.horizontal, 20)
-                .padding(.top, 14)
-                .padding(.bottom, 32)
+                .padding(.horizontal, DreamSpace.screenGutter)
+                .padding(.top, DreamSpace.s7)
+                .padding(.bottom, DreamSpace.s13)
         }
-        .background(DreamTheme.paper)
+        .background(DreamTheme.Surface.page)
     }
 
     private func eyebrow(_ text: String) -> some View {

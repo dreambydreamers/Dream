@@ -302,7 +302,7 @@ struct ActivityScreen: View {
             offerActions(o)
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 16).fill(Color.white))
+        .background(DreamTheme.Surface.card, in: DreamShape.md)
         .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(DreamTheme.line, lineWidth: 1))
         .padding(.horizontal, 20)
         .padding(.top, 8)

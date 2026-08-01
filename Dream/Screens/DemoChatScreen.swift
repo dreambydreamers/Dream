@@ -27,7 +27,7 @@ struct DemoChatScreen: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             composerArea
         }
-        .background(DreamTheme.paper.ignoresSafeArea())
+        .background(DreamTheme.Surface.page.ignoresSafeArea())
         .navigationBarHidden(true)
         .interactiveBackSwipe { dismiss() }
     }

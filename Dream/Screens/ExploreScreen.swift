@@ -890,13 +890,17 @@ private struct ExploreVideoDetailPage: View {
     }
 
     private var discoverRail: some View {
-        VStack(spacing: 16) {
-            ActionButton(systemImage: "heart.fill", label: "I can help", action: onHelp)
-            ActionButton(systemImage: "paperplane.fill", label: "Send", action: onShare)
-            ActionButton(systemImage: isSaved ? "bookmark.fill" : "bookmark", label: isSaved ? "Saved" : "Save", action: onSave)
-            ActionButton(systemImage: "ellipsis", label: "More", action: onMore)
-        }
-        .frame(width: 64)
+        EngagementBar(
+            items: [
+                .init(icon: "heart", label: "I can help", action: onHelp),
+                .save(isSaved: isSaved, action: onSave),
+                .share(action: onShare),
+                .more(action: onMore),
+            ],
+            orientation: .vertical,
+            onMedia: true
+        )
+        .frame(width: 56)
     }
 
     private var description: String? {

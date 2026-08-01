@@ -34,7 +34,7 @@ struct PostUpdateScreen: View {
                 case .details: detailsStep
                 }
             }
-            .background(Color.white.ignoresSafeArea())
+            .background(DreamTheme.Surface.page.ignoresSafeArea())
             .keyboardDoneButton()
             .navigationTitle(step == .source ? "Post an update" : "Update details")
             .navigationBarTitleDisplayMode(.inline)
@@ -182,17 +182,18 @@ struct PostUpdateScreen: View {
                         .foregroundStyle(DreamTheme.error)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                PrimaryButton(
-                    title: isPosting ? "Posting..." : "Post update",
-                    background: (canPost && !isPosting) ? DreamTheme.blue : DreamTheme.ink3,
+                DreamButton(
+                    title: "Post update",
+                    fullWidth: true,
+                    isEnabled: canPost,
+                    isBusy: isPosting,
                     action: { Task { await post() } }
                 )
-                .disabled(!canPost || isPosting)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 14)
-            .padding(.bottom, 12)
-            .background(Color.white)
+            .padding(.horizontal, DreamSpace.screenGutter)
+            .padding(.top, DreamSpace.s7)
+            .padding(.bottom, DreamSpace.s6)
+            .background(DreamTheme.Surface.page)
         }
     }
 

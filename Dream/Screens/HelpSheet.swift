@@ -79,7 +79,7 @@ struct HelpSheet: View {
                 case .configure: configureStep
                 }
             }
-            .background(Color.white.ignoresSafeArea())
+            .background(DreamTheme.Surface.page.ignoresSafeArea())
             .keyboardDoneButton()
             .navigationTitle(mode == .pick ? "Offer your help" : (selected?.label ?? ""))
             .navigationBarTitleDisplayMode(.inline)
@@ -287,18 +287,16 @@ struct HelpSheet: View {
                         .padding(.horizontal, 18)
                         .padding(.vertical, 14)
                         .background(RoundedRectangle(cornerRadius: 14).strokeBorder(DreamTheme.line, lineWidth: 1))
-                    PrimaryButton(title: sending ? "Sending…" : "Send offer") {
+                    DreamButton(title: "Send offer", fullWidth: true, isBusy: sending) {
                         guard !sending else { return }
                         Task { await send() }
                     }
-                    .disabled(sending)
-                    .opacity(sending ? 0.7 : 1)
                 }
             }
             .padding(.horizontal, 20)
             .padding(.top, 14)
             .padding(.bottom, 24)
-            .background(Color.white)
+            .background(DreamTheme.Surface.page)
         }
     }
 

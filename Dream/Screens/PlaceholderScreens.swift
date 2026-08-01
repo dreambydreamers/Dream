@@ -5,7 +5,7 @@ struct ProfilePlaceholder: View {
 
     var body: some View {
         ZStack {
-            DreamTheme.paper.ignoresSafeArea()
+            DreamTheme.Surface.page.ignoresSafeArea()
             VStack(spacing: 12) {
                 Text("Profile")
                     .font(DreamTheme.Font.display(40, weight: .regular, italic: true))

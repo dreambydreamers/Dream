@@ -41,7 +41,7 @@ struct ChatScreen: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             composer
         }
-        .background(DreamTheme.paper.ignoresSafeArea())
+        .background(DreamTheme.Surface.page.ignoresSafeArea())
         .navigationBarHidden(true)
         .task { await model.start() }
         .onDisappear { Task { await model.stop() } }

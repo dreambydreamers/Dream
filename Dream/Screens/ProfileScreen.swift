@@ -383,11 +383,14 @@ struct ProfileScreen: View {
                             Text("View dream")
                             Image(systemName: "arrow.right")
                         }
-                        .font(DreamTheme.Font.text(13, weight: .semibold))
-                        .foregroundStyle(DreamTheme.ink)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(Capsule().fill(.white))
+                        .dreamStyle(.ui(13))
+                        // Sits on a white chip over video, so both colors are
+                        // fixed. `Text.primary` here would invert in dark mode
+                        // and leave light text on a white fill.
+                        .foregroundStyle(Color(hex: 0x14171A))
+                        .padding(.horizontal, DreamSpace.s7)
+                        .padding(.vertical, DreamSpace.s4)
+                        .background(DreamTheme.OnMedia.base, in: DreamShape.sm)
                     }
                     .buttonStyle(.plain)
                 }

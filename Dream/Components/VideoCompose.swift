@@ -30,7 +30,7 @@ struct VideoSourceCard: View {
             HStack(spacing: 16) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 16)
-                        .fill(tinted ? Color.white : DreamTheme.bg)
+                        .fill(tinted ? DreamTheme.Surface.card : DreamTheme.Surface.sunken)
                         .shadow(color: tinted ? DreamTheme.blue.opacity(0.15) : .clear, radius: 12, y: 4)
                     Image(systemName: icon)
                         .font(.system(size: 24, weight: .semibold))

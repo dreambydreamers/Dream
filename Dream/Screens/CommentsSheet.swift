@@ -24,7 +24,11 @@ struct CommentsSheet: View {
 
             if isLoading {
                 Spacer()
-                ProgressView().tint(DreamTheme.blue)
+                VStack(spacing: DreamSpace.s11) {
+                    ForEach(0..<4, id: \.self) { _ in SkeletonRow() }
+                }
+                .padding(.horizontal, DreamSpace.screenGutter)
+                .padding(.top, DreamSpace.s10)
                 Spacer()
             } else if comments.isEmpty {
                 emptyState
@@ -41,7 +45,7 @@ struct CommentsSheet: View {
 
             inputBar
         }
-        .background(DreamTheme.paper)
+        .background(DreamTheme.Surface.page)
         .keyboardDoneButton()
         .task {
             comments = await CommentRepository.shared.comments(
@@ -76,21 +80,9 @@ struct CommentsSheet: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 10) {
-            Spacer()
-            Image(systemName: "bubble.left.and.bubble.right")
-                .font(.system(size: 30, weight: .light))
-                .foregroundStyle(DreamTheme.ink3)
-            Text("No comments yet")
-                .font(DreamTheme.Font.text(15, weight: .semibold))
-                .foregroundStyle(DreamTheme.ink)
-            Text("Say something encouraging — dreamers read these.")
-                .font(DreamTheme.Font.text(13))
-                .foregroundStyle(DreamTheme.ink2)
-            Spacer()
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 32)
+        EmptyState(icon: "bubble.left.and.bubble.right",
+                   title: "No comments", accent: "yet",
+                   message: "Say something encouraging — dreamers read these.")
     }
 
     private var thread: some View {
@@ -156,8 +148,8 @@ struct CommentsSheet: View {
                 .focused($inputFocused)
                 .padding(.vertical, 10)
                 .padding(.horizontal, 14)
-                .background(Color.white, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(DreamTheme.line, lineWidth: 1))
+                .background(DreamTheme.Surface.card, in: DreamShape.lg)
+                .overlay(DreamShape.lg.strokeBorder(DreamTheme.Border.standard, lineWidth: 1))
 
             Button(action: post) {
                 if isPosting {
@@ -179,7 +171,7 @@ struct CommentsSheet: View {
         .padding(.horizontal, 16)
         .padding(.top, 8)
         .padding(.bottom, 12)
-        .background(DreamTheme.paper)
+        .background(DreamTheme.Surface.page)
     }
 
     // MARK: - Actions
