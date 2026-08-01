@@ -7,9 +7,8 @@
 --
 -- Note on the engagement invariant (0022): the per-dream like *count* lives
 -- here, in its own table, not in engagement_events. The 'like' engagement event
--- added at the bottom feeds only the liking viewer's own affinity profile, in
--- keeping with "nothing aggregates engagement_events into a per-dream quality
--- signal".
+-- (0029) feeds only the liking viewer's own affinity profile, in keeping with
+-- "nothing aggregates engagement_events into a per-dream quality signal".
 
 create table if not exists public.dream_likes (
     id uuid primary key default gen_random_uuid(),
@@ -116,6 +115,3 @@ create trigger dream_likes_notify
     after insert on public.dream_likes
     for each row
     execute function public.notify_dream_like();
-
--- Viewer-affinity signal only (see the header note).
-alter type public.engagement_event_type add value if not exists 'like';
