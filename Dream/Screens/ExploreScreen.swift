@@ -28,7 +28,7 @@ struct ExploreScreen: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            DreamTheme.paper.ignoresSafeArea()
+            DreamTheme.Surface.page.ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
@@ -182,41 +182,21 @@ struct ExploreScreen: View {
 
     private var headerOverlay: some View {
         VStack(spacing: 10) {
-            HStack {
-                Text("Explore")
-                    .font(DreamTheme.Font.display(34, weight: .regular, italic: true))
-                    .foregroundStyle(DreamTheme.ink)
-                Spacer()
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 64)
+            PageHeader(title: "Find your", accent: "people")
+                .padding(.top, DreamSpace.safeTop)
 
-            HStack(spacing: 10) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(DreamTheme.ink3)
-                    .font(.system(size: 15))
-                TextField("Search people, dreams, places...", text: $searchText)
-                    .font(DreamTheme.Font.text(15))
-                    .foregroundStyle(DreamTheme.ink)
-                    .focused($searchFieldFocused)
-                if !searchText.isEmpty {
-                    Button {
-                        searchText = ""
-                        searchRepo.clear()
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(DreamTheme.ink3)
-                    }
-                    .buttonStyle(.plain)
-                }
+            SearchField(
+                text: $searchText,
+                placeholder: "Search people, dreams, places…",
+                focus: $searchFieldFocused
+            )
+            .padding(.horizontal, DreamSpace.screenGutter)
+            .padding(.bottom, DreamSpace.s4)
+            .onChange(of: searchText) { _, new in
+                if new.isEmpty { searchRepo.clear() }
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .background(DreamTheme.bg, in: RoundedRectangle(cornerRadius: 14))
-            .padding(.horizontal, 20)
-            .padding(.bottom, 8)
         }
-        .background(DreamTheme.paper.opacity(0.96))
+        .background(DreamTheme.Surface.page.opacity(0.96))
         .background {
             GeometryReader { proxy in
                 Color.clear.preference(key: ExploreHeaderHeightKey.self, value: proxy.size.height)
@@ -229,9 +209,12 @@ struct ExploreScreen: View {
     @ViewBuilder
     private var exploreGrid: some View {
         if mediaRepo.isLoading && mediaRepo.items.isEmpty {
-            ProgressView()
-                .tint(DreamTheme.blue)
-                .padding(.top, 80)
+            // Matches the grid it is about to become, so nothing jumps on load.
+            ThreeColumnGrid {
+                ForEach(0..<12, id: \.self) { _ in
+                    Skeleton(height: 150, radius: 0)
+                }
+            }
         } else if mediaRepo.items.isEmpty {
             emptyExplore
         } else {
@@ -245,36 +228,26 @@ struct ExploreScreen: View {
     }
 
     private var emptySearch: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 32, weight: .light))
-                .foregroundStyle(DreamTheme.ink3)
-            Text("No results for \"\(searchText)\"")
-                .font(DreamTheme.Font.display(20, weight: .regular, italic: true))
-                .foregroundStyle(DreamTheme.ink)
-            Text("Try searching by name, dream or location.")
-                .font(DreamTheme.Font.text(14))
-                .foregroundStyle(DreamTheme.ink2)
-        }
-        .padding(.top, 80)
-        .padding(.horizontal, 40)
+        EmptyState(
+            icon: "magnifyingglass",
+            title: "No dreams match",
+            accent: "that",
+            message: "Nothing for \"\(searchText)\" yet. Try a name, a dream or a place.",
+            actionTitle: "Clear search",
+            action: {
+                searchText = ""
+                searchRepo.clear()
+            }
+        )
     }
 
     private var emptyExplore: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "square.grid.3x3")
-                .font(.system(size: 32, weight: .light))
-                .foregroundStyle(DreamTheme.ink3)
-            Text("No updates yet.")
-                .font(DreamTheme.Font.display(20, weight: .regular, italic: true))
-                .foregroundStyle(DreamTheme.ink)
-            Text("Photos and videos people post to their dreams will appear here.")
-                .font(DreamTheme.Font.text(14))
-                .foregroundStyle(DreamTheme.ink2)
-                .multilineTextAlignment(.center)
-        }
-        .padding(.top, 80)
-        .padding(.horizontal, 40)
+        EmptyState(
+            icon: "square.grid.3x3",
+            title: "Nothing here",
+            accent: "yet",
+            message: "Photos and videos people post to their dreams will appear here."
+        )
     }
 }
 

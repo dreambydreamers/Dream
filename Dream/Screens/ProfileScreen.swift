@@ -29,7 +29,7 @@ struct ProfileScreen: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            DreamTheme.paper.ignoresSafeArea()
+            DreamTheme.Surface.page.ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 0) {
@@ -235,32 +235,14 @@ struct ProfileScreen: View {
     // MARK: - Profile tab bar (Dreams / Updates)
 
     private var profileTabBar: some View {
-        HStack(spacing: 0) {
-            tabBarButton("Dreams", icon: "play.square.stack", tab: .dreams)
-            tabBarButton("Updates", icon: "square.grid.2x2", tab: .updates)
-            tabBarButton("Saved", icon: "bookmark.fill", tab: .saved)
-        }
-    }
-
-    private func tabBarButton(_ label: String, icon: String, tab: ProfileTab) -> some View {
-        Button {
-            withAnimation(.easeInOut(duration: 0.2)) { profileTab = tab }
-        } label: {
-            VStack(spacing: 6) {
-                HStack(spacing: 6) {
-                    Image(systemName: icon)
-                        .font(.system(size: 14, weight: profileTab == tab ? .semibold : .regular))
-                    Text(label)
-                        .font(DreamTheme.Font.text(14, weight: profileTab == tab ? .semibold : .regular))
-                }
-                .foregroundStyle(profileTab == tab ? DreamTheme.ink : DreamTheme.ink3)
-                Rectangle()
-                    .fill(profileTab == tab ? DreamTheme.ink : Color.clear)
-                    .frame(height: 1.5)
-            }
-        }
-        .buttonStyle(.plain)
-        .frame(maxWidth: .infinity)
+        SegmentedControl(
+            options: [.init(ProfileTab.dreams, "Dreams"),
+                      .init(ProfileTab.updates, "Updates"),
+                      .init(ProfileTab.saved, "Saved")],
+            selection: $profileTab,
+            fullWidth: true
+        )
+        .padding(.horizontal, DreamSpace.screenGutter)
     }
 
     // MARK: - Updates grid (daily life posts from this user)
@@ -474,16 +456,14 @@ struct ProfileScreen: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "moon.stars")
-                .font(.system(size: 28, weight: .light))
-                .foregroundStyle(DreamTheme.ink3)
-            Text(isCurrentUser ? "You haven't shared a dream yet." : "No dreams yet.")
-                .font(DreamTheme.Font.text(14))
-                .foregroundStyle(DreamTheme.ink2)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 40)
+        EmptyState(
+            icon: "moon.stars",
+            title: "No dreams",
+            accent: "yet",
+            message: isCurrentUser
+                ? "Share your first dream and the people who can help will find it."
+                : "This dreamer hasn't shared anything yet."
+        )
     }
 
     // MARK: - Top bar (over-feed presentation)

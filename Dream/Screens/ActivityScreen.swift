@@ -39,12 +39,11 @@ struct ActivityScreen: View {
     var body: some View {
         NavigationStack(path: $navPath) {
             ZStack(alignment: .top) {
-                DreamTheme.paper.ignoresSafeArea()
+                DreamTheme.Surface.page.ignoresSafeArea()
 
                 VStack(spacing: 0) {
                     headerBar
                     tabPills
-                    Divider().background(DreamTheme.line)
                     ScrollView(showsIndicators: false) {
                         VStack(alignment: .leading, spacing: 0) {
                             switch section {
@@ -93,52 +92,33 @@ struct ActivityScreen: View {
     // MARK: - Header
 
     private var headerBar: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text("Activity")
-                .font(DreamTheme.Font.display(34, weight: .regular, italic: true))
-                .foregroundStyle(DreamTheme.ink)
-            Spacer()
+        PageHeader(title: "What's", accent: "happening") {
             if section == .notifications, repo.unreadCount > 0 {
                 Button("Mark all read") { Task { await repo.markAllRead() } }
-                    .font(DreamTheme.Font.text(13, weight: .semibold))
-                    .foregroundStyle(DreamTheme.blue)
+                    .dreamStyle(.ui(13))
+                    .foregroundStyle(DreamTheme.Text.accent)
+                    .buttonStyle(DreamPressStyle())
+                    .padding(.top, DreamSpace.s4)
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 64)
-        .padding(.bottom, 12)
+        .padding(.top, DreamSpace.safeTop)
     }
 
     private var tabPills: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(Section.allCases) { s in
-                    Button {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { section = s }
-                    } label: {
-                        HStack(spacing: 6) {
-                            Text(s.rawValue)
-                                .font(DreamTheme.Font.text(14, weight: section == s ? .semibold : .regular))
-                                .foregroundStyle(section == s ? .white : DreamTheme.ink2)
-                            if let badgeCount = badgeCount(for: s) {
-                                Text("\(badgeCount)")
-                                    .font(DreamTheme.Font.text(11, weight: .bold))
-                                    .foregroundStyle(section == s ? DreamTheme.blue : .white)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(Capsule().fill(section == s ? .white : DreamTheme.blue))
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(Capsule().fill(section == s ? DreamTheme.blue : DreamTheme.bg))
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 10)
-        }
+        SegmentedControl(
+            options: Section.allCases.map { .init($0, label(for: $0)) },
+            selection: $section,
+            fullWidth: true
+        )
+        .padding(.horizontal, DreamSpace.screenGutter)
+        .padding(.bottom, DreamSpace.s8)
+    }
+
+    /// Appends the unread count to the label — the segmented control has no badge
+    /// slot, and a count in the label reads fine at this size.
+    private func label(for section: Section) -> String {
+        guard let count = badgeCount(for: section) else { return section.rawValue }
+        return "\(section.rawValue) \(count)"
     }
 
     private func badgeCount(for section: Section) -> Int? {
@@ -158,11 +138,8 @@ struct ActivityScreen: View {
 
     @ViewBuilder private var notificationsContent: some View {
         if repo.notifications.isEmpty {
-            emptyState(
-                icon: "bell",
-                title: "No activity yet",
-                subtitle: "Offers, replies and updates will show up here."
-            )
+            EmptyState(icon: "bell", title: "No activity", accent: "yet",
+                       message: "Offers, replies and updates will show up here.")
         } else {
             ForEach(Array(repo.notifications.enumerated()), id: \.element.id) { i, n in
                 Button { open(notification: n) } label: { notificationRow(n) }
@@ -215,11 +192,9 @@ struct ActivityScreen: View {
     @ViewBuilder private var messagesContent: some View {
         if repo.conversations.isEmpty {
             VStack(spacing: 16) {
-                emptyState(
-                    icon: "bubble.left.and.bubble.right",
-                    title: "No conversations",
-                    subtitle: "Offer help on a dream to start chatting."
-                )
+                EmptyState(icon: "bubble.left.and.bubble.right",
+                           title: "No conversations", accent: "yet",
+                           message: "Offer help on a dream to start chatting.")
                 Button { navPath.append(true) } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "eye.fill")
@@ -286,11 +261,8 @@ struct ActivityScreen: View {
 
     @ViewBuilder private var offersContent: some View {
         if repo.offersReceived.isEmpty && repo.offersMade.isEmpty {
-            emptyState(
-                icon: "hands.sparkles",
-                title: "No offers yet",
-                subtitle: "Tap 'I can help' on a dream to start, or wait for offers on yours."
-            )
+            EmptyState(icon: "hands.sparkles", title: "No offers", accent: "yet",
+                       message: "Tap 'I can help' on a dream to start, or wait for offers on yours.")
         } else {
             if !repo.offersReceived.isEmpty {
                 sectionHeader("Offers on your dreams")
@@ -368,46 +340,16 @@ struct ActivityScreen: View {
     }
 
     private func actionButton(_ title: String, filled: Bool = false, _ act: @escaping () -> Void) -> some View {
-        Button(action: act) {
-            Text(title)
-                .font(DreamTheme.Font.text(13, weight: .semibold))
-                .foregroundStyle(filled ? .white : DreamTheme.ink)
-                .padding(.horizontal, 14).padding(.vertical, 8)
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(filled ? DreamTheme.blue : Color.white)
-                )
-                .overlay(RoundedRectangle(cornerRadius: 10)
-                    .strokeBorder(filled ? DreamTheme.blue : DreamTheme.line, lineWidth: 1))
-        }
-        .buttonStyle(.plain)
+        DreamButton(title: title, variant: filled ? .primary : .secondary, size: .sm, action: act)
     }
 
     // MARK: - Shared bits
 
     private func sectionHeader(_ t: String) -> some View {
-        EyebrowLabel(text: t, color: DreamTheme.ink3)
-            .padding(.horizontal, 20)
+        EyebrowLabel(text: t)
+            .padding(.horizontal, DreamSpace.screenGutter)
             .padding(.bottom, 4)
             .padding(.top, 8)
-    }
-
-    private func emptyState(icon: String, title: String, subtitle: String) -> some View {
-        VStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 32, weight: .light))
-                .foregroundStyle(DreamTheme.ink3)
-            Text(title)
-                .font(DreamTheme.Font.display(20, weight: .regular, italic: true))
-                .foregroundStyle(DreamTheme.ink)
-            Text(subtitle)
-                .font(DreamTheme.Font.text(14))
-                .foregroundStyle(DreamTheme.ink2)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 80)
-        .padding(.horizontal, 40)
     }
 
     // MARK: - Actions
@@ -460,13 +402,13 @@ private struct DreamDetailFromIdView: View {
                         .foregroundStyle(DreamTheme.ink)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(DreamTheme.paper.ignoresSafeArea())
+                .background(DreamTheme.Surface.page.ignoresSafeArea())
                 .interactiveBackSwipe(onBack)
             } else {
                 ProgressView()
                     .tint(DreamTheme.blue)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(DreamTheme.paper.ignoresSafeArea())
+                    .background(DreamTheme.Surface.page.ignoresSafeArea())
                     .task { resolve() }
             }
         }
