@@ -115,6 +115,15 @@ struct DesignSystemGallery: View {
                               isSelected: true, isRecommended: true)
                     OptionRow(icon: "cup.and.saucer", title: "Mentorship",
                               subtitle: "Share what you've learned")
+                    // Tinted + chevron: the HelpSheet offer picker, where a row
+                    // pushes to a further step rather than selecting in place.
+                    OptionRow(icon: "dollarsign", title: "Back this dream",
+                              subtitle: "A one-time contribution",
+                              isRecommended: true, accessory: .chevron,
+                              tint: DreamCategory.impact.palette)
+                    OptionRow(icon: "paintbrush.fill", title: "Design support",
+                              subtitle: "Brand, signage, or web",
+                              accessory: .chevron, tint: DreamCategory.art.palette)
                 }
 
                 section("Feedback") {

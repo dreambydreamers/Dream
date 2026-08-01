@@ -106,12 +106,11 @@ struct CreateDreamScreen: View {
                 Text("💡")
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Simon's advice")
-                        .font(DreamTheme.Font.text(13, weight: .bold))
-                        .foregroundStyle(Color(hex: 0x7A5F3E))
+                        .dreamStyle(.ui(13, weight: .bold))
+                        .foregroundStyle(Color(light: 0x7A5F3E, dark: 0xD9B87E))
                     Text("Start with why. What would this dream mean to you if it came true?")
-                        .font(DreamTheme.Font.text(13))
-                        .foregroundStyle(Color(hex: 0x7A5F3E))
-                        .lineSpacing(2)
+                        .dreamStyle(.body(13))
+                        .foregroundStyle(Color(light: 0x7A5F3E, dark: 0xC9AE8A))
                 }
             }
             .padding(16)
@@ -134,7 +133,7 @@ struct CreateDreamScreen: View {
                     field("Title") {
                         TextField("e.g. A quiet café for writers", text: $title)
                             .font(DreamTheme.Font.text(15))
-                            .foregroundStyle(Color.black)
+                            .foregroundStyle(DreamTheme.Text.primary)
                             .padding(14)
                             .background(DreamTheme.Surface.card, in: DreamShape.lg)
                             .overlay(DreamShape.lg.strokeBorder(DreamTheme.Border.standard, lineWidth: 1))
@@ -173,7 +172,7 @@ struct CreateDreamScreen: View {
                     field("Description (optional)") {
                         TextField("Share more about your dream...", text: $desc, axis: .vertical)
                             .font(DreamTheme.Font.text(15))
-                            .foregroundStyle(Color.black)
+                            .foregroundStyle(DreamTheme.Text.primary)
                             .lineLimit(4...10)
                             .padding(14)
                             .frame(minHeight: 100, alignment: .topLeading)
@@ -272,7 +271,7 @@ struct CreateDreamScreen: View {
                 .foregroundStyle(selected ? .white : DreamTheme.ink)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)
-                .background(Capsule().fill(selected ? DreamTheme.blue : Color.white))
+                .background(selected ? DreamTheme.Accent.base : DreamTheme.Surface.card, in: DreamShape.sm)
                 .overlay(Capsule().strokeBorder(selected ? DreamTheme.blue : DreamTheme.line, lineWidth: 1.5))
         }
         .buttonStyle(.plain)

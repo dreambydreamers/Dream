@@ -389,7 +389,7 @@ struct EditProfileScreen: View {
         Button(action: action) {
             Text(label)
                 .font(DreamTheme.Font.text(13, weight: .semibold))
-                .foregroundStyle(selected ? Color.white : DreamTheme.blueDeep)
+                .foregroundStyle(selected ? DreamTheme.Action.primaryForeground : DreamTheme.Accent.deep)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 7)
                 .background(Capsule().fill(selected ? DreamTheme.blue : DreamTheme.blueSoft))
