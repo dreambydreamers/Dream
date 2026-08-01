@@ -146,20 +146,19 @@ struct ProfileScreen: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(model.name)
-                        .font(DreamTheme.Font.display(26, weight: .regular))
-                        .tracking(-0.5)
-                        .foregroundStyle(DreamTheme.ink)
+                        .dreamStyle(.title(22))
+                        .foregroundStyle(DreamTheme.Text.primary)
                     Text("@\(model.handle)")
-                        .font(DreamTheme.Font.text(14, weight: .medium))
-                        .foregroundStyle(DreamTheme.ink2)
+                        .dreamStyle(.ui(12, weight: .medium))
+                        .foregroundStyle(DreamTheme.Text.secondary)
                     if !model.location.isEmpty {
                         HStack(spacing: 4) {
                             Image(systemName: "mappin.and.ellipse")
                                 .font(.system(size: 11))
                             Text(model.location)
-                                .font(DreamTheme.Font.text(13))
+                                .dreamStyle(.ui(12, weight: .regular))
                         }
-                        .foregroundStyle(DreamTheme.ink3)
+                        .foregroundStyle(DreamTheme.Text.tertiary)
                         .padding(.top, 1)
                     }
                 }
@@ -173,26 +172,14 @@ struct ProfileScreen: View {
     @ViewBuilder
     private var actionButton: some View {
         if isCurrentUser {
-            HStack(spacing: 10) {
-                Button { editing = true } label: {
-                    Text("Edit Profile")
-                        .font(DreamTheme.Font.text(14, weight: .semibold))
-                        .foregroundStyle(DreamTheme.ink)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 11)
-                        .overlay(Capsule().stroke(DreamTheme.line, lineWidth: 1))
+            HStack(spacing: DreamSpace.s5) {
+                DreamButton(title: "Edit profile", variant: .secondary, size: .md, fullWidth: true) {
+                    editing = true
                 }
-                .buttonStyle(.plain)
-
-                Button { Task { await auth.signOut() } } label: {
-                    Image(systemName: "rectangle.portrait.and.arrow.right")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(DreamTheme.ink2)
-                        .frame(width: 44, height: 44)
-                        .overlay(Circle().stroke(DreamTheme.line, lineWidth: 1))
+                IconButton(systemName: "rectangle.portrait.and.arrow.right",
+                           accessibilityLabel: "Sign out", variant: .solid, size: 44) {
+                    Task { await auth.signOut() }
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Sign out")
             }
         } else {
             FollowButton(isFollowing: model.isFollowing, style: .fullWidth) {
@@ -206,14 +193,14 @@ struct ProfileScreen: View {
     private var skills: some View {
         VStack(alignment: .leading, spacing: 10) {
             eyebrow("Skills")
-            FlowLayout(spacing: 8, lineSpacing: 8) {
+            FlowLayout(spacing: DreamSpace.s2, lineSpacing: DreamSpace.s2) {
                 ForEach(model.skills, id: \.self) { skill in
                     Text(skill)
-                        .font(DreamTheme.Font.text(13, weight: .semibold))
-                        .foregroundStyle(DreamTheme.blueDeep)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 7)
-                        .background(Capsule().fill(DreamTheme.blueSoft))
+                        .dreamStyle(.ui(12))
+                        .foregroundStyle(DreamTheme.Accent.deep)
+                        .padding(.horizontal, 13)
+                        .padding(.vertical, DreamSpace.s4)
+                        .background(DreamTheme.Accent.soft, in: DreamShape.sm)
                 }
             }
         }

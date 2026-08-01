@@ -408,7 +408,7 @@ struct DiscoverScreen: View {
 
     private var topGradient: some View {
         LinearGradient(
-            colors: [.black.opacity(0.55), .clear],
+            colors: [.black.opacity(0.42), .clear],
             startPoint: .top, endPoint: .bottom
         )
         .frame(height: 220)
@@ -417,12 +417,19 @@ struct DiscoverScreen: View {
         .allowsHitTesting(false)
     }
 
+    /// The kit's scrim, which ramps harder and further than the old one: the
+    /// overlay block now carries a description and two buttons, and a 0.65 stop
+    /// over 320pt left them fighting bright video.
     private var bottomGradient: some View {
         LinearGradient(
-            colors: [.clear, .black.opacity(0.65)],
+            stops: [
+                .init(color: .clear, location: 0),
+                .init(color: .black.opacity(0.35), location: 0.45),
+                .init(color: .black.opacity(0.8), location: 1),
+            ],
             startPoint: .top, endPoint: .bottom
         )
-        .frame(height: 320)
+        .frame(height: 460)
         .frame(maxHeight: .infinity, alignment: .bottom)
         .ignoresSafeArea()
         .allowsHitTesting(false)
@@ -431,16 +438,12 @@ struct DiscoverScreen: View {
     // Fixed header — lives in body ZStack, never slides with card transitions.
     private var topBar: some View {
         HStack {
-            Text("Dream")
-                .font(DreamTheme.Font.display(28, weight: .light, italic: true))
-                .foregroundStyle(DreamTheme.blue)
-                .tracking(-0.8)
-                .shadow(color: DreamTheme.blue.opacity(0.6), radius: 8)
-                .shadow(color: .white.opacity(0.3), radius: 16)
+            DreamWordmark(size: 24, color: DreamTheme.Blue.bright)
+                .shadow(color: .black.opacity(0.35), radius: 6, y: 1)
 
             Spacer()
 
-            HStack(spacing: 10) {
+            HStack(spacing: DreamSpace.s4) {
                 circleButton(
                     systemImage: isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill",
                     accessibilityLabel: isMuted ? "Unmute video" : "Mute video"
@@ -457,55 +460,67 @@ struct DiscoverScreen: View {
     }
 
     private func circleButton(systemImage: String, accessibilityLabel: String, action: @escaping () -> Void) -> some View {
-        GlassCircleButton(
-            systemName: systemImage,
-            accessibilityLabel: accessibilityLabel,
-            size: 40,
-            background: Color.white.opacity(0.16),
-            action: action
-        )
-        .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5))
+        IconButton(systemName: systemImage, accessibilityLabel: accessibilityLabel, action: action)
     }
 
     private func bottomInfo(for d: Dream) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                CategoryBadge(category: d.category, dark: true)
-                HStack(spacing: 4) {
-                    Text("◐")
-                    Text(d.stage.rawValue)
-                }
-                .font(DreamTheme.Font.text(12, weight: .semibold))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background(Color.white.opacity(0.18), in: Capsule())
-                .overlay(Capsule().strokeBorder(Color.white.opacity(0.3), lineWidth: 0.5))
-            }
-
+        VStack(alignment: .leading, spacing: DreamSpace.s6) {
             authorRow(for: d)
 
+            // Sans bold with tight tracking, per the kit — the serif is reserved
+            // for accent words, not for titles set over video.
             Button { presentedDream = d } label: {
                 Text(d.displayTitle)
-                    .font(DreamTheme.Font.display(30, weight: .regular))
-                    .tracking(-0.6)
-                    .foregroundStyle(.white)
+                    .dreamStyle(.display(24))
+                    .foregroundStyle(DreamTheme.OnMedia.base)
                     .shadow(color: .black.opacity(0.4), radius: 6, y: 1)
                     .lineLimit(3)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(DreamPressStyle())
 
-            Rectangle()
-                .fill(d.category.palette.fg)
-                .frame(width: 36, height: 3)
-                .clipShape(Capsule())
-                .shadow(color: d.category.palette.fg.opacity(0.7), radius: 6)
+            HStack(spacing: DreamSpace.s3) {
+                CategoryBadge(category: d.category, dark: true)
+                StagePill(stage: d.stage, onMedia: true)
+            }
 
             if !d.displayDescription.isEmpty {
                 descriptionBlock(for: d)
             }
+
+            helpRow(for: d)
+                .padding(.top, DreamSpace.s1)
+        }
+    }
+
+    /// The primary call to action lives in the content block rather than in the
+    /// rail — it is the point of the whole screen, and an icon in a stack of five
+    /// gives it no more weight than "more".
+    private func helpRow(for d: Dream) -> some View {
+        HStack(spacing: DreamSpace.s4) {
+            DreamButton(title: "I can help", variant: .primary, size: .md, icon: "heart") {
+                helpForDream = d
+            }
+
+            Button { presentedDream = d } label: {
+                HStack(spacing: 5) {
+                    Text("The journey").dreamStyle(.ui(13))
+                    Image(systemName: "arrow.right").font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundStyle(DreamTheme.OnMedia.base)
+                .frame(minHeight: 44)
+                .padding(.horizontal, DreamSpace.s7)
+                .background {
+                    DreamShape.md
+                        .fill(DreamTheme.Glass.fill)
+                        .background(.ultraThinMaterial, in: DreamShape.md)
+                        .environment(\.colorScheme, .dark)
+                        .overlay(DreamShape.md.strokeBorder(DreamTheme.Glass.stroke, lineWidth: 1))
+                }
+                .clipShape(DreamShape.md)
+            }
+            .buttonStyle(DreamPressStyle())
         }
     }
 
@@ -517,20 +532,18 @@ struct DiscoverScreen: View {
 
         if expanded || !long {
             Text(text)
-                .font(DreamTheme.Font.text(13))
-                .foregroundStyle(.white.opacity(0.9))
-                .lineSpacing(2)
+                .dreamStyle(.body(12))
+                .foregroundStyle(DreamTheme.OnMedia.dim)
                 .fixedSize(horizontal: false, vertical: true)
         } else {
             let snippet = String(text.prefix(90))
             let moreText = Text("more")
-                .font(DreamTheme.Font.text(13, weight: .semibold))
+                .font(DreamType.sans(12, weight: .semibold))
                 .foregroundStyle(Color.white.opacity(0.65))
 
             Text("\(snippet)… \(moreText)")
-                .font(DreamTheme.Font.text(13))
-                .foregroundStyle(Color.white.opacity(0.9))
-                .lineSpacing(2)
+                .dreamStyle(.body(12))
+                .foregroundStyle(DreamTheme.OnMedia.dim)
             .onTapGesture {
                 let id = d.feedID
                 withAnimation(.easeInOut(duration: 0.2)) {
@@ -541,32 +554,24 @@ struct DiscoverScreen: View {
     }
 
     private func rightRail(for d: Dream) -> some View {
-        VStack(spacing: 16) {
-            ActionButton(systemImage: "heart.fill", label: "I can help") {
-                helpForDream = d
-            }
-            ActionButton(systemImage: "bubble.right.fill", label: commentLabel(for: d)) {
-                commentsForDream = d
-            }
-            ActionButton(systemImage: "paperplane.fill", label: "Send") {
-                shareDream = d
-            }
-            ActionButton(
-                systemImage: savedStore.isSaved(d.feedID) ? "bookmark.fill" : "bookmark",
-                label: savedStore.isSaved(d.feedID) ? "Saved" : "Save"
-            ) {
-                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                let wasSaved = savedStore.isSaved(d.feedID)
-                savedStore.toggle(d.feedID)
-                if !wasSaved {
-                    EngagementLogger.shared.log(.save, dreamId: d.id)
-                }
-            }
-            ActionButton(systemImage: "ellipsis", label: "More") {
-                moreMenuDream = d
-            }
-        }
-        .frame(width: 64)
+        EngagementBar(
+            items: [
+                .comment(count: commentCount(for: d)) { commentsForDream = d },
+                .save(isSaved: savedStore.isSaved(d.feedID)) {
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    let wasSaved = savedStore.isSaved(d.feedID)
+                    savedStore.toggle(d.feedID)
+                    if !wasSaved {
+                        EngagementLogger.shared.log(.save, dreamId: d.id)
+                    }
+                },
+                .share { shareDream = d },
+                .more { moreMenuDream = d },
+            ],
+            orientation: .vertical,
+            onMedia: true
+        )
+        .frame(width: 56)
     }
 
     private func authorRow(for d: Dream) -> some View {
@@ -604,9 +609,10 @@ struct DiscoverScreen: View {
         auth.userId == d.ownerId
     }
 
-    private func commentLabel(for d: Dream) -> String {
-        let count = commentCountOverrides[d.feedID] ?? d.comments
-        return count > 0 ? "\(count)" : "Comment"
+    /// Live count for a card, preferring the local override written when the user
+    /// posts from the comments sheet — keyed by `feedID`, not dream id.
+    private func commentCount(for d: Dream) -> Int {
+        commentCountOverrides[d.feedID] ?? d.comments
     }
 
     private func isFollowingOwner(_ d: Dream) -> Bool {

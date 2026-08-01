@@ -2,6 +2,25 @@ import SwiftUI
 
 enum DreamTab: Hashable {
     case discover, explore, activity, profile
+
+    /// Tab the app opens on. Honours `--initial-tab=<name>` in debug builds so a
+    /// screenshot script can address a tab directly — the simulator has no way to
+    /// script a tap on the tab bar.
+    static var launchTab: DreamTab {
+        #if DEBUG
+        let arg = ProcessInfo.processInfo.arguments
+            .first { $0.hasPrefix("--initial-tab=") }
+            .map { String($0.dropFirst("--initial-tab=".count)) }
+        switch arg {
+        case "explore": return .explore
+        case "activity": return .activity
+        case "profile": return .profile
+        default: return .discover
+        }
+        #else
+        return .discover
+        #endif
+    }
 }
 
 /// Floating tab bar — the kit's `navigation/DreamTabBar.jsx`.
@@ -21,7 +40,6 @@ struct DreamTabBar: View {
     /// When true (the user is scrolling the feed) the bar shrinks out of the
     /// way; any tap on the bar restores it to full size.
     @Binding var collapsed: Bool
-    var dark: Bool = false
     /// Unread-notification count shown as a badge on the Activity (bell) tab.
     var badgeCount: Int = 0
     var onCreate: () -> Void
@@ -37,10 +55,13 @@ struct DreamTabBar: View {
         .padding(.horizontal, DreamSpace.s5)
         .frame(height: DreamSpace.tabBarHeight)
         .background {
+            // The material supplies blur only and follows the ambient scheme; the
+            // glass fill on top is what makes the bar dark. Forcing the material to
+            // dark as well lightened its base over a light page, and the two
+            // layers together came out mid-grey instead of dark glass.
             DreamShape.xl
                 .fill(.ultraThinMaterial)
-                .environment(\.colorScheme, .dark)
-                .overlay(DreamShape.xl.fill(DreamTheme.Glass.fillStrong.opacity(dark ? 1 : 0.75)))
+                .overlay(DreamShape.xl.fill(DreamTheme.Glass.fillStrong))
                 .overlay(DreamShape.xl.strokeBorder(DreamTheme.Glass.stroke, lineWidth: 0.75))
         }
         .clipShape(DreamShape.xl)

@@ -155,16 +155,25 @@ struct DesignSystemGallery: View {
                                 IconButton(systemName: "bell", accessibilityLabel: "Alerts", badge: 3)
                                 FollowButton(isFollowing: false, style: .feed) {}
                             }
-                            EngagementBar(orientation: .horizontal, onMedia: true,
-                                          likeCount: 1240, commentCount: 38, saveCount: 96,
-                                          isLiked: isLiked, onLike: { isLiked.toggle() })
+                            EngagementBar(
+                                items: [.like(count: 1240, isLiked: isLiked) { isLiked.toggle() },
+                                        .comment(count: 38) {},
+                                        .save(count: 96, isSaved: false) {},
+                                        .share {}],
+                                orientation: .horizontal, onMedia: true
+                            )
                         }
                     }
                 }
 
                 section("On page") {
-                    EngagementBar(orientation: .horizontal, likeCount: 1240,
-                                  commentCount: 38, saveCount: 96)
+                    EngagementBar(
+                        items: [.like(count: 1240, isLiked: false) {},
+                                .comment(count: 38) {},
+                                .save(count: 96, isSaved: true) {},
+                                .share {}],
+                        orientation: .horizontal
+                    )
                     HStack(spacing: DreamSpace.s5) {
                         IconButton(systemName: "gearshape", accessibilityLabel: "Settings", variant: .solid)
                         IconButton(systemName: "square.and.arrow.up", accessibilityLabel: "Share", variant: .solid)

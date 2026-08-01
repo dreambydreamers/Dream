@@ -10,20 +10,45 @@ struct EngagementBar: View {
         case vertical, horizontal
     }
 
+    /// One action in the bar. Composed rather than fixed, because the actions a
+    /// surface actually offers differ — the feed rail has "more" and no like,
+    /// while dream detail has the full set.
+    struct Item: Identifiable {
+        let id = UUID()
+        let icon: String
+        let label: String
+        var count: Int? = nil
+        var isActive: Bool = false
+        var activeColor: Color = DreamTheme.Accent.base
+        var action: () -> Void = {}
+
+        static func like(count: Int, isLiked: Bool, action: @escaping () -> Void) -> Item {
+            .init(icon: isLiked ? "heart.fill" : "heart", label: "Like", count: count,
+                  isActive: isLiked, activeColor: DreamTheme.Status.error, action: action)
+        }
+
+        static func comment(count: Int, action: @escaping () -> Void) -> Item {
+            .init(icon: "bubble.left", label: "Comments", count: count, action: action)
+        }
+
+        static func save(count: Int? = nil, isSaved: Bool, action: @escaping () -> Void) -> Item {
+            .init(icon: isSaved ? "bookmark.fill" : "bookmark", label: isSaved ? "Saved" : "Save",
+                  count: count, isActive: isSaved, action: action)
+        }
+
+        static func share(action: @escaping () -> Void) -> Item {
+            .init(icon: "paperplane", label: "Share", action: action)
+        }
+
+        static func more(action: @escaping () -> Void) -> Item {
+            .init(icon: "ellipsis", label: "More", action: action)
+        }
+    }
+
+    let items: [Item]
     var orientation: Orientation = .vertical
     /// Glass tiles for placement over video.
     var onMedia: Bool = false
-
-    var likeCount: Int
-    var commentCount: Int
-    var saveCount: Int
-    var isLiked: Bool = false
-    var isSaved: Bool = false
-
-    var onLike: () -> Void = {}
-    var onComment: () -> Void = {}
-    var onSave: () -> Void = {}
-    var onShare: () -> Void = {}
 
     var body: some View {
         let layout = orientation == .vertical
@@ -31,18 +56,19 @@ struct EngagementBar: View {
             : AnyLayout(HStackLayout(spacing: DreamSpace.s11))
 
         layout {
-            item(icon: isLiked ? "heart.fill" : "heart", count: likeCount, label: "Like",
-                 isActive: isLiked, activeColor: DreamTheme.Status.error, action: onLike)
-            item(icon: "bubble.left", count: commentCount, label: "Comments", action: onComment)
-            item(icon: isSaved ? "bookmark.fill" : "bookmark", count: saveCount, label: "Save",
-                 isActive: isSaved, action: onSave)
-            item(icon: "paperplane", count: nil, label: "Share", action: onShare)
+            ForEach(items) { item in
+                button(for: item)
+            }
         }
     }
 
-    private func item(icon: String, count: Int?, label: String, isActive: Bool = false,
-                      activeColor: Color = DreamTheme.Accent.base, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+    private func button(for item: Item) -> some View {
+        let icon = item.icon
+        let count = item.count
+        let isActive = item.isActive
+        let activeColor = item.activeColor
+
+        return Button(action: item.action) {
             VStack(spacing: DreamSpace.s1) {
                 Image(systemName: icon)
                     .font(.system(size: 21, weight: .medium))
@@ -67,7 +93,7 @@ struct EngagementBar: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(DreamPressStyle(scale: 0.88))
-        .accessibilityLabel(label)
+        .accessibilityLabel(item.label)
     }
 
     private func foreground(isActive: Bool, activeColor: Color) -> Color {

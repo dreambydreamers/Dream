@@ -2,7 +2,7 @@ import SwiftUI
 
 struct RootView: View {
     @StateObject private var auth = AuthService.shared
-    @State private var activeTab: DreamTab = .discover
+    @State private var activeTab: DreamTab = .launchTab
     @State private var creating = false
     @State private var showPublishedToast = false
 
@@ -49,7 +49,7 @@ private struct MainShell: View {
             tabContent
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            DreamTabBar(active: $activeTab, collapsed: $tabBarCollapsed, dark: activeTab == .discover, badgeCount: activity.unreadCount, onCreate: { Task { await handleCreateTap() } })
+            DreamTabBar(active: $activeTab, collapsed: $tabBarCollapsed, badgeCount: activity.unreadCount, onCreate: { Task { await handleCreateTap() } })
                 .offset(y: shouldHideTabBar ? 150 : 0)
                 .animation(.easeInOut(duration: 0.22), value: shouldHideTabBar)
                 .allowsHitTesting(!shouldHideTabBar)
@@ -138,17 +138,8 @@ private struct MainShell: View {
     }
 
     private var publishedToast: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 14, weight: .bold))
-            Text(publishedMessage)
-                .font(DreamTheme.Font.text(14, weight: .semibold))
-        }
-        .foregroundStyle(.white)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(DreamTheme.ink, in: Capsule())
-        .shadow(color: .black.opacity(0.25), radius: 12, y: 6)
+        Toast(message: publishedMessage, tone: .success)
+            .padding(.horizontal, DreamSpace.screenGutter)
     }
 
     /// Horizontally swipeable pages, one per tab, in tab-bar order. Swiping
