@@ -5,15 +5,44 @@ struct StatCell: View {
     let label: String
 
     var body: some View {
-        VStack(spacing: 2) {
+        VStack(spacing: DreamSpace.s1) {
             Text(value)
-                .font(DreamTheme.Font.display(22, weight: .medium))
-                .foregroundStyle(DreamTheme.ink)
-            Text(label.uppercased())
-                .font(DreamTheme.Font.text(11, weight: .semibold))
-                .tracking(0.3)
-                .foregroundStyle(DreamTheme.ink2)
+                .dreamStyle(.title(22))
+                .foregroundStyle(DreamTheme.Text.primary)
+            Text(label)
+                .dreamStyle(.label)
+                .foregroundStyle(DreamTheme.Text.tertiary)
         }
         .frame(maxWidth: .infinity)
+    }
+}
+
+/// A row of stats separated by hairlines — the kit's `content/StatRow.jsx`.
+/// Wrap in a `DreamSurface` for the carded treatment used on Profile and detail.
+struct StatRow: View {
+    struct Stat: Identifiable {
+        let id = UUID()
+        let value: String
+        let label: String
+
+        init(_ value: String, _ label: String) {
+            self.value = value
+            self.label = label
+        }
+    }
+
+    let stats: [Stat]
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(Array(stats.enumerated()), id: \.element.id) { index, stat in
+                if index > 0 {
+                    Rectangle()
+                        .fill(DreamTheme.Border.standard)
+                        .frame(width: 1, height: 28)
+                }
+                StatCell(value: stat.value, label: stat.label)
+            }
+        }
     }
 }

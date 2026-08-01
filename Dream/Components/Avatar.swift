@@ -16,15 +16,8 @@ struct Avatar: View {
     }
 
     private var colors: [Color] {
-        let palette: [(UInt32, UInt32)] = [
-            (0xF4B074, 0xC8632B),
-            (0x8EC5DD, 0x3A7FA8),
-            (0xC9A8E0, 0x7448A8),
-            (0x9FD9B4, 0x2F7A52),
-            (0xF1D27A, 0xB07908),
-        ]
-        let pair = palette[abs(seed) % palette.count]
-        return [Color(hex: pair.0), Color(hex: pair.1)]
+        let pair = DreamAvatarGradient.pair(seed: seed)
+        return [pair.0, pair.1]
     }
 
     var body: some View {

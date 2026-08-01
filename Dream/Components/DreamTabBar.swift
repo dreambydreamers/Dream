@@ -4,9 +4,18 @@ enum DreamTab: Hashable {
     case discover, explore, activity, profile
 }
 
-/// Floating, translucent capsule tab bar. Icon-only buttons with an animated
-/// highlight that slides behind the active tab; a tinted accent "+" in the
-/// middle for creating. Adapts to a dark feed (`dark`) or light surfaces.
+/// Floating tab bar — the kit's `navigation/DreamTabBar.jsx`.
+///
+/// Glass pill with an accent underline marking the active tab and a filled "+"
+/// that is an action rather than a tab. The kit's shape is a `radius-xl` squircle
+/// rather than a full capsule, which reads as less pill-like beside the app's other
+/// squircle chrome.
+///
+/// Two layout invariants (see AGENTS.md, "Navigation & gestures"):
+///  • the collapse must run through the single `.animation(_:value:)` below, not
+///    through per-property animations;
+///  • `.scaleEffect` must wrap the *assembled* pill — after background, clip and
+///    shadow — or the glass and shadow scale independently of the content.
 struct DreamTabBar: View {
     @Binding var active: DreamTab
     /// When true (the user is scrolling the feed) the bar shrinks out of the
@@ -17,35 +26,31 @@ struct DreamTabBar: View {
     var badgeCount: Int = 0
     var onCreate: () -> Void
 
-    @Namespace private var highlight
-
     var body: some View {
-        HStack(spacing: 0) {
-            tabButton(.discover, icon: "house.fill")
-            tabButton(.explore,  icon: "play.rectangle")
+        HStack(spacing: DreamSpace.s1) {
+            tabButton(.discover, icon: "house")
+            tabButton(.explore, icon: "safari")
             createButton
             tabButton(.activity, icon: "bell", badge: badgeCount)
-            tabButton(.profile,  icon: "person.crop.circle")
+            tabButton(.profile, icon: "person.crop.circle")
         }
-        .padding(.horizontal, 8)
-        .frame(height: 64)
+        .padding(.horizontal, DreamSpace.s5)
+        .frame(height: DreamSpace.tabBarHeight)
         .background {
-            Capsule(style: .continuous)
+            DreamShape.xl
                 .fill(.ultraThinMaterial)
                 .environment(\.colorScheme, .dark)
-                .overlay(Capsule(style: .continuous).fill(Color.black.opacity(dark ? 0.35 : 0.18)))
-                .overlay(
-                    Capsule(style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.75)
-                )
+                .overlay(DreamShape.xl.fill(DreamTheme.Glass.fillStrong.opacity(dark ? 1 : 0.75)))
+                .overlay(DreamShape.xl.strokeBorder(DreamTheme.Glass.stroke, lineWidth: 0.75))
         }
-        .clipShape(Capsule(style: .continuous))
-        .shadow(color: .black.opacity(0.28), radius: 18, y: 8)
+        .clipShape(DreamShape.xl)
+        .dreamShadow(.float)
+        // Assembled pill only — see the invariant note above.
         .scaleEffect(collapsed ? 0.78 : 1, anchor: .bottom)
         .opacity(collapsed ? 0.85 : 1)
         .animation(.smooth(duration: 0.55, extraBounce: 0.1), value: collapsed)
-        .padding(.horizontal, 20)
-        .padding(.bottom, 28)
+        .padding(.horizontal, DreamSpace.s10)
+        .padding(.bottom, DreamSpace.s12)
     }
 
     private func tabButton(_ tab: DreamTab, icon: String, badge: Int = 0) -> some View {
@@ -54,35 +59,33 @@ struct DreamTabBar: View {
             collapsed = false   // driven by the smooth .animation(value:) modifier
             withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { active = tab }
         } label: {
-            ZStack {
-                if isActive {
-                    Capsule(style: .continuous)
-                        .fill(Color.white.opacity(0.22))
-                        .matchedGeometryEffect(id: "activeHighlight", in: highlight)
-                        .frame(width: 60, height: 44)
-                }
+            VStack(spacing: 5) {
                 Image(systemName: icon)
-                    .font(.system(size: 22, weight: isActive ? .semibold : .regular))
-                    .foregroundStyle(isActive ? .white : Color.white.opacity(0.6))
+                    .font(.system(size: 21, weight: isActive ? .semibold : .regular))
+                    .foregroundStyle(isActive ? DreamTheme.OnMedia.base : Color.white.opacity(0.55))
                     .overlay(alignment: .topTrailing) {
                         if badge > 0 {
-                            Text(badge > 9 ? "9+" : "\(badge)")
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, badge > 9 ? 4 : 0)
-                                .frame(minWidth: 16, minHeight: 16)
-                                .background(Circle().fill(DreamTheme.blue))
-                                .overlay(Circle().strokeBorder(.white.opacity(0.9), lineWidth: 1.5))
-                                .offset(x: 12, y: -10)
+                            BadgeDot(count: badge, showsBorder: true)
+                                .scaleEffect(0.88)
+                                .offset(x: 13, y: -9)
                         }
                     }
+
+                // Underline marker. A fixed-width bar rather than a sliding
+                // highlight — it keeps the icons at a constant size and needs no
+                // matchedGeometry namespace.
+                Capsule()
+                    .fill(isActive ? DreamTheme.Accent.base : .clear)
+                    .frame(width: 14, height: 2)
+                    .animation(DreamMotion.smooth(), value: isActive)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 48)
+            .frame(height: 44)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel(for: tab))
+        .accessibilityAddTraits(isActive ? [.isSelected, .isButton] : .isButton)
     }
 
     private var createButton: some View {
@@ -91,15 +94,14 @@ struct DreamTabBar: View {
             onCreate()
         } label: {
             Image(systemName: "plus")
-                .font(.system(size: 20, weight: .bold))
-                .foregroundStyle(.white)
-                .frame(width: 44, height: 44)
-                .background(DreamTheme.blue, in: Circle())
-                .shadow(color: DreamTheme.blue.opacity(0.5), radius: 8, y: 3)
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(DreamTheme.Action.primaryForeground)
+                .frame(width: 42, height: 42)
+                .background(DreamTheme.Accent.base, in: DreamShape.sm)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(DreamPressStyle(scale: 0.92))
         .accessibilityLabel("Create")
-        .frame(maxWidth: .infinity)
+        .padding(.horizontal, DreamSpace.s3)
     }
 
     private func accessibilityLabel(for tab: DreamTab) -> String {

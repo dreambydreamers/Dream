@@ -17,13 +17,13 @@ extension DreamAchievement {
     static var allLocked: [DreamAchievement] {
         let definitions: [(id: String, icon: String, emoji: String, title: String, subtitle: String, color: Color)] = [
             ("dreamer",    "moon.stars.fill",        "🌙", "Dreamer",       "Post your first dream",          DreamTheme.blue),
-            ("storyteller","play.circle.fill",        "🎬", "Storyteller",   "Attach a video to your dream",   Color(hex: 0xE07B39)),
-            ("first_spark","person.fill.checkmark",   "✨", "First Spark",   "Get your first supporter",       Color(hex: 0xF5C518)),
-            ("hand_raised","hand.raised.fill",        "🤝", "Hand Raised",   "Receive a help offer",           Color(hex: 0x8AD3A7)),
-            ("in_motion",  "figure.run",              "💪", "In Motion",     "Complete a journey step",        Color(hex: 0xFF6B6B)),
-            ("rising_star","star.fill",               "⭐", "Rising Star",   "Reach 5 supporters",             Color(hex: 0xFFB800)),
-            ("halfway",    "map.fill",                "🗺️", "Halfway There", "Half the journey completed",     Color(hex: 0x9B59B6)),
-            ("almost",     "flag.fill",               "🎯", "Almost There",  "Reach the final stage",          Color(hex: 0x2ECC71)),
+            ("storyteller","play.circle.fill",        "🎬", "Storyteller",   "Attach a video to your dream",   DreamAchievementAccent.storyteller),
+            ("first_spark","person.fill.checkmark",   "✨", "First Spark",   "Get your first supporter",       DreamAchievementAccent.spark),
+            ("hand_raised","hand.raised.fill",        "🤝", "Hand Raised",   "Receive a help offer",           DreamAchievementAccent.hand),
+            ("in_motion",  "figure.run",              "💪", "In Motion",     "Complete a journey step",        DreamAchievementAccent.motion),
+            ("rising_star","star.fill",               "⭐", "Rising Star",   "Reach 5 supporters",             DreamAchievementAccent.star),
+            ("halfway",    "map.fill",                "🗺️", "Halfway There", "Half the journey completed",     DreamAchievementAccent.halfway),
+            ("almost",     "flag.fill",               "🎯", "Almost There",  "Reach the final stage",          DreamAchievementAccent.almost),
         ]
         return definitions.map { d in
             DreamAchievement(id: d.id, icon: d.icon, emoji: d.emoji,
@@ -48,49 +48,49 @@ extension DreamAchievement {
                              title: "Storyteller",
                              subtitle: "Posted a video",
                              unlocked: dream.videoStoragePath != nil,
-                             accentColor: Color(hex: 0xE07B39)),
+                             accentColor: DreamAchievementAccent.storyteller),
 
             DreamAchievement(id: "first_spark",
                              icon: "person.fill.checkmark", emoji: "✨",
                              title: "First Spark",
                              subtitle: "Got your first supporter",
                              unlocked: dream.supporters > 0,
-                             accentColor: Color(hex: 0xF5C518)),
+                             accentColor: DreamAchievementAccent.spark),
 
             DreamAchievement(id: "hand_raised",
                              icon: "hand.raised.fill", emoji: "🤝",
                              title: "Hand Raised",
                              subtitle: "Received a help offer",
                              unlocked: dream.offers > 0,
-                             accentColor: Color(hex: 0x8AD3A7)),
+                             accentColor: DreamAchievementAccent.hand),
 
             DreamAchievement(id: "in_motion",
                              icon: "figure.run", emoji: "💪",
                              title: "In Motion",
                              subtitle: "Completed a journey step",
                              unlocked: doneSteps > 0,
-                             accentColor: Color(hex: 0xFF6B6B)),
+                             accentColor: DreamAchievementAccent.motion),
 
             DreamAchievement(id: "rising_star",
                              icon: "star.fill", emoji: "⭐",
                              title: "Rising Star",
                              subtitle: "5+ supporters",
                              unlocked: dream.supporters >= 5,
-                             accentColor: Color(hex: 0xFFB800)),
+                             accentColor: DreamAchievementAccent.star),
 
             DreamAchievement(id: "halfway",
                              icon: "map.fill", emoji: "🗺️",
                              title: "Halfway There",
                              subtitle: "Half the journey done",
                              unlocked: dream.journey.count >= 2 && doneSteps >= dream.journey.count / 2,
-                             accentColor: Color(hex: 0x9B59B6)),
+                             accentColor: DreamAchievementAccent.halfway),
 
             DreamAchievement(id: "almost",
                              icon: "flag.fill", emoji: "🎯",
                              title: "Almost There",
                              subtitle: "Reached the final stage",
                              unlocked: dream.stage == .almost,
-                             accentColor: Color(hex: 0x2ECC71)),
+                             accentColor: DreamAchievementAccent.almost),
         ]
     }
 }
@@ -136,7 +136,7 @@ struct DreamAchievementsView: View {
                 Capsule()
                     .fill(
                         LinearGradient(
-                            colors: [DreamTheme.blue, Color(hex: 0x8AD3A7)],
+                            colors: [DreamTheme.blue, DreamAchievementAccent.hand],
                             startPoint: .leading, endPoint: .trailing
                         )
                     )

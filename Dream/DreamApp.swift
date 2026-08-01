@@ -17,11 +17,10 @@ struct DreamApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                // The entire design uses fixed light-mode colors (cream/white
-                // backgrounds, dark `ink` text). Lock to light so nothing
-                // adaptive (e.g. `.primary` text) flips to white on a device
-                // running dark mode and becomes invisible on the light fields.
-                .preferredColorScheme(.light)
+                // No `.preferredColorScheme` — every `DreamTheme` token is a
+                // trait-resolving dynamic color, so the app follows the system
+                // appearance. Chrome that sits over video (`Glass`, `OnMedia`)
+                // is deliberately mode-invariant.
                 .task {
                     await AuthService.shared.restoreSession()
                 }
