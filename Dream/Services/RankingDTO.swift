@@ -15,6 +15,7 @@ enum EngagementEventType: String, Codable, Hashable {
     case save
     case share
     case follow
+    case like
     case notRelevant = "not_relevant"
 }
 

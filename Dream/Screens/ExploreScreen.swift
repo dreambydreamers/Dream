@@ -310,10 +310,10 @@ struct ExploreMediaDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var videoActions = VideoActionsModel()
     @ObservedObject private var savedStore = SavedDreamsStore.shared
+    @ObservedObject private var likes = LikesStore.shared
     @State private var currentItem: ExploreMediaItem
     @State private var currentVideoID: UUID?
     @State private var videoItems: [ExploreMediaItem]
-    @State private var likedItems: Set<UUID> = []
     @State private var savedItems: Set<UUID> = []
     @State private var helpDream: Dream?
     @State private var shareDream: Dream?
@@ -358,6 +358,14 @@ struct ExploreMediaDetailSheet: View {
         .ignoresSafeArea()
         .statusBarHidden(currentItem.kind == .video)
         .onAppear { logView(currentItem) }
+        .task {
+            // Counts and the viewer's own likes for everything reachable by
+            // swiping in this sheet.
+            await likes.load(
+                forDreams: Array(Set(videoItems.map(\.dreamId) + [currentItem.dreamId])),
+                viewer: AuthService.shared.userId
+            )
+        }
         .onChange(of: currentItem.id) { _, _ in logView(currentItem) }
         .videoActions(videoActions)
         .sheet(item: $helpDream) { dream in
@@ -521,10 +529,10 @@ struct ExploreMediaDetailSheet: View {
     private func actionStrip(item: ExploreMediaItem) -> some View {
         HStack(spacing: 22) {
             ExploreDetailIconButton(
-                systemName: likedItems.contains(item.id) ? "heart.fill" : "heart",
-                label: "Like",
-                foreground: likedItems.contains(item.id) ? Color.red : .white,
-                action: { toggleLiked(item.id) }
+                systemName: likes.isLiked(likeThread(for: item)) ? "heart.fill" : "heart",
+                label: likeLabel(for: item),
+                foreground: likes.isLiked(likeThread(for: item)) ? DreamTheme.Status.error : .white,
+                action: { toggleLiked(item) }
             )
             ExploreDetailIconButton(systemName: "square.and.arrow.up", label: "Share", action: { shareOutside(item) })
             ExploreDetailIconButton(systemName: "ellipsis", label: "More", action: { more(item) })
@@ -702,12 +710,30 @@ struct ExploreMediaDetailSheet: View {
         item.videoStoragePath ?? item.videoDream?.videoStoragePath ?? item.dream.videoStoragePath
     }
 
-    private func toggleLiked(_ id: UUID) {
-        if likedItems.contains(id) {
-            likedItems.remove(id)
-        } else {
-            likedItems.insert(id)
-        }
+    /// The like key for an item. A video item's `id` *is* its `dream_videos.id`,
+    /// so an Explore like and a Discover like on the same clip are one like.
+    /// Photos have no video row, so they like against the dream.
+    private func likeVideoID(for item: ExploreMediaItem) -> UUID? {
+        item.kind == .video ? item.id : nil
+    }
+
+    private func likeThread(for item: ExploreMediaItem) -> UUID {
+        likeVideoID(for: item) ?? item.dreamId
+    }
+
+    private func likeLabel(for item: ExploreMediaItem) -> String {
+        let count = likes.count(for: likeThread(for: item), fallback: 0)
+        return count > 0 ? count.abbreviated : "Like"
+    }
+
+    private func toggleLiked(_ item: ExploreMediaItem) {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        likes.toggle(
+            dreamId: item.dreamId,
+            videoId: likeVideoID(for: item),
+            viewer: AuthService.shared.userId,
+            currentCount: 0
+        )
     }
 
     private func isSaved(_ item: ExploreMediaItem) -> Bool {

@@ -31,6 +31,7 @@ struct DiscoverScreen: View {
     @State private var isMuted: Bool = false
     @StateObject private var videoActions = VideoActionsModel()
     @ObservedObject private var savedStore = SavedDreamsStore.shared
+    @ObservedObject private var likes = LikesStore.shared
     @State private var moreMenuDream: Dream? = nil
     @State private var expandedDesc: Set<UUID> = []
     @State private var followedOwners: Set<UUID> = []
@@ -98,6 +99,7 @@ struct DiscoverScreen: View {
         .animation(.easeInOut(duration: 0.22), value: cleanDisplay)
         .task {
             if repo.dreams.isEmpty { await repo.loadFeed() }
+            await likes.load(forDreams: repo.dreams.map(\.id), viewer: auth.userId)
             ensureCurrentSlot()
             FeedVideoPreloader.shared.prefetchNeighbors(of: dreams, around: currentIndex)
             markFeedActive()
@@ -556,6 +558,12 @@ struct DiscoverScreen: View {
     private func rightRail(for d: Dream) -> some View {
         EngagementBar(
             items: [
+                .like(count: likes.count(for: d.feedID, fallback: d.likes),
+                      isLiked: likes.isLiked(d.feedID)) {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    likes.toggle(dreamId: d.id, videoId: d.videoId,
+                                 viewer: auth.userId, currentCount: d.likes)
+                },
                 .comment(count: commentCount(for: d)) { commentsForDream = d },
                 .save(isSaved: savedStore.isSaved(d.feedID)) {
                     UIImpactFeedbackGenerator(style: .medium).impactOccurred()

@@ -65,6 +65,9 @@ struct Dream: Identifiable, Hashable {
     var videoDurationMs: Int? = nil
     /// Comment count shown on the feed's comment button.
     var comments: Int = 0
+    /// Like count shown on the feed's heart. Per card, not per dream — see
+    /// `feedID`. `LikesStore` overrides this with a live value once loaded.
+    var likes: Int = 0
 }
 
 extension Dream {
