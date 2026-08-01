@@ -9,6 +9,11 @@ import SwiftUI
 
 @main
 struct DreamApp: App {
+    init() {
+        // Synchronous, before any view is built, so nothing renders in SF first.
+        DreamFonts.register()
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()
