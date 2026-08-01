@@ -50,14 +50,21 @@ struct VideoSourceCard: View {
             }
             .padding(20)
             .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(tinted
-                          ? LinearGradient(colors: [DreamTheme.blueSoft, .white], startPoint: .topLeading, endPoint: .bottomTrailing)
-                          : LinearGradient(colors: [.white, .white], startPoint: .top, endPoint: .bottom))
+                DreamShape.lg.fill(
+                    LinearGradient(
+                        colors: tinted
+                            ? [DreamTheme.Accent.soft, DreamTheme.Surface.card]
+                            : [DreamTheme.Surface.card, DreamTheme.Surface.card],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 20)
-                    .strokeBorder(tinted ? DreamTheme.blue : DreamTheme.line, lineWidth: 1.5)
+                DreamShape.lg.strokeBorder(
+                    tinted ? DreamTheme.Border.accent : DreamTheme.Border.standard,
+                    lineWidth: 1.5
+                )
             )
         }
         .buttonStyle(.plain)

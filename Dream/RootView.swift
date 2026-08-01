@@ -68,6 +68,23 @@ private struct MainShell: View {
         // avoidance app-wide (the chat composer ends up hidden under the keyboard).
         .ignoresSafeArea(.container, edges: .bottom)
         .task { await activity.start() }
+        #if DEBUG
+        // `--present=create|update` opens a composer straight from launch. The
+        // simulator can't be scripted to tap "+", and both composers are
+        // otherwise unreachable for screenshot verification.
+        .task {
+            let arg = ProcessInfo.processInfo.arguments
+                .first { $0.hasPrefix("--present=") }
+                .map { String($0.dropFirst("--present=".count)) }
+            switch arg {
+            case "create": creating = true
+            case "update":
+                updateTarget = await DreamRepository.shared.myDream()
+                postingUpdate = updateTarget != nil
+            default: break
+            }
+        }
+        #endif
         .onChange(of: activeTab) { _, tab in
             tabBarCollapsed = false
             if tab != .explore {

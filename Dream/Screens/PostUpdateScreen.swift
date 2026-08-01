@@ -89,18 +89,14 @@ struct PostUpdateScreen: View {
 
     private var sourceStep: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Share an update")
-                .font(DreamTheme.Font.display(30, weight: .regular))
-                .tracking(-0.7)
-                .foregroundStyle(DreamTheme.ink)
-                .padding(.top, 16)
-                .padding(.bottom, 8)
+            DreamHeadline("Share an", accent: "update", size: 26)
+                .padding(.top, DreamSpace.s8)
+                .padding(.bottom, DreamSpace.s4)
 
             Text("A new photo or video about “\(dream.title)”. Videos show up in Discover, and every update appears in Explore.")
-                .font(DreamTheme.Font.text(15))
-                .foregroundStyle(DreamTheme.ink2)
-                .lineSpacing(3)
-                .padding(.bottom, 28)
+                .dreamStyle(.body(15, relaxed: true))
+                .foregroundStyle(DreamTheme.Text.secondary)
+                .padding(.bottom, DreamSpace.s12)
 
             VideoSourceCard(icon: "video.fill", title: "Record video", sub: "Up to 60 seconds · Vertical", tinted: true) {
                 showCamera = true
