@@ -49,7 +49,7 @@ struct DesignSystemGallery: View {
                 }
 
                 section("Buttons") {
-                    DreamButton(title: "I can help", icon: "heart", fullWidth: true) {}
+                    DreamButton(title: "I can help", icon: "hands.sparkles", fullWidth: true) {}
                     HStack(spacing: DreamSpace.s5) {
                         DreamButton(title: "Continue", size: .md, trailingIcon: "arrow.right") {}
                         DreamButton(title: "Edit profile", variant: .secondary, size: .md) {}
@@ -166,6 +166,7 @@ struct DesignSystemGallery: View {
                             }
                             EngagementBar(
                                 items: [.like(count: 1240, isLiked: isLiked) { isLiked.toggle() },
+                                        .help {},
                                         .comment(count: 38) {},
                                         .save(count: 96, isSaved: false) {},
                                         .share {}],

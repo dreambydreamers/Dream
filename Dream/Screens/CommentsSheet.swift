@@ -6,6 +6,10 @@ import SwiftUI
 /// signed-in user; authors (or the dream owner) can delete.
 struct CommentsSheet: View {
     let dream: Dream
+    /// Set when the thread belongs to a photo update rather than a clip. A
+    /// photo has no `Dream` of its own, so it rides along with its parent
+    /// dream's card and threads on this instead of `dream.videoId`.
+    var photoId: UUID? = nil
     var onClose: () -> Void = {}
     /// Reports the new total so the feed badge can update immediately.
     var onCountChanged: (Int) -> Void = { _ in }
@@ -49,7 +53,7 @@ struct CommentsSheet: View {
         .keyboardDoneButton()
         .task {
             comments = await CommentRepository.shared.comments(
-                forDream: dream.id, videoId: dream.videoId)
+                forDream: dream.id, videoId: dream.videoId, photoId: photoId)
             isLoading = false
         }
     }
@@ -193,7 +197,7 @@ struct CommentsSheet: View {
             defer { isPosting = false }
             do {
                 let posted = try await CommentRepository.shared.post(
-                    dreamId: dream.id, videoId: dream.videoId, body: body)
+                    dreamId: dream.id, videoId: dream.videoId, photoId: photoId, body: body)
                 comments.append(posted)
                 draft = ""
                 onCountChanged(comments.count)

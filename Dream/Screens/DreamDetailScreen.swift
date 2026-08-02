@@ -242,7 +242,7 @@ struct DreamDetailScreen: View {
     private var stickyCTA: some View {
         VStack(spacing: 0) {
             Rectangle().fill(DreamTheme.Border.standard).frame(height: 1)
-            DreamButton(title: "I can help", icon: "heart", fullWidth: true,
+            DreamButton(title: "I can help", icon: "hands.sparkles", fullWidth: true,
                         tone: dream.category.palette.fg) {
                 helpForDream = dream
             }

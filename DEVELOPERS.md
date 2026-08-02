@@ -44,7 +44,7 @@ For backend work, create a Supabase project and apply the migrations in order:
 ```text
 supabase/migrations/0001_init.sql
 ...
-supabase/migrations/0027_comments_cascade_with_clip.sql
+supabase/migrations/0030_photo_comments.sql
 ```
 
 Then update `Dream/Config/SupabaseConfig.swift` locally with your project URL and publishable key.
@@ -144,7 +144,8 @@ Read [AGENTS.md](AGENTS.md) before touching core app behavior. The most importan
 - Realtime reloads, read receipts, and typing broadcasts should stay debounced or throttled.
 - All ranking logic lives in `Packages/DreamRanking`; repositories only move data. Two fairness invariants must never be broken: fairness slots are filled by exposure deficit before scoring, and watch/skip signals shape only the watching viewer's own profile.
 - Engagement writes go only through the `log_engagement_batch` RPC (`EngagementLogger`), never direct table inserts.
-- Comment threads are per-clip: keyed by `coalesce(video_id, dream_id)` = `Dream.feedID`, and they cascade-delete with the clip.
+- Comment threads are per-update: keyed by `coalesce(video_id, photo_id, dream_id)` — `Dream.feedID` for a video card, the photo's own id for a photo update — and they cascade-delete with the clip or photo they hang off.
+- Likes are per-clip (`dream_likes.thread_id` = `coalesce(video_id, dream_id)`, unique per viewer). Photos still like against their dream; only comments are per-photo.
 
 ## Pull Request Preflight
 

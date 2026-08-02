@@ -27,6 +27,12 @@ struct EngagementBar: View {
                   isActive: isLiked, activeColor: DreamTheme.Status.error, action: action)
         }
 
+        /// The "I can help" offer. Deliberately **not** a heart — the heart is
+        /// the like, and two hearts on one rail read as the same action.
+        static func help(action: @escaping () -> Void) -> Item {
+            .init(icon: "hands.sparkles", label: "I can help", action: action)
+        }
+
         static func comment(count: Int, action: @escaping () -> Void) -> Item {
             .init(icon: "bubble.left", label: "Comments", count: count, action: action)
         }

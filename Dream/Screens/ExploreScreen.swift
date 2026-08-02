@@ -49,7 +49,10 @@ struct ExploreScreen: View {
         .onPreferenceChange(ExploreHeaderHeightKey.self) { height in
             headerHeight = max(height, 178)
         }
-        .task { await mediaRepo.loadFeed() }
+        .task {
+            await mediaRepo.loadFeed()
+            openLaunchItemIfRequested()
+        }
         .onChange(of: searchText) { _, new in searchRepo.search(new) }
         .onChange(of: searchFieldFocused) { _, focused in isSearchFocused = focused }
         .onDisappear { isSearchFocused = false }
@@ -73,6 +76,23 @@ struct ExploreScreen: View {
         .fullScreenCover(item: $dreamForDetail) { dream in
             DreamDetailScreen(dream: dream, onBack: { dreamForDetail = nil })
         }
+    }
+
+    /// Opens the first video or photo in the full-screen viewer on launch when
+    /// `--explore-open=<video|photo>` is passed, mirroring `--initial-tab`: the
+    /// simulator can't be scripted to tap a grid cell, so screenshots of the
+    /// detail viewer need a way in.
+    private func openLaunchItemIfRequested() {
+        #if DEBUG
+        guard selectedItem == nil,
+              let kind = ProcessInfo.processInfo.arguments
+                .first(where: { $0.hasPrefix("--explore-open=") })
+                .map({ String($0.dropFirst("--explore-open=".count)) })
+        else { return }
+        selectedItem = mediaRepo.items.first { item in
+            kind == "photo" ? item.kind == .photo : item.kind == .video
+        }
+        #endif
     }
 
     // MARK: - Search results
@@ -317,6 +337,10 @@ struct ExploreMediaDetailSheet: View {
     @State private var savedItems: Set<UUID> = []
     @State private var helpDream: Dream?
     @State private var shareDream: Dream?
+    @State private var commentsItem: ExploreMediaItem?
+    /// Per-thread comment counts for everything reachable in this sheet, keyed
+    /// by thread id (`Dream.feedID`), plus live overrides from `CommentsSheet`.
+    @State private var commentCounts: [UUID: Int] = [:]
     @State private var moreMenuItem: ExploreMediaItem?
     @State private var externalShareItem: ShareItem?
     @State private var shareToast: String?
@@ -325,6 +349,13 @@ struct ExploreMediaDetailSheet: View {
     /// thumbnails deliberately don't log — only the full-screen viewer counts
     /// as exposure.
     @State private var loggedViewDreams: Set<UUID> = []
+
+    /// True while anything is presented over the viewer. The pager's video
+    /// pauses instead of playing (and talking) behind the sheet.
+    private var isPresentingOverVideo: Bool {
+        commentsItem != nil || helpDream != nil || shareDream != nil
+            || moreMenuItem != nil || externalShareItem != nil
+    }
 
     init(
         initialItem: ExploreMediaItem,
@@ -361,15 +392,28 @@ struct ExploreMediaDetailSheet: View {
         .task {
             // Counts and the viewer's own likes for everything reachable by
             // swiping in this sheet.
-            await likes.load(
-                forDreams: Array(Set(videoItems.map(\.dreamId) + [currentItem.dreamId])),
+            let dreamIds = Array(Set(videoItems.map(\.dreamId) + [currentItem.dreamId]))
+            async let loadedLikes: Void = likes.load(
+                forDreams: dreamIds,
                 viewer: AuthService.shared.userId
             )
+            async let loadedComments = CommentRepository.shared.counts(forDreams: dreamIds)
+            let (_, counts) = await (loadedLikes, loadedComments)
+            commentCounts.merge(counts) { _, new in new }
         }
         .onChange(of: currentItem.id) { _, _ in logView(currentItem) }
         .videoActions(videoActions)
         .sheet(item: $helpDream) { dream in
             HelpSheet(dream: dream, onClose: { helpDream = nil })
+        }
+        .sheet(item: $commentsItem) { item in
+            CommentsSheet(
+                dream: commentDream(for: item),
+                photoId: item.kind == .photo ? item.id : nil,
+                onClose: { commentsItem = nil },
+                onCountChanged: { commentCounts[commentThread(for: item)] = $0 }
+            )
+            .presentationDetents([.medium, .large])
         }
         .sheet(item: $shareDream) { dream in
             InAppShareSheet(
@@ -458,8 +502,15 @@ struct ExploreMediaDetailSheet: View {
                     ExploreVideoDetailPage(
                         item: item,
                         isActive: currentVideoID == item.id,
+                        isCovered: isPresentingOverVideo,
                         isSaved: isSaved(item),
+                        isLiked: likes.isLiked(likeThread(for: item)),
+                        likeCount: likes.count(for: likeThread(for: item), fallback: 0),
+                        commentCount: commentCount(for: item),
                         safeTop: safeTop,
+                        onLike: { toggleLiked(item) },
+                        onDoubleTapLike: { likeItem(item) },
+                        onComment: { commentsItem = item },
                         onHelp: { help(item) },
                         onSave: { toggleSaved(item) },
                         onShare: { share(item) },
@@ -533,6 +584,11 @@ struct ExploreMediaDetailSheet: View {
                 label: likeLabel(for: item),
                 foreground: likes.isLiked(likeThread(for: item)) ? DreamTheme.Status.error : .white,
                 action: { toggleLiked(item) }
+            )
+            ExploreDetailIconButton(
+                systemName: "bubble.left",
+                label: commentLabel(for: item),
+                action: { commentsItem = item }
             )
             ExploreDetailIconButton(systemName: "square.and.arrow.up", label: "Share", action: { shareOutside(item) })
             ExploreDetailIconButton(systemName: "ellipsis", label: "More", action: { more(item) })
@@ -710,9 +766,10 @@ struct ExploreMediaDetailSheet: View {
         item.videoStoragePath ?? item.videoDream?.videoStoragePath ?? item.dream.videoStoragePath
     }
 
-    /// The like key for an item. A video item's `id` *is* its `dream_videos.id`,
-    /// so an Explore like and a Discover like on the same clip are one like.
-    /// Photos have no video row, so they like against the dream.
+    /// The clip an item's likes hang off. A video item's `id` *is* its
+    /// `dream_videos.id`, so an Explore like and a Discover like on the same
+    /// clip are one like. Photos have no video row, so they like against the
+    /// dream.
     private func likeVideoID(for item: ExploreMediaItem) -> UUID? {
         item.kind == .video ? item.id : nil
     }
@@ -734,6 +791,39 @@ struct ExploreMediaDetailSheet: View {
             viewer: AuthService.shared.userId,
             currentCount: 0
         )
+    }
+
+    private func likeItem(_ item: ExploreMediaItem) {
+        guard !likes.isLiked(likeThread(for: item)) else { return }
+        toggleLiked(item)
+    }
+
+    /// Comment threads are per *update*, photos included: an item's own id is
+    /// its `dream_videos.id` or `dream_photo_updates.id`, so each photo of a
+    /// dream owns its own thread rather than sharing the dream's.
+    private func commentThread(for item: ExploreMediaItem) -> UUID { item.id }
+
+    private func commentCount(for item: ExploreMediaItem) -> Int {
+        commentCounts[commentThread(for: item)] ?? 0
+    }
+
+    private func commentLabel(for item: ExploreMediaItem) -> String {
+        let count = commentCount(for: item)
+        return count > 0 ? count.abbreviated : "Comments"
+    }
+
+    /// The card `CommentsSheet` posts against. It derives a clip thread from
+    /// `dream.id` + `dream.videoId`, so a photo hands it the parent dream with
+    /// no clip attached plus its own `photoId`.
+    private func commentDream(for item: ExploreMediaItem) -> Dream {
+        guard item.kind == .video else {
+            var dream = item.dream
+            dream.videoId = nil
+            return dream
+        }
+        var dream = item.videoDream ?? item.dream
+        dream.videoId = item.id
+        return dream
     }
 
     private func isSaved(_ item: ExploreMediaItem) -> Bool {
@@ -786,8 +876,16 @@ struct ExploreMediaDetailSheet: View {
 private struct ExploreVideoDetailPage: View {
     let item: ExploreMediaItem
     let isActive: Bool
+    /// A sheet is up over the viewer — pause rather than play behind it.
+    let isCovered: Bool
     let isSaved: Bool
+    let isLiked: Bool
+    let likeCount: Int
+    let commentCount: Int
     let safeTop: CGFloat
+    var onLike: () -> Void
+    var onDoubleTapLike: () -> Void
+    var onComment: () -> Void
     var onHelp: () -> Void
     var onSave: () -> Void
     var onShare: () -> Void
@@ -799,7 +897,12 @@ private struct ExploreVideoDetailPage: View {
         ZStack {
             Group {
                 if isActive, let videoDream = item.videoDream {
-                    DreamVideoBackground(dream: videoDream, isMuted: false)
+                    DreamVideoBackground(
+                        dream: videoDream,
+                        isMuted: false,
+                        isPaused: isCovered,
+                        onDoubleTap: onDoubleTapLike
+                    )
                 } else {
                     PosterImage(url: item.imageURL, category: item.category)
                 }
@@ -918,7 +1021,9 @@ private struct ExploreVideoDetailPage: View {
     private var discoverRail: some View {
         EngagementBar(
             items: [
-                .init(icon: "heart", label: "I can help", action: onHelp),
+                .like(count: likeCount, isLiked: isLiked, action: onLike),
+                .comment(count: commentCount, action: onComment),
+                .help(action: onHelp),
                 .save(isSaved: isSaved, action: onSave),
                 .share(action: onShare),
                 .more(action: onMore),

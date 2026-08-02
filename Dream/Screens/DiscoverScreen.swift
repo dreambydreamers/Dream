@@ -349,7 +349,11 @@ struct DiscoverScreen: View {
     // and non-interactive; they only appear during the transition swipe.
     private func cardView(_ d: Dream, geo: GeometryProxy, safeTop: CGFloat, isActive: Bool) -> some View {
         ZStack {
-            DreamVideoBackground(dream: d, isMuted: isActive ? isMuted : true)
+            DreamVideoBackground(
+                dream: d,
+                isMuted: isActive ? isMuted : true,
+                onDoubleTap: isActive ? { likeFromDoubleTap(d) } : nil
+            )
                 .frame(width: geo.size.width, height: geo.size.height)
                 .clipped()
 
@@ -501,7 +505,7 @@ struct DiscoverScreen: View {
     /// gives it no more weight than "more".
     private func helpRow(for d: Dream) -> some View {
         HStack(spacing: DreamSpace.s4) {
-            DreamButton(title: "I can help", variant: .primary, size: .md, icon: "heart") {
+            DreamButton(title: "I can help", variant: .primary, size: .md, icon: "hands.sparkles") {
                 helpForDream = d
             }
 
@@ -618,6 +622,16 @@ struct DiscoverScreen: View {
     }
 
     /// Live count for a card, preferring the local override written when the user
+    /// Double-tapping the video likes it and never unlikes it — the gesture is
+    /// imprecise enough that a second one is far more likely a mis-tap than an
+    /// intent to undo. The rail's heart stays the way to unlike.
+    private func likeFromDoubleTap(_ d: Dream) {
+        guard !likes.isLiked(d.feedID) else { return }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        likes.toggle(dreamId: d.id, videoId: d.videoId,
+                     viewer: auth.userId, currentCount: d.likes)
+    }
+
     /// posts from the comments sheet — keyed by `feedID`, not dream id.
     private func commentCount(for d: Dream) -> Int {
         commentCountOverrides[d.feedID] ?? d.comments
