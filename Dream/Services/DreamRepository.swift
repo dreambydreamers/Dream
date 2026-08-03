@@ -19,6 +19,7 @@ final class DreamRepository: ObservableObject {
         static let profile = "id,handle,name,location,skills,avatar_seed,avatar_url"
         static let dreamVideo = "id,dream_id,storage_path,poster_path,duration_ms,is_primary,title,caption,created_at"
         static let commentCount = "dream_id,video_id,thread_id,comments_count"
+        static let likeCount = "dream_id,video_id,thread_id,likes_count"
         static let dreamStats = "dream_id,supporters_count,offers_count"
         static let journeyStep = "id,dream_id,stage,date_label,note,done,sort_order"
     }
@@ -102,7 +103,8 @@ final class DreamRepository: ObservableObject {
                     stats: ctx.statsByDream[row.id],
                     video: video,
                     steps: ctx.stepsByDream[row.id] ?? [],
-                    comments: ctx.commentsByThread[video?.id ?? row.id] ?? 0
+                    comments: ctx.commentsByThread[video?.id ?? row.id] ?? 0,
+                likes: ctx.likesByThread[video?.id ?? row.id] ?? 0
                 )
             }
             let byId = Dictionary(enriched.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
@@ -148,6 +150,8 @@ final class DreamRepository: ObservableObject {
         /// Per-thread comment counts, keyed like `Dream.feedID`
         /// (video id for clip threads, dream id for videoless dreams).
         let commentsByThread: [UUID: Int]
+        /// Per-thread like counts, keyed the same way.
+        let likesByThread: [UUID: Int]
     }
 
     /// Fetches author profiles, stats, *all* videos and journey steps for a set
@@ -172,15 +176,31 @@ final class DreamRepository: ObservableObject {
         async let commentCounts: [DreamCommentCountDTO] = client
             .from("dream_comment_counts").select(Columns.commentCount).in("dream_id", values: dreamIds)
             .execute().value
+        // Deliberately not part of the `try await` group below: a failure here
+        // must not take the whole feed down with it. Likes are decoration on a
+        // card; the card is the point. This also means the app keeps working
+        // against a database where 0028_likes hasn't been applied yet.
+        async let likeCounts: [DreamLikeCountDTO] = {
+            do {
+                return try await client
+                    .from("dream_like_counts").select(Columns.likeCount).in("dream_id", values: dreamIds)
+                    .execute().value
+            } catch {
+                print("[DreamRepository] like counts unavailable: \(error)")
+                return []
+            }
+        }()
 
         let (p, s, v, j, c) = try await (profiles, stats, videos, steps, commentCounts)
+        let l = await likeCounts
 
         return DreamContext(
             profileByOwner: Dictionary(p.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a }),
             statsByDream: Dictionary(s.map { ($0.dreamId, $0) }, uniquingKeysWith: { a, _ in a }),
             videosByDream: Dictionary(grouping: v, by: \.dreamId),
             stepsByDream: Dictionary(grouping: j, by: \.dreamId),
-            commentsByThread: Dictionary(c.map { ($0.threadId, $0.commentsCount) }, uniquingKeysWith: { a, _ in a })
+            commentsByThread: Dictionary(c.map { ($0.threadId, $0.commentsCount) }, uniquingKeysWith: { a, _ in a }),
+            likesByThread: Dictionary(l.map { ($0.threadId, $0.likesCount) }, uniquingKeysWith: { a, _ in a })
         )
     }
 
@@ -197,7 +217,8 @@ final class DreamRepository: ObservableObject {
                 stats: ctx.statsByDream[row.id],
                 video: video,
                 steps: ctx.stepsByDream[row.id] ?? [],
-                comments: ctx.commentsByThread[video?.id ?? row.id] ?? 0
+                comments: ctx.commentsByThread[video?.id ?? row.id] ?? 0,
+                likes: ctx.likesByThread[video?.id ?? row.id] ?? 0
             )
         }
     }
@@ -220,13 +241,15 @@ final class DreamRepository: ObservableObject {
             if videos.isEmpty {
                 cards.append((row.createdAt,
                               Self.mapToDream(row: row, profile: profile, stats: stats, video: nil, steps: steps,
-                                              comments: ctx.commentsByThread[row.id] ?? 0)))
+                                              comments: ctx.commentsByThread[row.id] ?? 0,
+                                              likes: ctx.likesByThread[row.id] ?? 0)))
             } else {
                 for video in videos {
                     // Each clip carries its own comment thread.
                     cards.append((video.createdAt,
                                   Self.mapToDream(row: row, profile: profile, stats: stats, video: video, steps: steps,
-                                                  comments: ctx.commentsByThread[video.id] ?? 0)))
+                                                  comments: ctx.commentsByThread[video.id] ?? 0,
+                                                  likes: ctx.likesByThread[video.id] ?? 0)))
                 }
             }
         }
@@ -345,7 +368,8 @@ final class DreamRepository: ObservableObject {
         stats: DreamStatsDTO?,
         video: DreamVideoDTO?,
         steps: [JourneyStepDTO],
-        comments: Int = 0
+        comments: Int = 0,
+        likes: Int = 0
     ) -> Dream {
         let journey = steps.map { step in
             JourneyStep(
@@ -387,7 +411,8 @@ final class DreamRepository: ObservableObject {
             videoTitle: video?.title,
             videoCaption: video?.caption,
             videoDurationMs: video?.durationMs,
-            comments: comments
+            comments: comments,
+            likes: likes
         )
     }
 

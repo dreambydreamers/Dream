@@ -50,8 +50,8 @@ Dream is built around a full-screen vertical video feed plus a real mixed-media 
 
 | Surface | What it does |
 |---|---|
-| Discover | TikTok-style feed ranked by "which dream can this person actually help" (capability matching + fairness slots), with per-clip comments, saved videos, native sharing, in-app sends, follows, dream detail, "Not interested", and "I can help". |
-| Explore | Instagram-style grid ranked for browsing (fresh + interests first, same fairness), photo/video detail browsing, and Supabase full-text search across dreams and people. |
+| Discover | TikTok-style feed ranked by "which dream can this person actually help" (capability matching + fairness slots), with per-clip likes and comments (double-tap the video to like), saved videos, native sharing, in-app sends, follows, dream detail, "Not interested", and "I can help". |
+| Explore | Instagram-style grid ranked for browsing (fresh + interests first, same fairness), photo/video detail browsing with likes and per-update comments, and Supabase full-text search across dreams and people. |
 | Activity | Messages-first inbox with notifications, help offers, unread badges, and live Realtime updates. |
 | Chat | One direct 1:1 conversation per user pair, with text, shared dream videos, typing, presence, and read receipts. |
 | Profile | Dreams, real photo/video updates, saved videos, achievements, follows, avatar upload, and profile editing — including the supporter profile ("How You Can Help") that powers matching. |

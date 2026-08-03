@@ -28,7 +28,7 @@ struct ExploreScreen: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            DreamTheme.paper.ignoresSafeArea()
+            DreamTheme.Surface.page.ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
@@ -49,7 +49,10 @@ struct ExploreScreen: View {
         .onPreferenceChange(ExploreHeaderHeightKey.self) { height in
             headerHeight = max(height, 178)
         }
-        .task { await mediaRepo.loadFeed() }
+        .task {
+            await mediaRepo.loadFeed()
+            openLaunchItemIfRequested()
+        }
         .onChange(of: searchText) { _, new in searchRepo.search(new) }
         .onChange(of: searchFieldFocused) { _, focused in isSearchFocused = focused }
         .onDisappear { isSearchFocused = false }
@@ -73,6 +76,23 @@ struct ExploreScreen: View {
         .fullScreenCover(item: $dreamForDetail) { dream in
             DreamDetailScreen(dream: dream, onBack: { dreamForDetail = nil })
         }
+    }
+
+    /// Opens the first video or photo in the full-screen viewer on launch when
+    /// `--explore-open=<video|photo>` is passed, mirroring `--initial-tab`: the
+    /// simulator can't be scripted to tap a grid cell, so screenshots of the
+    /// detail viewer need a way in.
+    private func openLaunchItemIfRequested() {
+        #if DEBUG
+        guard selectedItem == nil,
+              let kind = ProcessInfo.processInfo.arguments
+                .first(where: { $0.hasPrefix("--explore-open=") })
+                .map({ String($0.dropFirst("--explore-open=".count)) })
+        else { return }
+        selectedItem = mediaRepo.items.first { item in
+            kind == "photo" ? item.kind == .photo : item.kind == .video
+        }
+        #endif
     }
 
     // MARK: - Search results
@@ -182,41 +202,21 @@ struct ExploreScreen: View {
 
     private var headerOverlay: some View {
         VStack(spacing: 10) {
-            HStack {
-                Text("Explore")
-                    .font(DreamTheme.Font.display(34, weight: .regular, italic: true))
-                    .foregroundStyle(DreamTheme.ink)
-                Spacer()
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 64)
+            PageHeader(title: "Find your", accent: "people")
+                .padding(.top, DreamSpace.safeTop)
 
-            HStack(spacing: 10) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(DreamTheme.ink3)
-                    .font(.system(size: 15))
-                TextField("Search people, dreams, places...", text: $searchText)
-                    .font(DreamTheme.Font.text(15))
-                    .foregroundStyle(DreamTheme.ink)
-                    .focused($searchFieldFocused)
-                if !searchText.isEmpty {
-                    Button {
-                        searchText = ""
-                        searchRepo.clear()
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(DreamTheme.ink3)
-                    }
-                    .buttonStyle(.plain)
-                }
+            SearchField(
+                text: $searchText,
+                placeholder: "Search people, dreams, places…",
+                focus: $searchFieldFocused
+            )
+            .padding(.horizontal, DreamSpace.screenGutter)
+            .padding(.bottom, DreamSpace.s4)
+            .onChange(of: searchText) { _, new in
+                if new.isEmpty { searchRepo.clear() }
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .background(DreamTheme.bg, in: RoundedRectangle(cornerRadius: 14))
-            .padding(.horizontal, 20)
-            .padding(.bottom, 8)
         }
-        .background(DreamTheme.paper.opacity(0.96))
+        .background(DreamTheme.Surface.page.opacity(0.96))
         .background {
             GeometryReader { proxy in
                 Color.clear.preference(key: ExploreHeaderHeightKey.self, value: proxy.size.height)
@@ -229,9 +229,12 @@ struct ExploreScreen: View {
     @ViewBuilder
     private var exploreGrid: some View {
         if mediaRepo.isLoading && mediaRepo.items.isEmpty {
-            ProgressView()
-                .tint(DreamTheme.blue)
-                .padding(.top, 80)
+            // Matches the grid it is about to become, so nothing jumps on load.
+            ThreeColumnGrid {
+                ForEach(0..<12, id: \.self) { _ in
+                    Skeleton(height: 150, radius: 0)
+                }
+            }
         } else if mediaRepo.items.isEmpty {
             emptyExplore
         } else {
@@ -245,36 +248,26 @@ struct ExploreScreen: View {
     }
 
     private var emptySearch: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 32, weight: .light))
-                .foregroundStyle(DreamTheme.ink3)
-            Text("No results for \"\(searchText)\"")
-                .font(DreamTheme.Font.display(20, weight: .regular, italic: true))
-                .foregroundStyle(DreamTheme.ink)
-            Text("Try searching by name, dream or location.")
-                .font(DreamTheme.Font.text(14))
-                .foregroundStyle(DreamTheme.ink2)
-        }
-        .padding(.top, 80)
-        .padding(.horizontal, 40)
+        EmptyState(
+            icon: "magnifyingglass",
+            title: "No dreams match",
+            accent: "that",
+            message: "Nothing for \"\(searchText)\" yet. Try a name, a dream or a place.",
+            actionTitle: "Clear search",
+            action: {
+                searchText = ""
+                searchRepo.clear()
+            }
+        )
     }
 
     private var emptyExplore: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "square.grid.3x3")
-                .font(.system(size: 32, weight: .light))
-                .foregroundStyle(DreamTheme.ink3)
-            Text("No updates yet.")
-                .font(DreamTheme.Font.display(20, weight: .regular, italic: true))
-                .foregroundStyle(DreamTheme.ink)
-            Text("Photos and videos people post to their dreams will appear here.")
-                .font(DreamTheme.Font.text(14))
-                .foregroundStyle(DreamTheme.ink2)
-                .multilineTextAlignment(.center)
-        }
-        .padding(.top, 80)
-        .padding(.horizontal, 40)
+        EmptyState(
+            icon: "square.grid.3x3",
+            title: "Nothing here",
+            accent: "yet",
+            message: "Photos and videos people post to their dreams will appear here."
+        )
     }
 }
 
@@ -337,13 +330,17 @@ struct ExploreMediaDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var videoActions = VideoActionsModel()
     @ObservedObject private var savedStore = SavedDreamsStore.shared
+    @ObservedObject private var likes = LikesStore.shared
     @State private var currentItem: ExploreMediaItem
     @State private var currentVideoID: UUID?
     @State private var videoItems: [ExploreMediaItem]
-    @State private var likedItems: Set<UUID> = []
     @State private var savedItems: Set<UUID> = []
     @State private var helpDream: Dream?
     @State private var shareDream: Dream?
+    @State private var commentsItem: ExploreMediaItem?
+    /// Per-thread comment counts for everything reachable in this sheet, keyed
+    /// by thread id (`Dream.feedID`), plus live overrides from `CommentsSheet`.
+    @State private var commentCounts: [UUID: Int] = [:]
     @State private var moreMenuItem: ExploreMediaItem?
     @State private var externalShareItem: ShareItem?
     @State private var shareToast: String?
@@ -352,6 +349,13 @@ struct ExploreMediaDetailSheet: View {
     /// thumbnails deliberately don't log — only the full-screen viewer counts
     /// as exposure.
     @State private var loggedViewDreams: Set<UUID> = []
+
+    /// True while anything is presented over the viewer. The pager's video
+    /// pauses instead of playing (and talking) behind the sheet.
+    private var isPresentingOverVideo: Bool {
+        commentsItem != nil || helpDream != nil || shareDream != nil
+            || moreMenuItem != nil || externalShareItem != nil
+    }
 
     init(
         initialItem: ExploreMediaItem,
@@ -385,10 +389,31 @@ struct ExploreMediaDetailSheet: View {
         .ignoresSafeArea()
         .statusBarHidden(currentItem.kind == .video)
         .onAppear { logView(currentItem) }
+        .task {
+            // Counts and the viewer's own likes for everything reachable by
+            // swiping in this sheet.
+            let dreamIds = Array(Set(videoItems.map(\.dreamId) + [currentItem.dreamId]))
+            async let loadedLikes: Void = likes.load(
+                forDreams: dreamIds,
+                viewer: AuthService.shared.userId
+            )
+            async let loadedComments = CommentRepository.shared.counts(forDreams: dreamIds)
+            let (_, counts) = await (loadedLikes, loadedComments)
+            commentCounts.merge(counts) { _, new in new }
+        }
         .onChange(of: currentItem.id) { _, _ in logView(currentItem) }
         .videoActions(videoActions)
         .sheet(item: $helpDream) { dream in
             HelpSheet(dream: dream, onClose: { helpDream = nil })
+        }
+        .sheet(item: $commentsItem) { item in
+            CommentsSheet(
+                dream: commentDream(for: item),
+                photoId: item.kind == .photo ? item.id : nil,
+                onClose: { commentsItem = nil },
+                onCountChanged: { commentCounts[commentThread(for: item)] = $0 }
+            )
+            .presentationDetents([.medium, .large])
         }
         .sheet(item: $shareDream) { dream in
             InAppShareSheet(
@@ -477,8 +502,15 @@ struct ExploreMediaDetailSheet: View {
                     ExploreVideoDetailPage(
                         item: item,
                         isActive: currentVideoID == item.id,
+                        isCovered: isPresentingOverVideo,
                         isSaved: isSaved(item),
+                        isLiked: likes.isLiked(likeThread(for: item)),
+                        likeCount: likes.count(for: likeThread(for: item), fallback: 0),
+                        commentCount: commentCount(for: item),
                         safeTop: safeTop,
+                        onLike: { toggleLiked(item) },
+                        onDoubleTapLike: { likeItem(item) },
+                        onComment: { commentsItem = item },
                         onHelp: { help(item) },
                         onSave: { toggleSaved(item) },
                         onShare: { share(item) },
@@ -548,10 +580,15 @@ struct ExploreMediaDetailSheet: View {
     private func actionStrip(item: ExploreMediaItem) -> some View {
         HStack(spacing: 22) {
             ExploreDetailIconButton(
-                systemName: likedItems.contains(item.id) ? "heart.fill" : "heart",
-                label: "Like",
-                foreground: likedItems.contains(item.id) ? Color.red : .white,
-                action: { toggleLiked(item.id) }
+                systemName: likes.isLiked(likeThread(for: item)) ? "heart.fill" : "heart",
+                label: likeLabel(for: item),
+                foreground: likes.isLiked(likeThread(for: item)) ? DreamTheme.Status.error : .white,
+                action: { toggleLiked(item) }
+            )
+            ExploreDetailIconButton(
+                systemName: "bubble.left",
+                label: commentLabel(for: item),
+                action: { commentsItem = item }
             )
             ExploreDetailIconButton(systemName: "square.and.arrow.up", label: "Share", action: { shareOutside(item) })
             ExploreDetailIconButton(systemName: "ellipsis", label: "More", action: { more(item) })
@@ -729,12 +766,64 @@ struct ExploreMediaDetailSheet: View {
         item.videoStoragePath ?? item.videoDream?.videoStoragePath ?? item.dream.videoStoragePath
     }
 
-    private func toggleLiked(_ id: UUID) {
-        if likedItems.contains(id) {
-            likedItems.remove(id)
-        } else {
-            likedItems.insert(id)
+    /// The clip an item's likes hang off. A video item's `id` *is* its
+    /// `dream_videos.id`, so an Explore like and a Discover like on the same
+    /// clip are one like. Photos have no video row, so they like against the
+    /// dream.
+    private func likeVideoID(for item: ExploreMediaItem) -> UUID? {
+        item.kind == .video ? item.id : nil
+    }
+
+    private func likeThread(for item: ExploreMediaItem) -> UUID {
+        likeVideoID(for: item) ?? item.dreamId
+    }
+
+    private func likeLabel(for item: ExploreMediaItem) -> String {
+        let count = likes.count(for: likeThread(for: item), fallback: 0)
+        return count > 0 ? count.abbreviated : "Like"
+    }
+
+    private func toggleLiked(_ item: ExploreMediaItem) {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        likes.toggle(
+            dreamId: item.dreamId,
+            videoId: likeVideoID(for: item),
+            viewer: AuthService.shared.userId,
+            currentCount: 0
+        )
+    }
+
+    private func likeItem(_ item: ExploreMediaItem) {
+        guard !likes.isLiked(likeThread(for: item)) else { return }
+        toggleLiked(item)
+    }
+
+    /// Comment threads are per *update*, photos included: an item's own id is
+    /// its `dream_videos.id` or `dream_photo_updates.id`, so each photo of a
+    /// dream owns its own thread rather than sharing the dream's.
+    private func commentThread(for item: ExploreMediaItem) -> UUID { item.id }
+
+    private func commentCount(for item: ExploreMediaItem) -> Int {
+        commentCounts[commentThread(for: item)] ?? 0
+    }
+
+    private func commentLabel(for item: ExploreMediaItem) -> String {
+        let count = commentCount(for: item)
+        return count > 0 ? count.abbreviated : "Comments"
+    }
+
+    /// The card `CommentsSheet` posts against. It derives a clip thread from
+    /// `dream.id` + `dream.videoId`, so a photo hands it the parent dream with
+    /// no clip attached plus its own `photoId`.
+    private func commentDream(for item: ExploreMediaItem) -> Dream {
+        guard item.kind == .video else {
+            var dream = item.dream
+            dream.videoId = nil
+            return dream
         }
+        var dream = item.videoDream ?? item.dream
+        dream.videoId = item.id
+        return dream
     }
 
     private func isSaved(_ item: ExploreMediaItem) -> Bool {
@@ -787,8 +876,16 @@ struct ExploreMediaDetailSheet: View {
 private struct ExploreVideoDetailPage: View {
     let item: ExploreMediaItem
     let isActive: Bool
+    /// A sheet is up over the viewer — pause rather than play behind it.
+    let isCovered: Bool
     let isSaved: Bool
+    let isLiked: Bool
+    let likeCount: Int
+    let commentCount: Int
     let safeTop: CGFloat
+    var onLike: () -> Void
+    var onDoubleTapLike: () -> Void
+    var onComment: () -> Void
     var onHelp: () -> Void
     var onSave: () -> Void
     var onShare: () -> Void
@@ -800,7 +897,12 @@ private struct ExploreVideoDetailPage: View {
         ZStack {
             Group {
                 if isActive, let videoDream = item.videoDream {
-                    DreamVideoBackground(dream: videoDream, isMuted: false)
+                    DreamVideoBackground(
+                        dream: videoDream,
+                        isMuted: false,
+                        isPaused: isCovered,
+                        onDoubleTap: onDoubleTapLike
+                    )
                 } else {
                     PosterImage(url: item.imageURL, category: item.category)
                 }
@@ -917,13 +1019,19 @@ private struct ExploreVideoDetailPage: View {
     }
 
     private var discoverRail: some View {
-        VStack(spacing: 16) {
-            ActionButton(systemImage: "heart.fill", label: "I can help", action: onHelp)
-            ActionButton(systemImage: "paperplane.fill", label: "Send", action: onShare)
-            ActionButton(systemImage: isSaved ? "bookmark.fill" : "bookmark", label: isSaved ? "Saved" : "Save", action: onSave)
-            ActionButton(systemImage: "ellipsis", label: "More", action: onMore)
-        }
-        .frame(width: 64)
+        EngagementBar(
+            items: [
+                .like(count: likeCount, isLiked: isLiked, action: onLike),
+                .comment(count: commentCount, action: onComment),
+                .help(action: onHelp),
+                .save(isSaved: isSaved, action: onSave),
+                .share(action: onShare),
+                .more(action: onMore),
+            ],
+            orientation: .vertical,
+            onMedia: true
+        )
+        .frame(width: 56)
     }
 
     private var description: String? {

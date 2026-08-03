@@ -29,7 +29,7 @@ struct ProfileScreen: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            DreamTheme.paper.ignoresSafeArea()
+            DreamTheme.Surface.page.ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 0) {
@@ -146,20 +146,19 @@ struct ProfileScreen: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(model.name)
-                        .font(DreamTheme.Font.display(26, weight: .regular))
-                        .tracking(-0.5)
-                        .foregroundStyle(DreamTheme.ink)
+                        .dreamStyle(.title(22))
+                        .foregroundStyle(DreamTheme.Text.primary)
                     Text("@\(model.handle)")
-                        .font(DreamTheme.Font.text(14, weight: .medium))
-                        .foregroundStyle(DreamTheme.ink2)
+                        .dreamStyle(.ui(12, weight: .medium))
+                        .foregroundStyle(DreamTheme.Text.secondary)
                     if !model.location.isEmpty {
                         HStack(spacing: 4) {
                             Image(systemName: "mappin.and.ellipse")
                                 .font(.system(size: 11))
                             Text(model.location)
-                                .font(DreamTheme.Font.text(13))
+                                .dreamStyle(.ui(12, weight: .regular))
                         }
-                        .foregroundStyle(DreamTheme.ink3)
+                        .foregroundStyle(DreamTheme.Text.tertiary)
                         .padding(.top, 1)
                     }
                 }
@@ -173,26 +172,14 @@ struct ProfileScreen: View {
     @ViewBuilder
     private var actionButton: some View {
         if isCurrentUser {
-            HStack(spacing: 10) {
-                Button { editing = true } label: {
-                    Text("Edit Profile")
-                        .font(DreamTheme.Font.text(14, weight: .semibold))
-                        .foregroundStyle(DreamTheme.ink)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 11)
-                        .overlay(Capsule().stroke(DreamTheme.line, lineWidth: 1))
+            HStack(spacing: DreamSpace.s5) {
+                DreamButton(title: "Edit profile", variant: .secondary, size: .md, fullWidth: true) {
+                    editing = true
                 }
-                .buttonStyle(.plain)
-
-                Button { Task { await auth.signOut() } } label: {
-                    Image(systemName: "rectangle.portrait.and.arrow.right")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(DreamTheme.ink2)
-                        .frame(width: 44, height: 44)
-                        .overlay(Circle().stroke(DreamTheme.line, lineWidth: 1))
+                IconButton(systemName: "rectangle.portrait.and.arrow.right",
+                           accessibilityLabel: "Sign out", variant: .solid, size: 44) {
+                    Task { await auth.signOut() }
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Sign out")
             }
         } else {
             FollowButton(isFollowing: model.isFollowing, style: .fullWidth) {
@@ -206,14 +193,14 @@ struct ProfileScreen: View {
     private var skills: some View {
         VStack(alignment: .leading, spacing: 10) {
             eyebrow("Skills")
-            FlowLayout(spacing: 8, lineSpacing: 8) {
+            FlowLayout(spacing: DreamSpace.s2, lineSpacing: DreamSpace.s2) {
                 ForEach(model.skills, id: \.self) { skill in
                     Text(skill)
-                        .font(DreamTheme.Font.text(13, weight: .semibold))
-                        .foregroundStyle(DreamTheme.blueDeep)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 7)
-                        .background(Capsule().fill(DreamTheme.blueSoft))
+                        .dreamStyle(.ui(12))
+                        .foregroundStyle(DreamTheme.Accent.deep)
+                        .padding(.horizontal, 13)
+                        .padding(.vertical, DreamSpace.s4)
+                        .background(DreamTheme.Accent.soft, in: DreamShape.sm)
                 }
             }
         }
@@ -235,32 +222,14 @@ struct ProfileScreen: View {
     // MARK: - Profile tab bar (Dreams / Updates)
 
     private var profileTabBar: some View {
-        HStack(spacing: 0) {
-            tabBarButton("Dreams", icon: "play.square.stack", tab: .dreams)
-            tabBarButton("Updates", icon: "square.grid.2x2", tab: .updates)
-            tabBarButton("Saved", icon: "bookmark.fill", tab: .saved)
-        }
-    }
-
-    private func tabBarButton(_ label: String, icon: String, tab: ProfileTab) -> some View {
-        Button {
-            withAnimation(.easeInOut(duration: 0.2)) { profileTab = tab }
-        } label: {
-            VStack(spacing: 6) {
-                HStack(spacing: 6) {
-                    Image(systemName: icon)
-                        .font(.system(size: 14, weight: profileTab == tab ? .semibold : .regular))
-                    Text(label)
-                        .font(DreamTheme.Font.text(14, weight: profileTab == tab ? .semibold : .regular))
-                }
-                .foregroundStyle(profileTab == tab ? DreamTheme.ink : DreamTheme.ink3)
-                Rectangle()
-                    .fill(profileTab == tab ? DreamTheme.ink : Color.clear)
-                    .frame(height: 1.5)
-            }
-        }
-        .buttonStyle(.plain)
-        .frame(maxWidth: .infinity)
+        SegmentedControl(
+            options: [.init(ProfileTab.dreams, "Dreams"),
+                      .init(ProfileTab.updates, "Updates"),
+                      .init(ProfileTab.saved, "Saved")],
+            selection: $profileTab,
+            fullWidth: true
+        )
+        .padding(.horizontal, DreamSpace.screenGutter)
     }
 
     // MARK: - Updates grid (daily life posts from this user)
@@ -414,11 +383,14 @@ struct ProfileScreen: View {
                             Text("View dream")
                             Image(systemName: "arrow.right")
                         }
-                        .font(DreamTheme.Font.text(13, weight: .semibold))
-                        .foregroundStyle(DreamTheme.ink)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(Capsule().fill(.white))
+                        .dreamStyle(.ui(13))
+                        // Sits on a white chip over video, so both colors are
+                        // fixed. `Text.primary` here would invert in dark mode
+                        // and leave light text on a white fill.
+                        .foregroundStyle(Color(hex: 0x14171A))
+                        .padding(.horizontal, DreamSpace.s7)
+                        .padding(.vertical, DreamSpace.s4)
+                        .background(DreamTheme.OnMedia.base, in: DreamShape.sm)
                     }
                     .buttonStyle(.plain)
                 }
@@ -474,16 +446,14 @@ struct ProfileScreen: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "moon.stars")
-                .font(.system(size: 28, weight: .light))
-                .foregroundStyle(DreamTheme.ink3)
-            Text(isCurrentUser ? "You haven't shared a dream yet." : "No dreams yet.")
-                .font(DreamTheme.Font.text(14))
-                .foregroundStyle(DreamTheme.ink2)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 40)
+        EmptyState(
+            icon: "moon.stars",
+            title: "No dreams",
+            accent: "yet",
+            message: isCurrentUser
+                ? "Share your first dream and the people who can help will find it."
+                : "This dreamer hasn't shared anything yet."
+        )
     }
 
     // MARK: - Top bar (over-feed presentation)

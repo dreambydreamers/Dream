@@ -34,7 +34,7 @@ struct PostUpdateScreen: View {
                 case .details: detailsStep
                 }
             }
-            .background(Color.white.ignoresSafeArea())
+            .background(DreamTheme.Surface.page.ignoresSafeArea())
             .keyboardDoneButton()
             .navigationTitle(step == .source ? "Post an update" : "Update details")
             .navigationBarTitleDisplayMode(.inline)
@@ -89,18 +89,14 @@ struct PostUpdateScreen: View {
 
     private var sourceStep: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Share an update")
-                .font(DreamTheme.Font.display(30, weight: .regular))
-                .tracking(-0.7)
-                .foregroundStyle(DreamTheme.ink)
-                .padding(.top, 16)
-                .padding(.bottom, 8)
+            DreamHeadline("Share an", accent: "update", size: 26)
+                .padding(.top, DreamSpace.s8)
+                .padding(.bottom, DreamSpace.s4)
 
             Text("A new photo or video about “\(dream.title)”. Videos show up in Discover, and every update appears in Explore.")
-                .font(DreamTheme.Font.text(15))
-                .foregroundStyle(DreamTheme.ink2)
-                .lineSpacing(3)
-                .padding(.bottom, 28)
+                .dreamStyle(.body(15, relaxed: true))
+                .foregroundStyle(DreamTheme.Text.secondary)
+                .padding(.bottom, DreamSpace.s12)
 
             VideoSourceCard(icon: "video.fill", title: "Record video", sub: "Up to 60 seconds · Vertical", tinted: true) {
                 showCamera = true
@@ -141,7 +137,7 @@ struct PostUpdateScreen: View {
                         .foregroundStyle(DreamTheme.ink2)
                     TextField("e.g. We just hit our first milestone", text: $title)
                         .font(DreamTheme.Font.text(15))
-                        .foregroundStyle(Color.black)
+                        .foregroundStyle(DreamTheme.Text.primary)
                         .padding(14)
                         .background(RoundedRectangle(cornerRadius: 14).fill(DreamTheme.bg))
                         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(DreamTheme.line, lineWidth: 1))
@@ -154,7 +150,7 @@ struct PostUpdateScreen: View {
                         .foregroundStyle(DreamTheme.ink2)
                     TextField("Add a little context...", text: $caption, axis: .vertical)
                         .font(DreamTheme.Font.text(15))
-                        .foregroundStyle(Color.black)
+                        .foregroundStyle(DreamTheme.Text.primary)
                         .lineLimit(3...8)
                         .padding(14)
                         .frame(minHeight: 90, alignment: .topLeading)
@@ -182,17 +178,18 @@ struct PostUpdateScreen: View {
                         .foregroundStyle(DreamTheme.error)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                PrimaryButton(
-                    title: isPosting ? "Posting..." : "Post update",
-                    background: (canPost && !isPosting) ? DreamTheme.blue : DreamTheme.ink3,
+                DreamButton(
+                    title: "Post update",
+                    fullWidth: true,
+                    isEnabled: canPost,
+                    isBusy: isPosting,
                     action: { Task { await post() } }
                 )
-                .disabled(!canPost || isPosting)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 14)
-            .padding(.bottom, 12)
-            .background(Color.white)
+            .padding(.horizontal, DreamSpace.screenGutter)
+            .padding(.top, DreamSpace.s7)
+            .padding(.bottom, DreamSpace.s6)
+            .background(DreamTheme.Surface.page)
         }
     }
 

@@ -79,7 +79,7 @@ struct HelpSheet: View {
                 case .configure: configureStep
                 }
             }
-            .background(Color.white.ignoresSafeArea())
+            .background(DreamTheme.Surface.page.ignoresSafeArea())
             .keyboardDoneButton()
             .navigationTitle(mode == .pick ? "Offer your help" : (selected?.label ?? ""))
             .navigationBarTitleDisplayMode(.inline)
@@ -188,15 +188,10 @@ struct HelpSheet: View {
                 }
                 .padding(.bottom, 18)
 
-                HStack(alignment: .top, spacing: 10) {
-                    Text("✦")
-                    Text("An offer is a starting point. You'll be able to talk through details once they accept.")
-                        .font(DreamTheme.Font.text(12))
-                        .foregroundStyle(Color(hex: 0x5A4A30))
-                        .lineSpacing(2)
-                }
-                .padding(14)
-                .background(RoundedRectangle(cornerRadius: 12).fill(DreamTheme.cream))
+                DreamNote(
+                    icon: "sparkle",
+                    text: "An offer is a starting point. You'll be able to talk through details once they accept."
+                )
             }
             .padding(.horizontal, 20)
             .padding(.top, 6)
@@ -206,50 +201,17 @@ struct HelpSheet: View {
 
     private func offerRow(_ kind: OfferKind) -> some View {
         let wanted = dream.help.contains(kind.skill)
-        let p = kind.palette
-        return Button {
+        return OptionRow(
+            icon: kind.icon,
+            title: kind.label,
+            subtitle: kind.sub,
+            isRecommended: wanted,
+            accessory: .chevron,
+            tint: kind.palette
+        ) {
             selected = kind
             mode = .configure
-        } label: {
-            HStack(spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 12).fill(wanted ? Color.white : p.bg)
-                    Image(systemName: kind.icon)
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundStyle(p.fg)
-                }
-                .frame(width: 40, height: 40)
-
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(kind.label)
-                        .font(DreamTheme.Font.text(15, weight: .semibold))
-                        .foregroundStyle(DreamTheme.ink)
-                    Text(kind.sub)
-                        .font(DreamTheme.Font.text(12))
-                        .foregroundStyle(DreamTheme.ink2)
-                }
-                Spacer(minLength: 8)
-                if wanted {
-                    Text("ASKED FOR")
-                        .font(DreamTheme.Font.text(9, weight: .bold))
-                        .tracking(0.6)
-                        .foregroundStyle(p.fg)
-                }
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(DreamTheme.ink3)
-            }
-            .padding(14)
-            .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(wanted ? p.bg : Color.white)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 14)
-                    .strokeBorder(wanted ? p.fg : DreamTheme.line, lineWidth: 1)
-            )
         }
-        .buttonStyle(.plain)
     }
 
     // MARK: - Configure
@@ -287,18 +249,16 @@ struct HelpSheet: View {
                         .padding(.horizontal, 18)
                         .padding(.vertical, 14)
                         .background(RoundedRectangle(cornerRadius: 14).strokeBorder(DreamTheme.line, lineWidth: 1))
-                    PrimaryButton(title: sending ? "Sending…" : "Send offer") {
+                    DreamButton(title: "Send offer", fullWidth: true, isBusy: sending) {
                         guard !sending else { return }
                         Task { await send() }
                     }
-                    .disabled(sending)
-                    .opacity(sending ? 0.7 : 1)
                 }
             }
             .padding(.horizontal, 20)
             .padding(.top, 14)
             .padding(.bottom, 24)
-            .background(Color.white)
+            .background(DreamTheme.Surface.page)
         }
     }
 
@@ -329,7 +289,7 @@ struct HelpSheet: View {
                             .padding(.vertical, 14)
                             .background(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .fill(amount == p ? DreamTheme.blue : Color.white)
+                                    .fill(amount == p ? DreamTheme.Accent.base : DreamTheme.Surface.card)
                             )
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
@@ -358,7 +318,7 @@ struct HelpSheet: View {
                             .padding(.vertical, 12)
                             .background(
                                 RoundedRectangle(cornerRadius: 12)
-                                    .fill(duration == val ? DreamTheme.blue : Color.white)
+                                    .fill(duration == val ? DreamTheme.Accent.base : DreamTheme.Surface.card)
                             )
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
@@ -392,7 +352,7 @@ struct HelpSheet: View {
                         .padding(12)
                         .background(
                             RoundedRectangle(cornerRadius: 12)
-                                .fill(slot == id ? DreamTheme.blueSoft : Color.white)
+                                .fill(slot == id ? DreamTheme.Accent.soft : DreamTheme.Surface.card)
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
@@ -440,7 +400,7 @@ struct HelpSheet: View {
                             Spacer()
                             ZStack {
                                 Circle()
-                                    .fill(on ? DreamTheme.blue : Color.white)
+                                    .fill(on ? DreamTheme.Accent.base : DreamTheme.Surface.card)
                                     .overlay(Circle().strokeBorder(on ? DreamTheme.blue : DreamTheme.line, lineWidth: 2))
                                     .frame(width: 22, height: 22)
                                 if on {
@@ -453,7 +413,7 @@ struct HelpSheet: View {
                         .padding(14)
                         .background(
                             RoundedRectangle(cornerRadius: 12)
-                                .fill(on ? DreamTheme.blueSoft : Color.white)
+                                .fill(on ? DreamTheme.Accent.soft : DreamTheme.Surface.card)
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)

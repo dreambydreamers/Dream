@@ -27,7 +27,7 @@ struct DemoChatScreen: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             composerArea
         }
-        .background(DreamTheme.paper.ignoresSafeArea())
+        .background(DreamTheme.Surface.page.ignoresSafeArea())
         .navigationBarHidden(true)
         .interactiveBackSwipe { dismiss() }
     }
@@ -72,7 +72,7 @@ struct DemoChatScreen: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .background(
-            Color.white
+            DreamTheme.Surface.page
                 .ignoresSafeArea(edges: .top)
                 .shadow(color: .black.opacity(0.04), radius: 1, y: 1)
         )
@@ -162,7 +162,7 @@ struct DemoChatScreen: View {
         .padding(.top, 10)
         .padding(.bottom, 24)
         .background(
-            Color.white
+            DreamTheme.Surface.page
                 .ignoresSafeArea(edges: .bottom)
                 .shadow(color: .black.opacity(0.05), radius: 8, y: -2)
         )

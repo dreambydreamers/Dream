@@ -159,7 +159,7 @@ struct MessageBubble: View {
                     .padding(.top, 10)
                     .padding(.bottom, 10)
                     .frame(width: 200, alignment: .leading)
-                    .background(Color.white)
+                    .background(DreamTheme.Surface.card)
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))

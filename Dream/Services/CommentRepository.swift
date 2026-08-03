@@ -8,6 +8,7 @@ struct DreamCommentDTO: Codable, Hashable {
     let id: UUID
     let dreamId: UUID
     let videoId: UUID?
+    let photoId: UUID?
     let userId: UUID
     let body: String
     let createdAt: Date
@@ -16,22 +17,25 @@ struct DreamCommentDTO: Codable, Hashable {
         case id, body
         case dreamId = "dream_id"
         case videoId = "video_id"
+        case photoId = "photo_id"
         case userId = "user_id"
         case createdAt = "created_at"
     }
 }
 
-/// One row per comment thread. `threadId` = video_id when the thread belongs
-/// to a specific clip, else the dream id — the same key as `Dream.feedID`.
+/// One row per comment thread. `threadId` = the clip or photo the thread hangs
+/// off, else the dream id for media-less dreams.
 struct DreamCommentCountDTO: Codable, Hashable {
     let dreamId: UUID
     let videoId: UUID?
+    let photoId: UUID?
     let threadId: UUID
     let commentsCount: Int
 
     enum CodingKeys: String, CodingKey {
         case dreamId = "dream_id"
         case videoId = "video_id"
+        case photoId = "photo_id"
         case threadId = "thread_id"
         case commentsCount = "comments_count"
     }
@@ -61,16 +65,18 @@ final class CommentRepository: ObservableObject {
     private init() {}
 
     private enum Columns {
-        static let comment = "id,dream_id,video_id,user_id,body,created_at"
+        static let comment = "id,dream_id,video_id,photo_id,user_id,body,created_at"
         static let profile = "id,handle,name,location,skills,avatar_seed,avatar_url"
-        static let count = "dream_id,video_id,thread_id,comments_count"
+        static let count = "dream_id,video_id,photo_id,thread_id,comments_count"
     }
 
-    /// Oldest-first thread for one feed card, with author profiles resolved.
-    /// Threads are per-update: pass the card's `videoId` to get that clip's
-    /// own thread. `nil` (videoless gradient card) fetches the dream-level
-    /// thread — such dreams have no clips, so all their comments live there.
-    func comments(forDream dreamId: UUID, videoId: UUID?, limit: Int = 200) async -> [DreamComment] {
+    /// Oldest-first thread for one card, with author profiles resolved. Threads
+    /// are per-update: pass the card's `videoId` for a clip or `photoId` for a
+    /// photo update to get that update's own thread. Both `nil` (a media-less
+    /// gradient card) fetches the dream-level thread — such dreams have no
+    /// updates, so all their comments live there.
+    func comments(forDream dreamId: UUID, videoId: UUID?, photoId: UUID? = nil,
+                  limit: Int = 200) async -> [DreamComment] {
         do {
             var query = client
                 .from("dream_comments")
@@ -78,6 +84,9 @@ final class CommentRepository: ObservableObject {
                 .eq("dream_id", value: dreamId)
             if let videoId {
                 query = query.eq("video_id", value: videoId)
+            }
+            if let photoId {
+                query = query.eq("photo_id", value: photoId)
             }
             let rows: [DreamCommentDTO] = try await query
                 .order("created_at", ascending: true)
@@ -104,7 +113,7 @@ final class CommentRepository: ObservableObject {
     }
 
     /// Inserts a comment as the signed-in user and returns it ready to display.
-    func post(dreamId: UUID, videoId: UUID?, body: String) async throws -> DreamComment {
+    func post(dreamId: UUID, videoId: UUID?, photoId: UUID? = nil, body: String) async throws -> DreamComment {
         guard let userId = try? await client.auth.session.user.id else {
             throw NSError(domain: "CommentRepository", code: 401,
                           userInfo: [NSLocalizedDescriptionKey: "Not signed in"])
@@ -112,12 +121,14 @@ final class CommentRepository: ObservableObject {
         struct Payload: Encodable {
             let dream_id: UUID
             let video_id: UUID?
+            let photo_id: UUID?
             let user_id: UUID
             let body: String
         }
         let inserted: DreamCommentDTO = try await client
             .from("dream_comments")
-            .insert(Payload(dream_id: dreamId, video_id: videoId, user_id: userId, body: body),
+            .insert(Payload(dream_id: dreamId, video_id: videoId, photo_id: photoId,
+                            user_id: userId, body: body),
                     returning: .representation)
             .select(Columns.comment)
             .single()

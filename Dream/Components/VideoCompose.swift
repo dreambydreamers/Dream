@@ -30,7 +30,7 @@ struct VideoSourceCard: View {
             HStack(spacing: 16) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 16)
-                        .fill(tinted ? Color.white : DreamTheme.bg)
+                        .fill(tinted ? DreamTheme.Surface.card : DreamTheme.Surface.sunken)
                         .shadow(color: tinted ? DreamTheme.blue.opacity(0.15) : .clear, radius: 12, y: 4)
                     Image(systemName: icon)
                         .font(.system(size: 24, weight: .semibold))
@@ -50,14 +50,21 @@ struct VideoSourceCard: View {
             }
             .padding(20)
             .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(tinted
-                          ? LinearGradient(colors: [DreamTheme.blueSoft, .white], startPoint: .topLeading, endPoint: .bottomTrailing)
-                          : LinearGradient(colors: [.white, .white], startPoint: .top, endPoint: .bottom))
+                DreamShape.lg.fill(
+                    LinearGradient(
+                        colors: tinted
+                            ? [DreamTheme.Accent.soft, DreamTheme.Surface.card]
+                            : [DreamTheme.Surface.card, DreamTheme.Surface.card],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 20)
-                    .strokeBorder(tinted ? DreamTheme.blue : DreamTheme.line, lineWidth: 1.5)
+                DreamShape.lg.strokeBorder(
+                    tinted ? DreamTheme.Border.accent : DreamTheme.Border.standard,
+                    lineWidth: 1.5
+                )
             )
         }
         .buttonStyle(.plain)

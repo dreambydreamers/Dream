@@ -66,7 +66,9 @@ struct JourneyTimeline: View {
     private func node(isFuture: Bool, isCurrent: Bool) -> some View {
         ZStack {
             Circle()
-                .fill(isFuture ? DreamTheme.paper : accent)
+                // An unreached step reads as an empty well, not as page ground —
+                // the timeline sits on a card, so `page` would disappear into it.
+                .fill(isFuture ? DreamTheme.Surface.card : accent)
                 .overlay(
                     Circle().strokeBorder(isFuture ? DreamTheme.line : accent, lineWidth: 2)
                 )

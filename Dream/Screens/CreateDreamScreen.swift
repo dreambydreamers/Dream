@@ -33,7 +33,7 @@ struct CreateDreamScreen: View {
                 case .details: detailsStep
                 }
             }
-            .background(Color.white.ignoresSafeArea())
+            .background(DreamTheme.Surface.page.ignoresSafeArea())
             .keyboardDoneButton()
             .navigationTitle(step == .source ? "Share your dream" : "Dream details")
             .navigationBarTitleDisplayMode(.inline)
@@ -73,18 +73,14 @@ struct CreateDreamScreen: View {
 
     private var sourceStep: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("What's your dream?")
-                .font(DreamTheme.Font.display(32, weight: .regular))
-                .tracking(-0.7)
-                .foregroundStyle(DreamTheme.ink)
-                .padding(.top, 16)
-                .padding(.bottom, 8)
+            DreamHeadline("Show us your", accent: "dream", size: 26)
+                .padding(.top, DreamSpace.s8)
+                .padding(.bottom, DreamSpace.s4)
 
             Text("A short video is the best way to share it. Speak from the heart — supporters listen.")
-                .font(DreamTheme.Font.text(15))
-                .foregroundStyle(DreamTheme.ink2)
-                .lineSpacing(3)
-                .padding(.bottom, 28)
+                .dreamStyle(.body(15, relaxed: true))
+                .foregroundStyle(DreamTheme.Text.secondary)
+                .padding(.bottom, DreamSpace.s12)
 
             VideoSourceCard(
                 icon: "video.fill",
@@ -110,12 +106,11 @@ struct CreateDreamScreen: View {
                 Text("💡")
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Simon's advice")
-                        .font(DreamTheme.Font.text(13, weight: .bold))
-                        .foregroundStyle(Color(hex: 0x7A5F3E))
+                        .dreamStyle(.ui(13, weight: .bold))
+                        .foregroundStyle(Color(light: 0x7A5F3E, dark: 0xD9B87E))
                     Text("Start with why. What would this dream mean to you if it came true?")
-                        .font(DreamTheme.Font.text(13))
-                        .foregroundStyle(Color(hex: 0x7A5F3E))
-                        .lineSpacing(2)
+                        .dreamStyle(.body(13))
+                        .foregroundStyle(Color(light: 0x7A5F3E, dark: 0xC9AE8A))
                 }
             }
             .padding(16)
@@ -138,10 +133,10 @@ struct CreateDreamScreen: View {
                     field("Title") {
                         TextField("e.g. A quiet café for writers", text: $title)
                             .font(DreamTheme.Font.text(15))
-                            .foregroundStyle(Color.black)
+                            .foregroundStyle(DreamTheme.Text.primary)
                             .padding(14)
-                            .background(RoundedRectangle(cornerRadius: 14).fill(DreamTheme.bg))
-                            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(DreamTheme.line, lineWidth: 1))
+                            .background(DreamTheme.Surface.card, in: DreamShape.lg)
+                            .overlay(DreamShape.lg.strokeBorder(DreamTheme.Border.standard, lineWidth: 1))
                     }
 
                     field("Category") {
@@ -177,12 +172,12 @@ struct CreateDreamScreen: View {
                     field("Description (optional)") {
                         TextField("Share more about your dream...", text: $desc, axis: .vertical)
                             .font(DreamTheme.Font.text(15))
-                            .foregroundStyle(Color.black)
+                            .foregroundStyle(DreamTheme.Text.primary)
                             .lineLimit(4...10)
                             .padding(14)
                             .frame(minHeight: 100, alignment: .topLeading)
-                            .background(RoundedRectangle(cornerRadius: 14).fill(DreamTheme.bg))
-                            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(DreamTheme.line, lineWidth: 1))
+                            .background(DreamTheme.Surface.card, in: DreamShape.lg)
+                            .overlay(DreamShape.lg.strokeBorder(DreamTheme.Border.standard, lineWidth: 1))
                     }
                 }
                 .padding(20)
@@ -198,17 +193,19 @@ struct CreateDreamScreen: View {
                         .foregroundStyle(DreamTheme.error)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                PrimaryButton(
-                    title: isPublishing ? "Publishing…" : "Publish dream",
-                    background: (canPublish && !isPublishing) ? (category?.palette.fg ?? DreamTheme.blue) : DreamTheme.ink3,
+                DreamButton(
+                    title: "Publish dream",
+                    fullWidth: true,
+                    isEnabled: canPublish,
+                    isBusy: isPublishing,
+                    tone: category?.palette.fg,
                     action: { Task { await publish() } }
                 )
-                .disabled(!canPublish || isPublishing)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 14)
-            .padding(.bottom, 24)
-            .background(Color.white)
+            .padding(.horizontal, DreamSpace.screenGutter)
+            .padding(.top, DreamSpace.s7)
+            .padding(.bottom, DreamSpace.s11)
+            .background(DreamTheme.Surface.page)
         }
     }
 
@@ -274,7 +271,7 @@ struct CreateDreamScreen: View {
                 .foregroundStyle(selected ? .white : DreamTheme.ink)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)
-                .background(Capsule().fill(selected ? DreamTheme.blue : Color.white))
+                .background(selected ? DreamTheme.Accent.base : DreamTheme.Surface.card, in: DreamShape.sm)
                 .overlay(Capsule().strokeBorder(selected ? DreamTheme.blue : DreamTheme.line, lineWidth: 1.5))
         }
         .buttonStyle(.plain)
