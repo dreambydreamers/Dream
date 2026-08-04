@@ -115,6 +115,14 @@ final class DreamRepository: ObservableObject {
         }
     }
 
+    /// Drops the cached feed on sign-out, so the next account never sees the
+    /// previous user's cards before its own load lands.
+    func reset() {
+        dreams = []
+        isLoading = false
+        lastError = nil
+    }
+
     /// Removes every feed card for a dream locally ("Not interested"). The
     /// durable server-side dismissal comes from the `not_relevant` engagement
     /// event; this just makes the card disappear immediately.
@@ -308,13 +316,29 @@ final class DreamRepository: ObservableObject {
 
     /// Marks `dreamId` as the current user's single featured dream, clearing any
     /// previously-featured dream first (a partial unique index allows only one).
+    /// Not atomic — a partial-unique index forbids two featured dreams at once,
+    /// so the old one must be cleared before the new one is set. If the second
+    /// update fails the user is left with no featured dream rather than the
+    /// wrong one, and the throw surfaces that; re-picking fixes it. Skips the
+    /// work entirely when the target is already featured.
     func setFeatured(dreamId: UUID, ownerId: UUID) async throws {
-        try await client
+        let alreadyFeatured: [DreamIdRow] = try await client
             .from("dreams")
-            .update(["is_featured": false])
+            .select("id")
             .eq("owner_id", value: ownerId)
             .eq("is_featured", value: true)
             .execute()
+            .value
+        if alreadyFeatured.count == 1, alreadyFeatured[0].id == dreamId { return }
+
+        if !alreadyFeatured.isEmpty {
+            try await client
+                .from("dreams")
+                .update(["is_featured": false])
+                .eq("owner_id", value: ownerId)
+                .eq("is_featured", value: true)
+                .execute()
+        }
 
         try await client
             .from("dreams")

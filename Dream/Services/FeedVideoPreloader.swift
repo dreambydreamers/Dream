@@ -70,6 +70,25 @@ final class FeedVideoPreloader {
 
     // MARK: - Public
 
+    /// Tears down every cached player and signed URL. Called on sign-out:
+    /// signed playback URLs stay valid for ~1h, so leaving them cached would let
+    /// the next account on this device keep streaming the previous user's feed.
+    func reset() {
+        for (id, prepared) in players {
+            statusObservers[id]?.invalidate()
+            prepared.player.pause()
+            prepared.player.removeAllItems()
+        }
+        statusObservers.removeAll()
+        players.removeAll()
+        lru.removeAll()
+        signedURLs.removeAll()
+        building.values.forEach { $0.cancel() }
+        building.removeAll()
+        feedActiveID = nil
+        feedCoverDepth = 0
+    }
+
     /// Returns the already-built player for a dream if one is in the pool,
     /// without any async suspension. Returns nil if not yet prefetched.
     func cachedPlayer(for dream: Dream) -> AVQueuePlayer? {

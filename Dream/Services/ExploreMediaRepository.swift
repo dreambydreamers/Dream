@@ -89,10 +89,13 @@ final class ExploreMediaRepository: ObservableObject {
 
         async let viewerFetch = recommendations.fetchViewerProfile()
         async let candidatesFetch = recommendations.fetchCandidates(config: config)
+        // RLS scopes this to the viewer's own rows; the limit just keeps a
+        // heavy dismisser from pulling an unbounded list on every Explore open.
         async let dismissedFetch: [SeenDreamRow] = client
             .from("dream_seen")
             .select("dream_id")
             .eq("dismissed", value: true)
+            .limit(500)
             .execute()
             .value
         let (viewer, candidates, dismissedRows) = try await (viewerFetch, candidatesFetch, dismissedFetch)
@@ -118,21 +121,68 @@ final class ExploreMediaRepository: ObservableObject {
         var photoById: [UUID: DreamPhotoUpdateDTO] = [:]
         for row in recentPhotos + rankedPhotos { photoById[row.id] = row }
 
-        let built = try await buildItems(
-            videos: Array(videoById.values),
-            photos: Array(photoById.values),
-            limit: Int.max
-        )
-        return built
-            .filter { !dismissed.contains($0.dreamId) }
-            .sorted { lhs, rhs in
-                let leftRank = rankIndexByDream[lhs.dreamId] ?? Int.max
-                let rightRank = rankIndexByDream[rhs.dreamId] ?? Int.max
-                if leftRank != rightRank { return leftRank < rightRank }
-                return lhs.createdAt > rhs.createdAt
+        // Order, filter and truncate on the raw rows *before* enrichment.
+        // The final ordering only depends on (dream rank, createdAt), both of
+        // which are known here, so the result is identical to sorting after —
+        // but the four overlapping fetches above yield ~480 rows for a 150-item
+        // grid, and enriching all of them meant pulling dreams, every clip,
+        // stats, journey steps and profiles for ~3x the dreams actually shown.
+        func precedes(_ leftDream: UUID, _ leftDate: Date, _ rightDream: UUID, _ rightDate: Date) -> Bool {
+            let leftRank = rankIndexByDream[leftDream] ?? Int.max
+            let rightRank = rankIndexByDream[rightDream] ?? Int.max
+            if leftRank != rightRank { return leftRank < rightRank }
+            return leftDate > rightDate
+        }
+
+        enum Row {
+            case video(DreamVideoDTO)
+            case photo(DreamPhotoUpdateDTO)
+
+            var dreamId: UUID {
+                switch self {
+                case .video(let v): return v.dreamId
+                case .photo(let p): return p.dreamId
+                }
             }
-            .prefix(limit)
-            .map { $0 }
+            var createdAt: Date {
+                switch self {
+                case .video(let v): return v.createdAt
+                case .photo(let p): return p.createdAt
+                }
+            }
+        }
+
+        // Small margin over `limit`: buildItems drops any row whose dream it
+        // can't resolve (deleted dream with orphaned media), and those used to
+        // be discarded before the truncation. The spare rows keep a full grid.
+        let ordered = (videoById.values.map(Row.video) + photoById.values.map(Row.photo))
+            .filter { !dismissed.contains($0.dreamId) }
+            .sorted { precedes($0.dreamId, $0.createdAt, $1.dreamId, $1.createdAt) }
+            .prefix(limit + 30)
+
+        var keptVideos: [DreamVideoDTO] = []
+        var keptPhotos: [DreamPhotoUpdateDTO] = []
+        for row in ordered {
+            switch row {
+            case .video(let v): keptVideos.append(v)
+            case .photo(let p): keptPhotos.append(p)
+            }
+        }
+
+        let built = try await buildItems(videos: keptVideos, photos: keptPhotos, limit: limit + 30)
+        // buildItems orders by recency alone, so re-apply the ranked order.
+        return Array(
+            built
+                .sorted { precedes($0.dreamId, $0.createdAt, $1.dreamId, $1.createdAt) }
+                .prefix(limit)
+        )
+    }
+
+    /// Drops the cached grid on sign-out.
+    func reset() {
+        items = []
+        isLoading = false
+        lastError = nil
     }
 
     func media(ownedBy ownerId: UUID, includePrimaryVideos: Bool = false, limit: Int = 120) async -> [ExploreMediaItem] {

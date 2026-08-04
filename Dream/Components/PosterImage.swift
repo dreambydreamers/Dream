@@ -30,7 +30,15 @@ struct PosterImage: View {
 private final class PosterImageLoader: ObservableObject {
     @Published var image: UIImage?
 
-    private static let cache = NSCache<NSURL, UIImage>()
+    /// Bounded on purpose: the Explore grid can decode hundreds of posters in
+    /// one session, and an unlimited NSCache holds every one of them until the
+    /// system issues a memory warning.
+    private static let cache: NSCache<NSURL, UIImage> = {
+        let cache = NSCache<NSURL, UIImage>()
+        cache.countLimit = 120
+        cache.totalCostLimit = 48 * 1024 * 1024
+        return cache
+    }()
     private var loadedURL: URL?
 
     func load(_ url: URL?) async {
@@ -54,7 +62,10 @@ private final class PosterImageLoader: ObservableObject {
             request.cachePolicy = .returnCacheDataElseLoad
             let (data, _) = try await URLSession.shared.data(for: request)
             guard let decoded = UIImage(data: data) else { return }
-            Self.cache.setObject(decoded, forKey: key)
+            // Cost is the decoded footprint, not the JPEG's — that is what
+            // `totalCostLimit` needs to bound.
+            let cost = Int(decoded.size.width * decoded.size.height * decoded.scale * decoded.scale) * 4
+            Self.cache.setObject(decoded, forKey: key, cost: cost)
             if loadedURL == url {
                 image = decoded
             }

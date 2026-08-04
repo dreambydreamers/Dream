@@ -51,6 +51,11 @@ struct SeenDreamRow: Codable, Hashable {
     }
 }
 
+/// Minimal projection for existence/identity checks that only need the id.
+struct DreamIdRow: Codable, Hashable {
+    let id: UUID
+}
+
 // MARK: - Viewer ranking profile (RPC get_viewer_ranking_profile)
 
 struct ViewerRankingProfileDTO: Codable {

@@ -30,6 +30,14 @@ final class SavedDreamsStore: ObservableObject {
         savedIDs.contains(feedID)
     }
 
+    /// Clears saved cards on sign-out. These persist in UserDefaults and are not
+    /// namespaced per user, so the next account would otherwise open the app
+    /// with someone else's bookmarks.
+    func reset() {
+        savedIDs = []
+        UserDefaults.standard.removeObject(forKey: key)
+    }
+
     private func persist() {
         let data = try? JSONEncoder().encode(savedIDs.map(\.uuidString))
         UserDefaults.standard.set(data, forKey: key)
