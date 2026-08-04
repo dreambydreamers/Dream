@@ -99,6 +99,7 @@ final class AuthService: ObservableObject {
         LikesStore.shared.reset()
         SavedDreamsStore.shared.reset()
         SearchRepository.shared.clear()
+        ModerationRepository.shared.reset()
     }
 
     /// Wraps an auth call with busy/error bookkeeping and a session refresh.

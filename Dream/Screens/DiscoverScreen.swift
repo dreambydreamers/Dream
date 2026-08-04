@@ -33,6 +33,9 @@ struct DiscoverScreen: View {
     @ObservedObject private var savedStore = SavedDreamsStore.shared
     @ObservedObject private var likes = LikesStore.shared
     @State private var moreMenuDream: Dream? = nil
+    /// Report / block, driven from the three-dots menu.
+    @State private var reportDream: Dream?
+    @State private var blockCandidate: Dream?
     @State private var expandedDesc: Set<UUID> = []
     @State private var followedOwners: Set<UUID> = []
     @State private var loadedFollowOwners: Set<UUID> = []
@@ -157,6 +160,33 @@ struct DiscoverScreen: View {
             .presentationDetents([.medium, .large])
             .pausesDiscoverFeed()
         }
+        .sheet(item: $reportDream, onDismiss: restoreFeedAfterPresentation) { d in
+            ReportSheet(
+                target: d.videoId == nil ? .dream : .video,
+                targetId: d.feedID,
+                reportedUserId: d.ownerId,
+                excerpt: "\(d.displayTitle)\n\(d.displayDescription)",
+                subjectName: "@\(d.handle)",
+                onClose: { reportDream = nil },
+                onBlock: { block(d) }
+            )
+            .pausesDiscoverFeed()
+        }
+        .confirmationDialog(
+            blockCandidate.map { "Block @\($0.handle)?" } ?? "",
+            isPresented: Binding(
+                get: { blockCandidate != nil },
+                set: { if !$0 { blockCandidate = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            if let d = blockCandidate {
+                Button("Block", role: .destructive) { block(d) }
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("They won't be able to message you or see your dreams, and you won't see theirs. They aren't told.")
+        }
         .videoActions(videoActions)
         .confirmationDialog("", isPresented: Binding(
             get: { moreMenuDream != nil },
@@ -172,6 +202,12 @@ struct DiscoverScreen: View {
                 if !isOwnDream(d) {
                     Button("Not interested", role: .destructive) {
                         markNotRelevant(d)
+                    }
+                    Button("Report…", role: .destructive) {
+                        reportDream = d
+                    }
+                    Button("Block @\(d.handle)", role: .destructive) {
+                        blockCandidate = d
                     }
                 }
                 Button("Cancel", role: .cancel) { }
@@ -676,6 +712,22 @@ struct DiscoverScreen: View {
                 print("[DiscoverScreen] toggle follow failed: \(error)")
             }
             followBusyOwners.remove(ownerId)
+        }
+    }
+
+    /// Blocks a card's author. The repository drops their cards from the feed
+    /// straight away; the server hides them from every later fetch.
+    private func block(_ d: Dream) {
+        blockCandidate = nil
+        let handle = d.handle
+        Task {
+            do {
+                try await ModerationRepository.shared.block(d.ownerId)
+                showShareToast("Blocked @\(handle)")
+            } catch {
+                print("[DiscoverScreen] block failed: \(error)")
+                showShareToast("Couldn't block @\(handle)")
+            }
         }
     }
 

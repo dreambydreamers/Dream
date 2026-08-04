@@ -342,6 +342,8 @@ struct ExploreMediaDetailSheet: View {
     /// by thread id (`Dream.feedID`), plus live overrides from `CommentsSheet`.
     @State private var commentCounts: [UUID: Int] = [:]
     @State private var moreMenuItem: ExploreMediaItem?
+    @State private var reportItem: ExploreMediaItem?
+    @State private var blockCandidate: ExploreMediaItem?
     @State private var externalShareItem: ShareItem?
     @State private var shareToast: String?
     @State private var shareToastTask: Task<Void, Never>?
@@ -355,6 +357,7 @@ struct ExploreMediaDetailSheet: View {
     private var isPresentingOverVideo: Bool {
         commentsItem != nil || helpDream != nil || shareDream != nil
             || moreMenuItem != nil || externalShareItem != nil
+            || reportItem != nil || blockCandidate != nil
     }
 
     init(
@@ -450,8 +453,42 @@ struct ExploreMediaDetailSheet: View {
                         openDream(item)
                     }
                 }
+                if item.ownerId != AuthService.shared.userId {
+                    Button("Report…", role: .destructive) {
+                        reportItem = item
+                    }
+                    Button("Block @\(item.handle)", role: .destructive) {
+                        blockCandidate = item
+                    }
+                }
                 Button("Cancel", role: .cancel) { }
             }
+        }
+        .sheet(item: $reportItem) { item in
+            ReportSheet(
+                target: item.kind == .photo ? .photo : .video,
+                targetId: item.id,
+                reportedUserId: item.ownerId,
+                excerpt: "\(item.displayTitle)\n\(item.caption ?? "")",
+                subjectName: "@\(item.handle)",
+                onClose: { reportItem = nil },
+                onBlock: { block(item) }
+            )
+        }
+        .confirmationDialog(
+            blockCandidate.map { "Block @\($0.handle)?" } ?? "",
+            isPresented: Binding(
+                get: { blockCandidate != nil },
+                set: { if !$0 { blockCandidate = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            if let item = blockCandidate {
+                Button("Block", role: .destructive) { block(item) }
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("You won't see their dreams or updates, and they can't contact you. They aren't told.")
         }
         .overlay(alignment: .bottom) {
             if let shareToast {
@@ -760,6 +797,22 @@ struct ExploreMediaDetailSheet: View {
     private func more(_ item: ExploreMediaItem) {
         guard moreStoragePath(for: item) != nil || item.imageURL != nil || item.kind == .photo else { return }
         moreMenuItem = item
+    }
+
+    /// Blocks a media item's author and closes the viewer — their content is
+    /// gone from the grid behind it, so there is nothing left to return to.
+    private func block(_ item: ExploreMediaItem) {
+        blockCandidate = nil
+        reportItem = nil
+        Task {
+            do {
+                try await ModerationRepository.shared.block(item.ownerId)
+                dismiss()
+            } catch {
+                print("[ExploreMediaDetailSheet] block failed: \(error)")
+                showShareToast("Couldn't block @\(item.handle)")
+            }
+        }
     }
 
     private func moreStoragePath(for item: ExploreMediaItem) -> String? {

@@ -20,6 +20,8 @@ struct CommentsSheet: View {
     @State private var draft = ""
     @State private var isPosting = false
     @State private var errorMessage: String?
+    @State private var reportedComment: DreamComment?
+    @State private var blockCandidate: DreamComment?
     @FocusState private var inputFocused: Bool
 
     var body: some View {
@@ -55,6 +57,32 @@ struct CommentsSheet: View {
             comments = await CommentRepository.shared.comments(
                 forDream: dream.id, videoId: dream.videoId, photoId: photoId)
             isLoading = false
+        }
+        .sheet(item: $reportedComment) { comment in
+            ReportSheet(
+                target: .comment,
+                targetId: comment.id,
+                reportedUserId: comment.userId,
+                excerpt: comment.body,
+                subjectName: "@\(comment.handle)",
+                onClose: { reportedComment = nil },
+                onBlock: { block(comment) }
+            )
+        }
+        .confirmationDialog(
+            blockCandidate.map { "Block @\($0.handle)?" } ?? "",
+            isPresented: Binding(
+                get: { blockCandidate != nil },
+                set: { if !$0 { blockCandidate = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            if let comment = blockCandidate {
+                Button("Block", role: .destructive) { block(comment) }
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("You won't see their comments or dreams, and they can't contact you. They aren't told.")
         }
     }
 
@@ -140,6 +168,18 @@ struct CommentsSheet: View {
                     Label("Delete", systemImage: "trash")
                 }
             }
+            if comment.userId != auth.userId {
+                Button {
+                    reportedComment = comment
+                } label: {
+                    Label("Report comment", systemImage: "flag")
+                }
+                Button(role: .destructive) {
+                    blockCandidate = comment
+                } label: {
+                    Label("Block @\(comment.handle)", systemImage: "hand.raised")
+                }
+            }
         }
     }
 
@@ -217,6 +257,23 @@ struct CommentsSheet: View {
             } catch {
                 print("[CommentsSheet] delete failed: \(error)")
                 errorMessage = "Couldn't delete that comment."
+            }
+        }
+    }
+
+    /// Blocks a commenter and drops their comments from the open thread, so the
+    /// sheet reflects the block without a refetch.
+    private func block(_ comment: DreamComment) {
+        blockCandidate = nil
+        let blockedId = comment.userId
+        Task {
+            do {
+                try await ModerationRepository.shared.block(blockedId)
+                comments.removeAll { $0.userId == blockedId }
+                onCountChanged(comments.count)
+            } catch {
+                print("[CommentsSheet] block failed: \(error)")
+                errorMessage = "Couldn't block that account."
             }
         }
     }

@@ -178,6 +178,12 @@ final class ExploreMediaRepository: ObservableObject {
         )
     }
 
+    /// Drops every grid item belonging to a user the viewer just blocked, so
+    /// the block shows up without waiting for a reload.
+    func removeContent(ownedBy ownerId: UUID) {
+        items.removeAll { $0.ownerId == ownerId }
+    }
+
     /// Drops the cached grid on sign-out.
     func reset() {
         items = []

@@ -123,6 +123,13 @@ final class DreamRepository: ObservableObject {
         lastError = nil
     }
 
+    /// Drops every card belonging to a user the viewer just blocked, so the
+    /// block is visible immediately instead of at the next feed load. The
+    /// server hides them from every subsequent fetch (migration 0036).
+    func removeContent(ownedBy ownerId: UUID) {
+        dreams.removeAll { $0.ownerId == ownerId }
+    }
+
     /// Removes every feed card for a dream locally ("Not interested"). The
     /// durable server-side dismissal comes from the `not_relevant` engagement
     /// event; this just makes the card disappear immediately.
