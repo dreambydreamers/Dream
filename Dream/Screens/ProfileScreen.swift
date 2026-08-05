@@ -28,6 +28,9 @@ struct ProfileScreen: View {
     @State private var reportingProfile = false
     @State private var confirmingBlock = false
     @State private var moderationToast: String?
+    /// The pinned top bar only shows while the profile is at rest at the top —
+    /// once you scroll into the content it gets out of the way.
+    @State private var topBarVisible = true
 
     enum ProfileTab { case dreams, updates, saved }
 
@@ -37,7 +40,9 @@ struct ProfileScreen: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 0) {
-                    header.padding(.top, onBack == nil ? 60 : 64)
+                    // Over-feed presentation floats a top bar at y=56..94, so the
+                    // header starts below it instead of colliding with the avatar.
+                    header.padding(.top, onBack == nil ? 60 : 106)
                     if !model.skills.isEmpty {
                         skills.padding(.top, 20)
                     }
@@ -60,9 +65,21 @@ struct ProfileScreen: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 120)
             }
+            // `contentOffset + contentInsets.top` is 0 at rest whatever the safe
+            // area is, so the threshold means "scrolled off the top" everywhere.
+            .onScrollGeometryChange(for: CGFloat.self) {
+                $0.contentOffset.y + $0.contentInsets.top
+            } action: { _, offset in
+                let shouldShow = offset <= 12
+                if shouldShow != topBarVisible {
+                    withAnimation(.easeOut(duration: 0.18)) { topBarVisible = shouldShow }
+                }
+            }
 
             if let onBack {
                 topBar(onBack: onBack)
+                    .opacity(topBarVisible ? 1 : 0)
+                    .allowsHitTesting(topBarVisible)
             }
         }
         .task(id: userId) { await model.load(userId: userId, isCurrentUser: isCurrentUser) }
@@ -532,13 +549,7 @@ struct ProfileScreen: View {
     private func topBar(onBack: @escaping () -> Void) -> some View {
         HStack {
             Button(action: onBack) {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(DreamTheme.ink)
-                    .frame(width: 38, height: 38)
-                    .background(Color.white.opacity(0.9), in: Circle())
-                    .background(.ultraThinMaterial, in: Circle())
-                    .overlay(Circle().strokeBorder(DreamTheme.line, lineWidth: 0.5))
+                topBarIcon("chevron.left", size: 16, tint: DreamTheme.ink)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Back")
@@ -566,19 +577,36 @@ struct ProfileScreen: View {
                         }
                     }
                 } label: {
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(DreamTheme.ink)
-                        .frame(width: 38, height: 38)
-                        .background(Color.white.opacity(0.9), in: Circle())
-                        .background(.ultraThinMaterial, in: Circle())
-                        .overlay(Circle().strokeBorder(DreamTheme.line, lineWidth: 0.5))
+                    topBarIcon("ellipsis", size: 15, tint: DreamTheme.ink2)
                 }
                 .accessibilityLabel("More options")
             }
         }
         .padding(.horizontal, 16)
         .padding(.top, 56)
+        // The bar is pinned outside the ScrollView; this scrim fades scrolling
+        // content out beneath it so the buttons never look like they move with it.
+        .background(alignment: .top) {
+            LinearGradient(
+                colors: [DreamTheme.Surface.page, DreamTheme.Surface.page.opacity(0)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 118)
+            .ignoresSafeArea(edges: .top)
+            .allowsHitTesting(false)
+        }
+    }
+
+    /// Opaque circular chrome for the pinned top bar. Deliberately not translucent —
+    /// content passing behind a see-through pill reads as the button itself moving.
+    private func topBarIcon(_ name: String, size: CGFloat, tint: Color) -> some View {
+        Image(systemName: name)
+            .font(.system(size: size, weight: .semibold))
+            .foregroundStyle(tint)
+            .frame(width: 38, height: 38)
+            .background(DreamTheme.Surface.card, in: Circle())
+            .overlay(Circle().strokeBorder(DreamTheme.line, lineWidth: 0.5))
     }
 
     private func eyebrow(_ text: String) -> some View {
