@@ -88,6 +88,13 @@ final class CommentRepository: ObservableObject {
             if let photoId {
                 query = query.eq("photo_id", value: photoId)
             }
+            if videoId == nil, photoId == nil {
+                // The dream-level thread is specifically the rows with neither
+                // medium set. Filtering on dream_id alone returned every clip's
+                // and photo's comments too, so the list disagreed with the
+                // thread-keyed count badge from `dream_comment_counts`.
+                query = query.is("video_id", value: nil).is("photo_id", value: nil)
+            }
             let rows: [DreamCommentDTO] = try await query
                 .order("created_at", ascending: true)
                 .limit(limit)

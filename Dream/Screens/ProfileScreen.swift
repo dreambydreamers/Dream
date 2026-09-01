@@ -24,6 +24,13 @@ struct ProfileScreen: View {
     @State private var shareFromSaved: Dream?
     @State private var selectedUpdate: ExploreMediaItem?
     @State private var profileForUser: UUID?
+    @ObservedObject private var moderation = ModerationRepository.shared
+    @State private var reportingProfile = false
+    @State private var confirmingBlock = false
+    @State private var moderationToast: String?
+    /// The pinned top bar only shows while the profile is at rest at the top —
+    /// once you scroll into the content it gets out of the way.
+    @State private var topBarVisible = true
 
     enum ProfileTab { case dreams, updates, saved }
 
@@ -33,7 +40,9 @@ struct ProfileScreen: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 0) {
-                    header.padding(.top, onBack == nil ? 60 : 64)
+                    // Over-feed presentation floats a top bar at y=56..94, so the
+                    // header starts below it instead of colliding with the avatar.
+                    header.padding(.top, onBack == nil ? 60 : 106)
                     if !model.skills.isEmpty {
                         skills.padding(.top, 20)
                     }
@@ -56,9 +65,21 @@ struct ProfileScreen: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 120)
             }
+            // `contentOffset + contentInsets.top` is 0 at rest whatever the safe
+            // area is, so the threshold means "scrolled off the top" everywhere.
+            .onScrollGeometryChange(for: CGFloat.self) {
+                $0.contentOffset.y + $0.contentInsets.top
+            } action: { _, offset in
+                let shouldShow = offset <= 12
+                if shouldShow != topBarVisible {
+                    withAnimation(.easeOut(duration: 0.18)) { topBarVisible = shouldShow }
+                }
+            }
 
             if let onBack {
                 topBar(onBack: onBack)
+                    .opacity(topBarVisible ? 1 : 0)
+                    .allowsHitTesting(topBarVisible)
             }
         }
         .task(id: userId) { await model.load(userId: userId, isCurrentUser: isCurrentUser) }
@@ -133,6 +154,73 @@ struct ProfileScreen: View {
         .modifier(ConditionalBackSwipe(onBack: onBack))
         .onChange(of: exploreRepo.items.map(\.id)) { _, _ in
             Task { await model.reload(userId: userId, isCurrentUser: isCurrentUser) }
+        }
+        .task { await moderation.loadBlocksIfNeeded() }
+        .sheet(isPresented: $reportingProfile) {
+            ReportSheet(
+                target: .profile,
+                targetId: userId,
+                reportedUserId: userId,
+                excerpt: "@\(model.handle) — \(model.name)",
+                subjectName: "@\(model.handle)",
+                onClose: { reportingProfile = false },
+                onBlock: { block() }
+            )
+        }
+        .confirmationDialog("Block @\(model.handle)?", isPresented: $confirmingBlock, titleVisibility: .visible) {
+            Button("Block", role: .destructive) { block() }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("You won't see their dreams or comments, and they can't message you or offer help. They aren't told.")
+        }
+        .overlay(alignment: .bottom) {
+            if let moderationToast {
+                Toast(message: moderationToast, tone: .success)
+                    .padding(.horizontal, DreamSpace.screenGutter)
+                    .padding(.bottom, DreamTheme.Layout.tabBarClearance)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(DreamMotion.smooth(), value: moderationToast)
+    }
+
+    /// Blocks the profile's owner. Leaves the screen when it was pushed over
+    /// the feed — their content is gone, so there is nothing left to show.
+    private func block() {
+        confirmingBlock = false
+        Task {
+            do {
+                try await ModerationRepository.shared.block(userId)
+                if let onBack {
+                    onBack()
+                } else {
+                    flashModerationToast("Blocked @\(model.handle)")
+                }
+            } catch {
+                print("[ProfileScreen] block failed: \(error)")
+                flashModerationToast("Couldn't block that account")
+            }
+        }
+    }
+
+    private func unblock() {
+        Task {
+            do {
+                try await ModerationRepository.shared.unblock(userId)
+                flashModerationToast("Unblocked @\(model.handle)")
+                await model.reload(userId: userId, isCurrentUser: isCurrentUser)
+            } catch {
+                print("[ProfileScreen] unblock failed: \(error)")
+                flashModerationToast("Couldn't unblock that account")
+            }
+        }
+    }
+
+    private func flashModerationToast(_ message: String) {
+        moderationToast = message
+        Task {
+            try? await Task.sleep(nanoseconds: 2_200_000_000)
+            moderationToast = nil
         }
     }
 
@@ -461,20 +549,64 @@ struct ProfileScreen: View {
     private func topBar(onBack: @escaping () -> Void) -> some View {
         HStack {
             Button(action: onBack) {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(DreamTheme.ink)
-                    .frame(width: 38, height: 38)
-                    .background(Color.white.opacity(0.9), in: Circle())
-                    .background(.ultraThinMaterial, in: Circle())
-                    .overlay(Circle().strokeBorder(DreamTheme.line, lineWidth: 0.5))
+                topBarIcon("chevron.left", size: 16, tint: DreamTheme.ink)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Back")
             Spacer()
+            // Moderation lives here rather than in the header so it is reachable
+            // on any profile opened from the feed, next to the back affordance.
+            if !isCurrentUser {
+                Menu {
+                    Button {
+                        reportingProfile = true
+                    } label: {
+                        Label("Report account", systemImage: "flag")
+                    }
+                    if moderation.isBlocked(userId) {
+                        Button {
+                            unblock()
+                        } label: {
+                            Label("Unblock @\(model.handle)", systemImage: "hand.raised.slash")
+                        }
+                    } else {
+                        Button(role: .destructive) {
+                            confirmingBlock = true
+                        } label: {
+                            Label("Block @\(model.handle)", systemImage: "hand.raised")
+                        }
+                    }
+                } label: {
+                    topBarIcon("ellipsis", size: 15, tint: DreamTheme.ink2)
+                }
+                .accessibilityLabel("More options")
+            }
         }
         .padding(.horizontal, 16)
         .padding(.top, 56)
+        // The bar is pinned outside the ScrollView; this scrim fades scrolling
+        // content out beneath it so the buttons never look like they move with it.
+        .background(alignment: .top) {
+            LinearGradient(
+                colors: [DreamTheme.Surface.page, DreamTheme.Surface.page.opacity(0)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 118)
+            .ignoresSafeArea(edges: .top)
+            .allowsHitTesting(false)
+        }
+    }
+
+    /// Opaque circular chrome for the pinned top bar. Deliberately not translucent —
+    /// content passing behind a see-through pill reads as the button itself moving.
+    private func topBarIcon(_ name: String, size: CGFloat, tint: Color) -> some View {
+        Image(systemName: name)
+            .font(.system(size: size, weight: .semibold))
+            .foregroundStyle(tint)
+            .frame(width: 38, height: 38)
+            .background(DreamTheme.Surface.card, in: Circle())
+            .overlay(Circle().strokeBorder(DreamTheme.line, lineWidth: 0.5))
     }
 
     private func eyebrow(_ text: String) -> some View {

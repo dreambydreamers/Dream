@@ -72,10 +72,34 @@ final class AuthService: ObservableObject {
     }
 
     func signOut() async {
+        // Flush before tearing down, so the outgoing user's buffered engagement
+        // is attributed to them rather than dropped (or worse, sent as whoever
+        // signs in next).
+        await EngagementLogger.shared.flush()
         await run {
             try await self.client.auth.signOut()
         }
+        await Self.resetLocalState()
+    }
+
+    /// Drops every piece of per-user state cached on the device.
+    ///
+    /// These are all singletons that outlive a session, so without this the
+    /// next account on the same device inherits the previous one's feed, likes,
+    /// saved cards, notifications, buffered engagement events and — because
+    /// `ActivityRepository` holds a live Realtime channel — their unread badge.
+    /// Signed video URLs stay valid for ~1h, so those go too.
+    private static func resetLocalState() async {
+        await ActivityRepository.shared.stop()
         FeedQueueService.shared.reset()
+        EngagementLogger.shared.reset()
+        FeedVideoPreloader.shared.reset()
+        DreamRepository.shared.reset()
+        ExploreMediaRepository.shared.reset()
+        LikesStore.shared.reset()
+        SavedDreamsStore.shared.reset()
+        SearchRepository.shared.clear()
+        ModerationRepository.shared.reset()
     }
 
     /// Wraps an auth call with busy/error bookkeeping and a session refresh.
@@ -98,8 +122,16 @@ final class AuthService: ObservableObject {
     }
 
     private func apply(session: Session?) {
-        self.userId = session?.user.id
+        let incoming = session?.user.id
+        // Catches an account switch that doesn't go through `signOut()` — a
+        // session restored for a different user. Without this the new user
+        // inherits the previous one's cached feed, likes and notifications.
+        let switchedAccount = userId != nil && incoming != nil && userId != incoming
+        self.userId = incoming
         self.isSignedIn = session != nil
+        if switchedAccount {
+            Task { await Self.resetLocalState() }
+        }
     }
 
     private static func message(for error: Error) -> String {

@@ -19,6 +19,7 @@ final class EngagementLogger: ObservableObject {
     private let client = SupabaseService.shared.client
     private var buffer: [EngagementEventPayload] = []
     private var flushTask: Task<Void, Never>?
+    private var isFlushing = false
 
     private static let bufferDefaultsKey = "engagement_event_buffer"
     private static let flushThreshold = 10
@@ -55,7 +56,16 @@ final class EngagementLogger: ObservableObject {
     }
 
     /// Sends everything buffered. Failed batches stay buffered for retry.
+    ///
+    /// Guarded against re-entrancy: `log()`, the 15 s timer and the
+    /// didEnterBackground observer can all call this, and the `await` on the RPC
+    /// is a suspension point where a second caller would read the same buffer
+    /// prefix and send it again — double-counting impressions.
     func flush() async {
+        guard !isFlushing else { return }
+        isFlushing = true
+        defer { isFlushing = false }
+
         flushTask?.cancel()
         flushTask = nil
         guard !buffer.isEmpty else { return }
@@ -83,6 +93,17 @@ final class EngagementLogger: ObservableObject {
             guard !Task.isCancelled else { return }
             await self?.flush()
         }
+    }
+
+    /// Drops the buffer on sign-out. The caller flushes first; anything left
+    /// here failed to send and must not be replayed as the next signed-in user,
+    /// since `log_engagement_batch` attributes events to `auth.uid()` at flush
+    /// time rather than at capture time.
+    func reset() {
+        flushTask?.cancel()
+        flushTask = nil
+        buffer = []
+        UserDefaults.standard.removeObject(forKey: Self.bufferDefaultsKey)
     }
 
     // MARK: - Crash/kill safety

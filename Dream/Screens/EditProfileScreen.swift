@@ -28,6 +28,7 @@ struct EditProfileScreen: View {
 
     @State private var isSaving = false
     @State private var errorMessage: String?
+    @State private var showingBlockedAccounts = false
 
     // Supporter capability profile — what the matching algorithm routes
     // dreams against. Loaded once in .task, saved with the rest of the form.
@@ -78,6 +79,7 @@ struct EditProfileScreen: View {
                     helpOfferedSection
                     interestsSection
                     if !dreams.isEmpty { mainDreamSection }
+                    safetySection
 
                     if let errorMessage {
                         Text(errorMessage)
@@ -95,6 +97,28 @@ struct EditProfileScreen: View {
         }
         .keyboardDoneButton()
         .task { await loadSupporterProfile() }
+        .sheet(isPresented: $showingBlockedAccounts) {
+            BlockedAccountsScreen(onClose: { showingBlockedAccounts = false })
+        }
+    }
+
+    // MARK: - Safety
+
+    /// Entry point for managing blocks. Lives on the profile-editing screen
+    /// because that is where account-level settings already are — there is no
+    /// separate Settings screen yet.
+    private var safetySection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            eyebrow("Safety")
+            OptionRow(
+                icon: "hand.raised",
+                title: "Blocked accounts",
+                subtitle: "People you've blocked can't see your dreams or contact you.",
+                accessory: .chevron
+            ) {
+                showingBlockedAccounts = true
+            }
+        }
     }
 
     // MARK: - Top bar

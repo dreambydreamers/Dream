@@ -58,6 +58,15 @@ final class LikesStore: ObservableObject {
 
     func isLiked(_ feedID: UUID) -> Bool { likedIDs.contains(feedID) }
 
+    /// Drops the signed-in user's likes. Called on sign-out: `load` unions into
+    /// `likedIDs`, so without this the next account starts with the previous
+    /// user's hearts already filled in.
+    func reset() {
+        likedIDs = []
+        counts = [:]
+        inFlight = []
+    }
+
     /// Count for a card, preferring a live value over the enriched one.
     func count(for feedID: UUID, fallback: Int) -> Int {
         counts[feedID] ?? fallback

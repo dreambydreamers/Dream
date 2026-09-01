@@ -12,6 +12,11 @@ final class VideoUploader {
     private let client = SupabaseService.shared.client
     private init() {}
 
+    /// Refuse anything past this rather than let the upload fail obscurely at
+    /// the bucket's 500 MB ceiling. A transcoded ~6 Mbps clip hits this at
+    /// roughly four minutes, well beyond anything the composer produces.
+    private static let maxUploadBytes = 200_000_000
+
     struct UploadResult {
         let videoId: UUID
         let storagePath: String
@@ -53,13 +58,24 @@ final class VideoUploader {
             if encoded != localVideoURL { try? FileManager.default.removeItem(at: encoded) }
         }
 
-        // 1) Upload the video
-        let videoData = try Data(contentsOf: encoded)
+        // 1) Upload the video.
+        // Streamed from disk rather than `Data(contentsOf:)` — the bucket takes
+        // objects up to 500 MB, and reading one of those into memory on a phone
+        // gets the app jetsammed mid-publish. The cap below rejects the
+        // pathological case with a message instead of a crash.
+        let sizeBytes = (try? FileManager.default
+            .attributesOfItem(atPath: encoded.path))?[.size] as? Int
+        if let sizeBytes, sizeBytes > Self.maxUploadBytes {
+            throw NSError(domain: "VideoUploader", code: 413, userInfo: [
+                NSLocalizedDescriptionKey:
+                    "That video is too large to upload. Try a shorter clip."
+            ])
+        }
         _ = try await client.storage
             .from("dream-videos")
             .upload(
                 videoPath,
-                data: videoData,
+                fileURL: encoded,
                 options: FileOptions(contentType: "video/mp4", upsert: false)
             )
 
@@ -71,17 +87,25 @@ final class VideoUploader {
         let track = try? await asset.loadTracks(withMediaType: .video).first
         let size = (try? await track?.load(.naturalSize)) ?? .zero
 
+        // A poster is optional, so a failure here must not fail the publish —
+        // but only record the path if the object actually landed. Assigning it
+        // unconditionally (as this did) writes a poster_path that 404s forever,
+        // and the feed then shows a permanently broken thumbnail.
         var posterPath: String? = nil
         if let posterData = await generatePoster(from: asset) {
             let path = "\(userFolder)/\(dreamId.uuidString.lowercased())/\(videoId.uuidString.lowercased()).jpg"
-            _ = try? await client.storage
-                .from("dream-posters")
-                .upload(
-                    path,
-                    data: posterData,
-                    options: FileOptions(contentType: "image/jpeg", upsert: false)
-                )
-            posterPath = path
+            do {
+                _ = try await client.storage
+                    .from("dream-posters")
+                    .upload(
+                        path,
+                        data: posterData,
+                        options: FileOptions(contentType: "image/jpeg", upsert: false)
+                    )
+                posterPath = path
+            } catch {
+                print("[VideoUploader] poster upload failed, continuing without one: \(error)")
+            }
         }
 
         // 3) Insert the dream_videos row
