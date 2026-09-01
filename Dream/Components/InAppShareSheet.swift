@@ -25,7 +25,7 @@ struct InAppShareSheet: View {
                     Divider().background(DreamTheme.line)
                     content
                 }
-                .background(DreamTheme.paper.ignoresSafeArea())
+                .background(DreamTheme.Surface.page.ignoresSafeArea())
 
                 if sentOverlay {
                     Color.black.opacity(0.55)
@@ -95,7 +95,7 @@ struct InAppShareSheet: View {
             Spacer()
         }
         .padding(16)
-        .background(Color.white)
+        .background(DreamTheme.Surface.page)
     }
 
     @ViewBuilder private var content: some View {
@@ -140,7 +140,7 @@ struct InAppShareSheet: View {
                             Divider().padding(.leading, 72)
                         }
                     }
-                    .background(Color.white)
+                    .background(DreamTheme.Surface.page)
                 }
                 .scrollDismissesKeyboard(.interactively)
             }
@@ -154,7 +154,7 @@ struct InAppShareSheet: View {
             .lineLimit(1...3)
             .padding(.horizontal, 14)
             .padding(.vertical, 11)
-            .background(Color.white, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .background(DreamTheme.Surface.card, in: DreamShape.lg)
             .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(DreamTheme.line, lineWidth: 1))
             .padding(16)
     }
@@ -210,6 +210,7 @@ struct InAppShareSheet: View {
                     recipientId: profile.id,
                     note: note.trimmingCharacters(in: .whitespacesAndNewlines)
                 )
+                EngagementLogger.shared.log(.share, dreamId: dream.id)
                 sent.insert(profile.id)
                 let name = profile.name ?? profile.handle ?? "friend"
                 onSent(name)

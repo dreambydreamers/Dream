@@ -41,7 +41,7 @@ struct ChatScreen: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             composer
         }
-        .background(DreamTheme.paper.ignoresSafeArea())
+        .background(DreamTheme.Surface.page.ignoresSafeArea())
         .navigationBarHidden(true)
         .task { await model.start() }
         .onDisappear { Task { await model.stop() } }
@@ -90,7 +90,7 @@ struct ChatScreen: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .background(
-            Color.white
+            DreamTheme.Surface.page
                 .ignoresSafeArea(edges: .top)
                 .shadow(color: .black.opacity(0.04), radius: 1, y: 1)
         )
@@ -243,7 +243,7 @@ struct ChatScreen: View {
         .padding(.top, 10)
         .padding(.bottom, 24)
         .background(
-            Color.white
+            DreamTheme.Surface.page
                 .ignoresSafeArea(edges: .bottom)
                 .shadow(color: .black.opacity(0.05), radius: 8, y: -2)
         )

@@ -15,11 +15,27 @@ struct DiscoverScreen: View {
     @State private var presentedDream: Dream?
     @State private var helpForDream: Dream?
     @State private var shareDream: Dream?
+    @State private var commentsForDream: Dream?
+    /// Live comment counts (updated by CommentsSheet) layered over the counts
+    /// loaded with the feed. Keyed by `feedID` — threads are per-update.
+    @State private var commentCountOverrides: [UUID: Int] = [:]
+    /// Watch-time tracking for the engagement log: which card is being
+    /// watched and since when. Finalized into skip/watch_progress/complete
+    /// when the card changes or the feed disappears.
+    @State private var watchedDream: Dream?
+    @State private var watchStartedAt: Date?
+    /// One `view` (impression) per dream per feed session — the virtual loop
+    /// re-shows the same cards, which must not inflate exposure counters.
+    @State private var viewLoggedDreams: Set<UUID> = []
     @State private var profileForUser: UUID?
     @State private var isMuted: Bool = false
     @StateObject private var videoActions = VideoActionsModel()
     @ObservedObject private var savedStore = SavedDreamsStore.shared
+    @ObservedObject private var likes = LikesStore.shared
     @State private var moreMenuDream: Dream? = nil
+    /// Report / block, driven from the three-dots menu.
+    @State private var reportDream: Dream?
+    @State private var blockCandidate: Dream?
     @State private var expandedDesc: Set<UUID> = []
     @State private var followedOwners: Set<UUID> = []
     @State private var loadedFollowOwners: Set<UUID> = []
@@ -86,6 +102,7 @@ struct DiscoverScreen: View {
         .animation(.easeInOut(duration: 0.22), value: cleanDisplay)
         .task {
             if repo.dreams.isEmpty { await repo.loadFeed() }
+            await likes.load(forDreams: repo.dreams.map(\.id), viewer: auth.userId)
             ensureCurrentSlot()
             FeedVideoPreloader.shared.prefetchNeighbors(of: dreams, around: currentIndex)
             markFeedActive()
@@ -114,6 +131,7 @@ struct DiscoverScreen: View {
         }
         .onDisappear {
             FeedVideoPreloader.shared.feedActiveID = nil
+            finalizeWatch()
         }
         .fullScreenCover(item: $presentedDream, onDismiss: restoreFeedAfterPresentation) { d in
             DreamDetailScreen(dream: d, onBack: { presentedDream = nil })
@@ -133,6 +151,42 @@ struct DiscoverScreen: View {
         .fullScreenCover(item: $profileForUser, onDismiss: restoreFeedAfterPresentation) { userId in
             ProfileScreen(userId: userId, onBack: { profileForUser = nil })
         }
+        .sheet(item: $commentsForDream, onDismiss: restoreFeedAfterPresentation) { d in
+            CommentsSheet(
+                dream: d,
+                onClose: { commentsForDream = nil },
+                onCountChanged: { commentCountOverrides[d.feedID] = $0 }
+            )
+            .presentationDetents([.medium, .large])
+            .pausesDiscoverFeed()
+        }
+        .sheet(item: $reportDream, onDismiss: restoreFeedAfterPresentation) { d in
+            ReportSheet(
+                target: d.videoId == nil ? .dream : .video,
+                targetId: d.feedID,
+                reportedUserId: d.ownerId,
+                excerpt: "\(d.displayTitle)\n\(d.displayDescription)",
+                subjectName: "@\(d.handle)",
+                onClose: { reportDream = nil },
+                onBlock: { block(d) }
+            )
+            .pausesDiscoverFeed()
+        }
+        .confirmationDialog(
+            blockCandidate.map { "Block @\($0.handle)?" } ?? "",
+            isPresented: Binding(
+                get: { blockCandidate != nil },
+                set: { if !$0 { blockCandidate = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            if let d = blockCandidate {
+                Button("Block", role: .destructive) { block(d) }
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("They won't be able to message you or see your dreams, and you won't see theirs. They aren't told.")
+        }
         .videoActions(videoActions)
         .confirmationDialog("", isPresented: Binding(
             get: { moreMenuDream != nil },
@@ -144,6 +198,17 @@ struct DiscoverScreen: View {
                 }
                 Button("Share outside Dream") {
                     videoActions.share(storagePath: d.videoStoragePath)
+                }
+                if !isOwnDream(d) {
+                    Button("Not interested", role: .destructive) {
+                        markNotRelevant(d)
+                    }
+                    Button("Report…", role: .destructive) {
+                        reportDream = d
+                    }
+                    Button("Block @\(d.handle)", role: .destructive) {
+                        blockCandidate = d
+                    }
                 }
                 Button("Cancel", role: .cancel) { }
             }
@@ -171,6 +236,59 @@ struct DiscoverScreen: View {
         guard !dreams.isEmpty else { return }
         FeedVideoPreloader.shared.feedActiveID = currentFeedID
         FeedVideoPreloader.shared.feedMuted = isMuted
+        trackWatch()
+    }
+
+    // MARK: - Engagement tracking
+
+    /// Starts the watch clock for the newly-centered card and logs its
+    /// impression. Called from every activation path (appear, slot change,
+    /// feed reload); no-ops while the same card stays centered.
+    private func trackWatch() {
+        guard !dreams.isEmpty else { return }
+        let d = dream
+        guard watchedDream?.feedID != d.feedID else { return }
+        finalizeWatch()
+        watchedDream = d
+        watchStartedAt = Date()
+        if !viewLoggedDreams.contains(d.id) {
+            viewLoggedDreams.insert(d.id)
+            EngagementLogger.shared.log(.view, dreamId: d.id)
+        }
+    }
+
+    /// Classifies the finished watch: under 3 s is a skip ("wrong viewer" —
+    /// this only tunes the watcher's own profile), a full clip length is a
+    /// complete, anything else is watch progress.
+    private func finalizeWatch() {
+        guard let d = watchedDream, let start = watchStartedAt else { return }
+        watchedDream = nil
+        watchStartedAt = nil
+        let elapsedMs = Int(Date().timeIntervalSince(start) * 1000)
+        guard elapsedMs >= 500 else { return } // transition noise
+        let duration = d.videoDurationMs
+        if let duration, duration > 0, elapsedMs >= duration {
+            EngagementLogger.shared.log(.complete, dreamId: d.id,
+                                        watchMs: duration, videoDurationMs: duration)
+        } else if elapsedMs < 3_000 {
+            EngagementLogger.shared.log(.skip, dreamId: d.id,
+                                        watchMs: elapsedMs, videoDurationMs: duration)
+        } else {
+            EngagementLogger.shared.log(.watchProgress, dreamId: d.id,
+                                        watchMs: elapsedMs, videoDurationMs: duration)
+        }
+    }
+
+    /// "Not interested": dismisses the dream for this viewer server-side (via
+    /// the not_relevant event) and removes its cards from the current feed.
+    private func markNotRelevant(_ d: Dream) {
+        if watchedDream?.id == d.id {
+            watchedDream = nil
+            watchStartedAt = nil
+        }
+        EngagementLogger.shared.log(.notRelevant, dreamId: d.id)
+        repo.hideDream(d.id)
+        Task { await EngagementLogger.shared.flush() }
     }
 
     private func dreamIndex(forSlot slot: Int) -> Int {
@@ -267,7 +385,11 @@ struct DiscoverScreen: View {
     // and non-interactive; they only appear during the transition swipe.
     private func cardView(_ d: Dream, geo: GeometryProxy, safeTop: CGFloat, isActive: Bool) -> some View {
         ZStack {
-            DreamVideoBackground(dream: d, isMuted: isActive ? isMuted : true)
+            DreamVideoBackground(
+                dream: d,
+                isMuted: isActive ? isMuted : true,
+                onDoubleTap: isActive ? { likeFromDoubleTap(d) } : nil
+            )
                 .frame(width: geo.size.width, height: geo.size.height)
                 .clipped()
 
@@ -328,7 +450,7 @@ struct DiscoverScreen: View {
 
     private var topGradient: some View {
         LinearGradient(
-            colors: [.black.opacity(0.55), .clear],
+            colors: [.black.opacity(0.42), .clear],
             startPoint: .top, endPoint: .bottom
         )
         .frame(height: 220)
@@ -337,12 +459,19 @@ struct DiscoverScreen: View {
         .allowsHitTesting(false)
     }
 
+    /// The kit's scrim, which ramps harder and further than the old one: the
+    /// overlay block now carries a description and two buttons, and a 0.65 stop
+    /// over 320pt left them fighting bright video.
     private var bottomGradient: some View {
         LinearGradient(
-            colors: [.clear, .black.opacity(0.65)],
+            stops: [
+                .init(color: .clear, location: 0),
+                .init(color: .black.opacity(0.35), location: 0.45),
+                .init(color: .black.opacity(0.8), location: 1),
+            ],
             startPoint: .top, endPoint: .bottom
         )
-        .frame(height: 320)
+        .frame(height: 460)
         .frame(maxHeight: .infinity, alignment: .bottom)
         .ignoresSafeArea()
         .allowsHitTesting(false)
@@ -351,16 +480,12 @@ struct DiscoverScreen: View {
     // Fixed header — lives in body ZStack, never slides with card transitions.
     private var topBar: some View {
         HStack {
-            Text("Dream")
-                .font(DreamTheme.Font.display(28, weight: .light, italic: true))
-                .foregroundStyle(DreamTheme.blue)
-                .tracking(-0.8)
-                .shadow(color: DreamTheme.blue.opacity(0.6), radius: 8)
-                .shadow(color: .white.opacity(0.3), radius: 16)
+            DreamWordmark(size: 24, color: DreamTheme.Blue.bright)
+                .shadow(color: .black.opacity(0.35), radius: 6, y: 1)
 
             Spacer()
 
-            HStack(spacing: 10) {
+            HStack(spacing: DreamSpace.s4) {
                 circleButton(
                     systemImage: isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill",
                     accessibilityLabel: isMuted ? "Unmute video" : "Mute video"
@@ -377,79 +502,90 @@ struct DiscoverScreen: View {
     }
 
     private func circleButton(systemImage: String, accessibilityLabel: String, action: @escaping () -> Void) -> some View {
-        GlassCircleButton(
-            systemName: systemImage,
-            accessibilityLabel: accessibilityLabel,
-            size: 40,
-            background: Color.white.opacity(0.16),
-            action: action
-        )
-        .overlay(Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 0.5))
+        IconButton(systemName: systemImage, accessibilityLabel: accessibilityLabel, action: action)
     }
 
     private func bottomInfo(for d: Dream) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                CategoryBadge(category: d.category, dark: true)
-                HStack(spacing: 4) {
-                    Text("◐")
-                    Text(d.stage.rawValue)
-                }
-                .font(DreamTheme.Font.text(12, weight: .semibold))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background(Color.white.opacity(0.18), in: Capsule())
-                .overlay(Capsule().strokeBorder(Color.white.opacity(0.3), lineWidth: 0.5))
-            }
-
+        VStack(alignment: .leading, spacing: DreamSpace.s6) {
             authorRow(for: d)
 
+            // Sans bold with tight tracking, per the kit — the serif is reserved
+            // for accent words, not for titles set over video.
             Button { presentedDream = d } label: {
                 Text(d.displayTitle)
-                    .font(DreamTheme.Font.display(30, weight: .regular))
-                    .tracking(-0.6)
-                    .foregroundStyle(.white)
+                    .dreamStyle(.display(24))
+                    .foregroundStyle(DreamTheme.OnMedia.base)
                     .shadow(color: .black.opacity(0.4), radius: 6, y: 1)
                     .lineLimit(3)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(DreamPressStyle())
 
-            Rectangle()
-                .fill(d.category.palette.fg)
-                .frame(width: 36, height: 3)
-                .clipShape(Capsule())
-                .shadow(color: d.category.palette.fg.opacity(0.7), radius: 6)
+            HStack(spacing: DreamSpace.s3) {
+                CategoryBadge(category: d.category, dark: true)
+                StagePill(stage: d.stage, onMedia: true)
+            }
 
-            if !d.desc.isEmpty {
+            if !d.displayDescription.isEmpty {
                 descriptionBlock(for: d)
             }
+
+            helpRow(for: d)
+                .padding(.top, DreamSpace.s1)
+        }
+    }
+
+    /// The primary call to action lives in the content block rather than in the
+    /// rail — it is the point of the whole screen, and an icon in a stack of five
+    /// gives it no more weight than "more".
+    private func helpRow(for d: Dream) -> some View {
+        HStack(spacing: DreamSpace.s4) {
+            DreamButton(title: "I can help", variant: .primary, size: .md, icon: "hands.sparkles") {
+                helpForDream = d
+            }
+
+            Button { presentedDream = d } label: {
+                HStack(spacing: 5) {
+                    Text("The journey").dreamStyle(.ui(13))
+                    Image(systemName: "arrow.right").font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundStyle(DreamTheme.OnMedia.base)
+                .frame(minHeight: 44)
+                .padding(.horizontal, DreamSpace.s7)
+                .background {
+                    DreamShape.md
+                        .fill(DreamTheme.Glass.fill)
+                        .background(.ultraThinMaterial, in: DreamShape.md)
+                        .environment(\.colorScheme, .dark)
+                        .overlay(DreamShape.md.strokeBorder(DreamTheme.Glass.stroke, lineWidth: 1))
+                }
+                .clipShape(DreamShape.md)
+            }
+            .buttonStyle(DreamPressStyle())
         }
     }
 
     @ViewBuilder
     private func descriptionBlock(for d: Dream) -> some View {
+        let text = d.displayDescription
         let expanded = expandedDesc.contains(d.feedID)
-        let long = d.desc.count > 90
+        let long = text.count > 90
 
         if expanded || !long {
-            Text(d.desc)
-                .font(DreamTheme.Font.text(13))
-                .foregroundStyle(.white.opacity(0.9))
-                .lineSpacing(2)
+            Text(text)
+                .dreamStyle(.body(12))
+                .foregroundStyle(DreamTheme.OnMedia.dim)
                 .fixedSize(horizontal: false, vertical: true)
         } else {
-            let snippet = String(d.desc.prefix(90))
-            (Text(snippet + "… ")
-                .font(DreamTheme.Font.text(13))
-                .foregroundStyle(Color.white.opacity(0.9))
-             + Text("more")
-                .font(DreamTheme.Font.text(13, weight: .semibold))
+            let snippet = String(text.prefix(90))
+            let moreText = Text("more")
+                .font(DreamType.sans(12, weight: .semibold))
                 .foregroundStyle(Color.white.opacity(0.65))
-            )
-            .lineSpacing(2)
+
+            Text("\(snippet)… \(moreText)")
+                .dreamStyle(.body(12))
+                .foregroundStyle(DreamTheme.OnMedia.dim)
             .onTapGesture {
                 let id = d.feedID
                 withAnimation(.easeInOut(duration: 0.2)) {
@@ -460,25 +596,30 @@ struct DiscoverScreen: View {
     }
 
     private func rightRail(for d: Dream) -> some View {
-        VStack(spacing: 16) {
-            ActionButton(systemImage: "heart.fill", label: "I can help") {
-                helpForDream = d
-            }
-            ActionButton(systemImage: "paperplane.fill", label: "Send") {
-                shareDream = d
-            }
-            ActionButton(
-                systemImage: savedStore.isSaved(d.feedID) ? "bookmark.fill" : "bookmark",
-                label: savedStore.isSaved(d.feedID) ? "Saved" : "Save"
-            ) {
-                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                savedStore.toggle(d.feedID)
-            }
-            ActionButton(systemImage: "ellipsis", label: "More") {
-                moreMenuDream = d
-            }
-        }
-        .frame(width: 64)
+        EngagementBar(
+            items: [
+                .like(count: likes.count(for: d.feedID, fallback: d.likes),
+                      isLiked: likes.isLiked(d.feedID)) {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    likes.toggle(dreamId: d.id, videoId: d.videoId,
+                                 viewer: auth.userId, currentCount: d.likes)
+                },
+                .comment(count: commentCount(for: d)) { commentsForDream = d },
+                .save(isSaved: savedStore.isSaved(d.feedID)) {
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    let wasSaved = savedStore.isSaved(d.feedID)
+                    savedStore.toggle(d.feedID)
+                    if !wasSaved {
+                        EngagementLogger.shared.log(.save, dreamId: d.id)
+                    }
+                },
+                .share { shareDream = d },
+                .more { moreMenuDream = d },
+            ],
+            orientation: .vertical,
+            onMedia: true
+        )
+        .frame(width: 56)
     }
 
     private func authorRow(for d: Dream) -> some View {
@@ -516,6 +657,22 @@ struct DiscoverScreen: View {
         auth.userId == d.ownerId
     }
 
+    /// Live count for a card, preferring the local override written when the user
+    /// Double-tapping the video likes it and never unlikes it — the gesture is
+    /// imprecise enough that a second one is far more likely a mis-tap than an
+    /// intent to undo. The rail's heart stays the way to unlike.
+    private func likeFromDoubleTap(_ d: Dream) {
+        guard !likes.isLiked(d.feedID) else { return }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        likes.toggle(dreamId: d.id, videoId: d.videoId,
+                     viewer: auth.userId, currentCount: d.likes)
+    }
+
+    /// posts from the comments sheet — keyed by `feedID`, not dream id.
+    private func commentCount(for d: Dream) -> Int {
+        commentCountOverrides[d.feedID] ?? d.comments
+    }
+
     private func isFollowingOwner(_ d: Dream) -> Bool {
         followedOwners.contains(d.ownerId)
     }
@@ -548,12 +705,29 @@ struct DiscoverScreen: View {
                     try await ProfileRepository.shared.unfollow(ownerId)
                 } else {
                     try await ProfileRepository.shared.follow(ownerId)
+                    EngagementLogger.shared.log(.follow, dreamId: d.id)
                 }
             } catch {
                 if wasFollowing { followedOwners.insert(ownerId) } else { followedOwners.remove(ownerId) }
                 print("[DiscoverScreen] toggle follow failed: \(error)")
             }
             followBusyOwners.remove(ownerId)
+        }
+    }
+
+    /// Blocks a card's author. The repository drops their cards from the feed
+    /// straight away; the server hides them from every later fetch.
+    private func block(_ d: Dream) {
+        blockCandidate = nil
+        let handle = d.handle
+        Task {
+            do {
+                try await ModerationRepository.shared.block(d.ownerId)
+                showShareToast("Blocked @\(handle)")
+            } catch {
+                print("[DiscoverScreen] block failed: \(error)")
+                showShareToast("Couldn't block @\(handle)")
+            }
         }
     }
 

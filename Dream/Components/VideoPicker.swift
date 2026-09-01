@@ -1,5 +1,6 @@
 import PhotosUI
 import SwiftUI
+import UIKit
 import UniformTypeIdentifiers
 
 /// Photo-library video picker. Copies the chosen video to a stable temp file and
@@ -85,6 +86,84 @@ struct VideoRecorder: UIViewControllerRepresentable {
             parent.dismiss()
             guard let url = info[.mediaURL] as? URL, let dest = copyToTemp(url) else { return }
             parent.onRecord(dest)
+        }
+
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            parent.dismiss()
+        }
+    }
+}
+
+/// Photo-library image picker. Uses PHPicker so normal library access does not
+/// require broad photo-library permission.
+struct PhotoLibraryPicker: UIViewControllerRepresentable {
+    var onPick: (UIImage) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    func makeUIViewController(context: Context) -> PHPickerViewController {
+        var config = PHPickerConfiguration()
+        config.filter = .images
+        config.selectionLimit = 1
+        let picker = PHPickerViewController(configuration: config)
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: PHPickerViewController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    final class Coordinator: NSObject, PHPickerViewControllerDelegate {
+        let parent: PhotoLibraryPicker
+        init(_ parent: PhotoLibraryPicker) { self.parent = parent }
+
+        func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+            parent.dismiss()
+            guard let provider = results.first?.itemProvider,
+                  provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) else { return }
+
+            provider.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { data, error in
+                guard let data, let image = UIImage(data: data) else {
+                    if let error { print("[PhotoLibraryPicker] load failed: \(error)") }
+                    return
+                }
+                DispatchQueue.main.async { self.parent.onPick(image) }
+            }
+        }
+    }
+}
+
+/// Camera photo picker. Falls back to the photo library when no camera is
+/// available, which keeps the simulator path usable.
+struct PhotoCameraPicker: UIViewControllerRepresentable {
+    var onPick: (UIImage) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.sourceType = UIImagePickerController.isSourceTypeAvailable(.camera) ? .camera : .photoLibrary
+        if picker.sourceType == .camera {
+            picker.cameraCaptureMode = .photo
+        }
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    final class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let parent: PhotoCameraPicker
+        init(_ parent: PhotoCameraPicker) { self.parent = parent }
+
+        func imagePickerController(
+            _ picker: UIImagePickerController,
+            didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]
+        ) {
+            parent.dismiss()
+            guard let image = info[.originalImage] as? UIImage else { return }
+            parent.onPick(image)
         }
 
         func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {

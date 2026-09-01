@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		4C19C356301507D10026288E /* DreamRanking in Frameworks */ = {isa = PBXBuildFile; productRef = 4CA5B0010000000000000011 /* DreamRanking */; };
 		4CA5B0010000000000000001 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 4CA5B0010000000000000002 /* Supabase */; };
 /* End PBXBuildFile section */
 
@@ -27,6 +28,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4C19C356301507D10026288E /* DreamRanking in Frameworks */,
 				4CA5B0010000000000000001 /* Supabase in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -71,6 +73,7 @@
 			name = Dream;
 			packageProductDependencies = (
 				4CA5B0010000000000000002 /* Supabase */,
+				4CA5B0010000000000000011 /* DreamRanking */,
 			);
 			productName = Dream;
 			productReference = 4CC9C7CA2FC34B6F002221B1 /* Dream.app */;
@@ -102,6 +105,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				4C74FB222FCB1EEF00F1713A /* XCRemoteSwiftPackageReference "supabase-swift" */,
+				4CA5B0010000000000000010 /* XCLocalSwiftPackageReference "Packages/DreamRanking" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 4CC9C7CB2FC34B6F002221B1 /* Products */;
@@ -237,6 +241,7 @@
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNDECLARED_SELECTOR = YES;
@@ -249,6 +254,7 @@
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
@@ -263,14 +269,15 @@
 				DEVELOPMENT_TEAM = 782VJ9SVA3;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSCameraUsageDescription = "Dream uses the camera so you can record a video of your dream.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Dream uses the camera so you can record photos and videos for your dream.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Dream uses the microphone to record sound for your dream video.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Dream saves videos to your photo library.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Dream uses your photo library so you can choose photos and videos for updates.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -299,14 +306,15 @@
 				DEVELOPMENT_TEAM = 782VJ9SVA3;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSCameraUsageDescription = "Dream uses the camera so you can record a video of your dream.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Dream uses the camera so you can record photos and videos for your dream.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Dream uses the microphone to record sound for your dream video.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Dream saves videos to your photo library.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Dream uses your photo library so you can choose photos and videos for updates.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -348,6 +356,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		4CA5B0010000000000000010 /* XCLocalSwiftPackageReference "Packages/DreamRanking" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/DreamRanking;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		4C74FB222FCB1EEF00F1713A /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -364,6 +379,10 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 4C74FB222FCB1EEF00F1713A /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Supabase;
+		};
+		4CA5B0010000000000000011 /* DreamRanking */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DreamRanking;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -1,3 +1,4 @@
+import DreamRanking
 import PhotosUI
 import SwiftUI
 
@@ -27,6 +28,15 @@ struct EditProfileScreen: View {
 
     @State private var isSaving = false
     @State private var errorMessage: String?
+    @State private var showingBlockedAccounts = false
+
+    // Supporter capability profile — what the matching algorithm routes
+    // dreams against. Loaded once in .task, saved with the rest of the form.
+    @State private var helpTypesOffered: Set<HelpType> = []
+    @State private var capacityHours = 2
+    @State private var interestCategories: Set<DreamCategory> = []
+    @State private var preferredStages: Set<DreamStage> = []
+    @State private var supporterProfileLoaded = false
 
     init(
         userId: UUID,
@@ -57,7 +67,7 @@ struct EditProfileScreen: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            DreamTheme.paper.ignoresSafeArea()
+            DreamTheme.Surface.page.ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 26) {
@@ -66,7 +76,10 @@ struct EditProfileScreen: View {
                     field("Username", text: $handle, placeholder: "username", prefix: "@", autocap: false)
                     field("Location", text: $location, placeholder: "City, Country")
                     skillsSection
+                    helpOfferedSection
+                    interestsSection
                     if !dreams.isEmpty { mainDreamSection }
+                    safetySection
 
                     if let errorMessage {
                         Text(errorMessage)
@@ -83,6 +96,29 @@ struct EditProfileScreen: View {
             topBar
         }
         .keyboardDoneButton()
+        .task { await loadSupporterProfile() }
+        .sheet(isPresented: $showingBlockedAccounts) {
+            BlockedAccountsScreen(onClose: { showingBlockedAccounts = false })
+        }
+    }
+
+    // MARK: - Safety
+
+    /// Entry point for managing blocks. Lives on the profile-editing screen
+    /// because that is where account-level settings already are — there is no
+    /// separate Settings screen yet.
+    private var safetySection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            eyebrow("Safety")
+            OptionRow(
+                icon: "hand.raised",
+                title: "Blocked accounts",
+                subtitle: "People you've blocked can't see your dreams or contact you.",
+                accessory: .chevron
+            ) {
+                showingBlockedAccounts = true
+            }
+        }
     }
 
     // MARK: - Top bar
@@ -111,7 +147,7 @@ struct EditProfileScreen: View {
         .padding(.horizontal, 20)
         .padding(.top, 18)
         .padding(.bottom, 12)
-        .background(DreamTheme.paper)
+        .background(DreamTheme.Surface.page)
     }
 
     // MARK: - Avatar
@@ -229,7 +265,7 @@ struct EditProfileScreen: View {
             }
             .padding(.vertical, 12)
             .padding(.horizontal, 14)
-            .background(Color.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(DreamTheme.Surface.card, in: DreamShape.sm)
             .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(DreamTheme.line, lineWidth: 1))
         }
     }
@@ -272,7 +308,7 @@ struct EditProfileScreen: View {
             }
             .padding(.vertical, 12)
             .padding(.horizontal, 14)
-            .background(Color.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(DreamTheme.Surface.card, in: DreamShape.sm)
             .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(DreamTheme.line, lineWidth: 1))
         }
     }
@@ -282,6 +318,117 @@ struct EditProfileScreen: View {
         guard !trimmed.isEmpty, !skills.contains(trimmed) else { return }
         skills.append(trimmed)
         newSkill = ""
+    }
+
+    // MARK: - Supporter capability profile
+
+    /// The eight canonical help types, with UI labels.
+    private static let helpTypeOptions: [(type: HelpType, label: String)] = [
+        (.code, "Coding"), (.design, "Design"), (.funding, "Funding"),
+        (.mentorship, "Mentorship"), (.marketing, "Marketing"),
+        (.legal, "Legal"), (.space, "Space"), (.other, "Other"),
+    ]
+
+    private var helpOfferedSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            eyebrow("How You Can Help")
+            Text("Dreams that need this reach you first.")
+                .font(DreamTheme.Font.text(13))
+                .foregroundStyle(DreamTheme.ink2)
+
+            FlowLayout(spacing: 8, lineSpacing: 8) {
+                ForEach(Self.helpTypeOptions, id: \.type) { option in
+                    selectableChip(
+                        option.label,
+                        selected: helpTypesOffered.contains(option.type)
+                    ) {
+                        if helpTypesOffered.contains(option.type) {
+                            helpTypesOffered.remove(option.type)
+                        } else {
+                            helpTypesOffered.insert(option.type)
+                        }
+                    }
+                }
+            }
+
+            HStack {
+                Text("Time you can give")
+                    .font(DreamTheme.Font.text(14, weight: .medium))
+                    .foregroundStyle(DreamTheme.ink)
+                Spacer()
+                Stepper(value: $capacityHours, in: 0...40) {
+                    Text("\(capacityHours) h/week")
+                        .font(DreamTheme.Font.text(14, weight: .semibold))
+                        .foregroundStyle(DreamTheme.blueDeep)
+                }
+                .fixedSize()
+            }
+            .padding(.vertical, 10)
+            .padding(.horizontal, 14)
+            .background(DreamTheme.Surface.card, in: DreamShape.sm)
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(DreamTheme.line, lineWidth: 1))
+        }
+    }
+
+    private var interestsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            eyebrow("Interests")
+            Text("Categories and stages you'd like to see more of.")
+                .font(DreamTheme.Font.text(13))
+                .foregroundStyle(DreamTheme.ink2)
+
+            FlowLayout(spacing: 8, lineSpacing: 8) {
+                ForEach(DreamCategory.allCases, id: \.self) { category in
+                    selectableChip(
+                        "\(category.emoji) \(category.rawValue)",
+                        selected: interestCategories.contains(category)
+                    ) {
+                        if interestCategories.contains(category) {
+                            interestCategories.remove(category)
+                        } else {
+                            interestCategories.insert(category)
+                        }
+                    }
+                }
+            }
+
+            FlowLayout(spacing: 8, lineSpacing: 8) {
+                ForEach(DreamStage.allCases, id: \.self) { stage in
+                    selectableChip(
+                        stage.rawValue,
+                        selected: preferredStages.contains(stage)
+                    ) {
+                        if preferredStages.contains(stage) {
+                            preferredStages.remove(stage)
+                        } else {
+                            preferredStages.insert(stage)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func selectableChip(_ label: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(DreamTheme.Font.text(13, weight: .semibold))
+                .foregroundStyle(selected ? DreamTheme.Action.primaryForeground : DreamTheme.Accent.deep)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(Capsule().fill(selected ? DreamTheme.blue : DreamTheme.blueSoft))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func loadSupporterProfile() async {
+        guard !supporterProfileLoaded else { return }
+        supporterProfileLoaded = true
+        guard let saved = await RecommendationRepository.shared.fetchSupporterProfile() else { return }
+        helpTypesOffered = Set(saved.helpTypes.compactMap(HelpType.init(rawValue:)))
+        capacityHours = saved.weeklyCapacityHours
+        interestCategories = Set(saved.categoriesOfInterest.map(DreamCategory.from(dbValue:)))
+        preferredStages = Set(saved.preferredStages.map(DreamStage.from(dbValue:)))
     }
 
     // MARK: - Main dream
@@ -315,7 +462,7 @@ struct EditProfileScreen: View {
                 }
             }
             .padding(.horizontal, 14)
-            .background(Color.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(DreamTheme.Surface.card, in: DreamShape.sm)
             .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(DreamTheme.line, lineWidth: 1))
         }
     }
@@ -339,6 +486,12 @@ struct EditProfileScreen: View {
                 if let featuredDreamId, featuredDreamId != initialFeaturedId {
                     try await DreamRepository.shared.setFeatured(dreamId: featuredDreamId, ownerId: userId)
                 }
+                try await RecommendationRepository.shared.upsertSupporterProfile(
+                    helpTypes: Array(helpTypesOffered),
+                    weeklyCapacityHours: capacityHours,
+                    categoriesOfInterest: Array(interestCategories),
+                    preferredStages: Array(preferredStages)
+                )
                 isSaving = false
                 onSaved()
             } catch {

@@ -17,15 +17,28 @@ final class DreamRepository: ObservableObject {
     private enum Columns {
         static let dream = "id,owner_id,title,description,category,stage,location,help_tags,views_count,is_featured,created_at"
         static let profile = "id,handle,name,location,skills,avatar_seed,avatar_url"
-        static let dreamVideo = "id,dream_id,storage_path,poster_path,is_primary,title,created_at"
+        static let dreamVideo = "id,dream_id,storage_path,poster_path,duration_ms,is_primary,title,caption,created_at"
+        static let commentCount = "dream_id,video_id,thread_id,comments_count"
+        static let likeCount = "dream_id,video_id,thread_id,likes_count"
         static let dreamStats = "dream_id,supporters_count,offers_count"
         static let journeyStep = "id,dream_id,stage,date_label,note,done,sort_order"
     }
 
     // MARK: - Fetch
 
-    /// Loads dreams + author profiles + stats + primary video and produces view models.
+    /// Loads the feed: ranked (recommendation) path when enabled, with a
+    /// chronological fallback so Discover is never empty (new users may have
+    /// no candidates yet — everything seen, or nothing compatible).
     func loadFeed() async {
+        if FeatureFlags.rankedFeedEnabled {
+            await loadRankedFeed()
+            if !dreams.isEmpty { return }
+        }
+        await loadChronologicalFeed()
+    }
+
+    /// Reverse-chronological feed (the pre-ranking behavior).
+    private func loadChronologicalFeed() async {
         isLoading = true
         defer { isLoading = false }
 
@@ -43,6 +56,85 @@ final class DreamRepository: ObservableObject {
             lastError = "\(error)"
             print("[DreamRepository] loadFeed failed: \(error)")
         }
+    }
+
+    /// Ranked (recommendation) path: dream ids come from the precomputed
+    /// per-viewer queue (FeedQueueService → DreamRanking), rows are enriched
+    /// through the existing pipeline, and the queue's order is preserved —
+    /// one card per dream. The clip is seen-aware: a first encounter leads
+    /// with the cover (the pitch); a returning viewer gets the newest clip
+    /// (what's new since). Reachable only behind `FeatureFlags.rankedFeedEnabled`.
+    func loadRankedFeed() async {
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            let entries = await FeedQueueService.shared.nextPage(count: 50)
+            guard !entries.isEmpty else {
+                self.dreams = []
+                return
+            }
+            let ids = entries.map(\.id)
+            async let dreamRowsFetch: [DreamDTO] = client
+                .from("dreams")
+                .select(Columns.dream)
+                .in("id", values: ids)
+                .execute()
+                .value
+            // RLS scopes dream_seen to the viewer's own rows.
+            async let seenRowsFetch: [SeenDreamRow] = client
+                .from("dream_seen")
+                .select("dream_id")
+                .in("dream_id", values: ids)
+                .execute()
+                .value
+            let (dreamRows, seenRows) = try await (dreamRowsFetch, seenRowsFetch)
+            let seenIds = Set(seenRows.map(\.dreamId))
+
+            let ctx = try await fetchContext(dreamRows)
+            let enriched = dreamRows.map { row -> Dream in
+                let videos = ctx.videosByDream[row.id] ?? []
+                let video = seenIds.contains(row.id)
+                    ? videos.max(by: { $0.createdAt < $1.createdAt }) // newest clip
+                    : videos.first                                    // primary (cover) first
+                return Self.mapToDream(
+                    row: row,
+                    profile: ctx.profileByOwner[row.ownerId],
+                    stats: ctx.statsByDream[row.id],
+                    video: video,
+                    steps: ctx.stepsByDream[row.id] ?? [],
+                    comments: ctx.commentsByThread[video?.id ?? row.id] ?? 0,
+                likes: ctx.likesByThread[video?.id ?? row.id] ?? 0
+                )
+            }
+            let byId = Dictionary(enriched.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+            self.dreams = ids.compactMap { byId[$0] }
+        } catch {
+            lastError = "\(error)"
+            print("[DreamRepository] loadRankedFeed failed: \(error)")
+        }
+    }
+
+    /// Drops the cached feed on sign-out, so the next account never sees the
+    /// previous user's cards before its own load lands.
+    func reset() {
+        dreams = []
+        isLoading = false
+        lastError = nil
+    }
+
+    /// Drops every card belonging to a user the viewer just blocked, so the
+    /// block is visible immediately instead of at the next feed load. The
+    /// server hides them from every subsequent fetch (migration 0036).
+    func removeContent(ownedBy ownerId: UUID) {
+        dreams.removeAll { $0.ownerId == ownerId }
+    }
+
+    /// Removes every feed card for a dream locally ("Not interested"). The
+    /// durable server-side dismissal comes from the `not_relevant` engagement
+    /// event; this just makes the card disappear immediately.
+    func hideDream(_ id: UUID) {
+        dreams.removeAll { $0.id == id }
     }
 
     /// Fetches the dreams owned by a single user (newest first) as view models.
@@ -70,6 +162,11 @@ final class DreamRepository: ObservableObject {
         let statsByDream: [UUID: DreamStatsDTO]
         let videosByDream: [UUID: [DreamVideoDTO]]   // primary first, then newest
         let stepsByDream: [UUID: [JourneyStepDTO]]
+        /// Per-thread comment counts, keyed like `Dream.feedID`
+        /// (video id for clip threads, dream id for videoless dreams).
+        let commentsByThread: [UUID: Int]
+        /// Per-thread like counts, keyed the same way.
+        let likesByThread: [UUID: Int]
     }
 
     /// Fetches author profiles, stats, *all* videos and journey steps for a set
@@ -91,14 +188,34 @@ final class DreamRepository: ObservableObject {
         async let steps: [JourneyStepDTO] = client
             .from("journey_steps").select(Columns.journeyStep).in("dream_id", values: dreamIds).order("sort_order", ascending: true)
             .execute().value
+        async let commentCounts: [DreamCommentCountDTO] = client
+            .from("dream_comment_counts").select(Columns.commentCount).in("dream_id", values: dreamIds)
+            .execute().value
+        // Deliberately not part of the `try await` group below: a failure here
+        // must not take the whole feed down with it. Likes are decoration on a
+        // card; the card is the point. This also means the app keeps working
+        // against a database where 0028_likes hasn't been applied yet.
+        async let likeCounts: [DreamLikeCountDTO] = {
+            do {
+                return try await client
+                    .from("dream_like_counts").select(Columns.likeCount).in("dream_id", values: dreamIds)
+                    .execute().value
+            } catch {
+                print("[DreamRepository] like counts unavailable: \(error)")
+                return []
+            }
+        }()
 
-        let (p, s, v, j) = try await (profiles, stats, videos, steps)
+        let (p, s, v, j, c) = try await (profiles, stats, videos, steps, commentCounts)
+        let l = await likeCounts
 
         return DreamContext(
             profileByOwner: Dictionary(p.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a }),
             statsByDream: Dictionary(s.map { ($0.dreamId, $0) }, uniquingKeysWith: { a, _ in a }),
             videosByDream: Dictionary(grouping: v, by: \.dreamId),
-            stepsByDream: Dictionary(grouping: j, by: \.dreamId)
+            stepsByDream: Dictionary(grouping: j, by: \.dreamId),
+            commentsByThread: Dictionary(c.map { ($0.threadId, $0.commentsCount) }, uniquingKeysWith: { a, _ in a }),
+            likesByThread: Dictionary(l.map { ($0.threadId, $0.likesCount) }, uniquingKeysWith: { a, _ in a })
         )
     }
 
@@ -108,12 +225,15 @@ final class DreamRepository: ObservableObject {
         guard !dreamRows.isEmpty else { return [] }
         let ctx = try await fetchContext(dreamRows)
         return dreamRows.map { row in
-            Self.mapToDream(
+            let video = ctx.videosByDream[row.id]?.first   // primary first
+            return Self.mapToDream(
                 row: row,
                 profile: ctx.profileByOwner[row.ownerId],
                 stats: ctx.statsByDream[row.id],
-                video: ctx.videosByDream[row.id]?.first,   // primary first
-                steps: ctx.stepsByDream[row.id] ?? []
+                video: video,
+                steps: ctx.stepsByDream[row.id] ?? [],
+                comments: ctx.commentsByThread[video?.id ?? row.id] ?? 0,
+                likes: ctx.likesByThread[video?.id ?? row.id] ?? 0
             )
         }
     }
@@ -135,11 +255,16 @@ final class DreamRepository: ObservableObject {
 
             if videos.isEmpty {
                 cards.append((row.createdAt,
-                              Self.mapToDream(row: row, profile: profile, stats: stats, video: nil, steps: steps)))
+                              Self.mapToDream(row: row, profile: profile, stats: stats, video: nil, steps: steps,
+                                              comments: ctx.commentsByThread[row.id] ?? 0,
+                                              likes: ctx.likesByThread[row.id] ?? 0)))
             } else {
                 for video in videos {
+                    // Each clip carries its own comment thread.
                     cards.append((video.createdAt,
-                                  Self.mapToDream(row: row, profile: profile, stats: stats, video: video, steps: steps)))
+                                  Self.mapToDream(row: row, profile: profile, stats: stats, video: video, steps: steps,
+                                                  comments: ctx.commentsByThread[video.id] ?? 0,
+                                                  likes: ctx.likesByThread[video.id] ?? 0)))
                 }
             }
         }
@@ -198,13 +323,29 @@ final class DreamRepository: ObservableObject {
 
     /// Marks `dreamId` as the current user's single featured dream, clearing any
     /// previously-featured dream first (a partial unique index allows only one).
+    /// Not atomic — a partial-unique index forbids two featured dreams at once,
+    /// so the old one must be cleared before the new one is set. If the second
+    /// update fails the user is left with no featured dream rather than the
+    /// wrong one, and the throw surfaces that; re-picking fixes it. Skips the
+    /// work entirely when the target is already featured.
     func setFeatured(dreamId: UUID, ownerId: UUID) async throws {
-        try await client
+        let alreadyFeatured: [DreamIdRow] = try await client
             .from("dreams")
-            .update(["is_featured": false])
+            .select("id")
             .eq("owner_id", value: ownerId)
             .eq("is_featured", value: true)
             .execute()
+            .value
+        if alreadyFeatured.count == 1, alreadyFeatured[0].id == dreamId { return }
+
+        if !alreadyFeatured.isEmpty {
+            try await client
+                .from("dreams")
+                .update(["is_featured": false])
+                .eq("owner_id", value: ownerId)
+                .eq("is_featured", value: true)
+                .execute()
+        }
 
         try await client
             .from("dreams")
@@ -257,7 +398,9 @@ final class DreamRepository: ObservableObject {
         profile: ProfileDTO?,
         stats: DreamStatsDTO?,
         video: DreamVideoDTO?,
-        steps: [JourneyStepDTO]
+        steps: [JourneyStepDTO],
+        comments: Int = 0,
+        likes: Int = 0
     ) -> Dream {
         let journey = steps.map { step in
             JourneyStep(
@@ -296,7 +439,11 @@ final class DreamRepository: ObservableObject {
             posterURL: posterURL,
             videoStoragePath: video?.storagePath,
             videoId: video?.id,
-            videoTitle: video?.title
+            videoTitle: video?.title,
+            videoCaption: video?.caption,
+            videoDurationMs: video?.durationMs,
+            comments: comments,
+            likes: likes
         )
     }
 

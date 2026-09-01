@@ -1,0 +1,1119 @@
+{
+  "builtTestProducts" : [
+    {
+      "binaryPath" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingPackageTests.xctest/Contents/MacOS/DreamRankingPackageTests",
+      "packagePath" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking",
+      "productName" : "DreamRankingPackageTests"
+    }
+  ],
+  "copyCommands" : {
+
+  },
+  "explicitTargetDependencyImportCheckingMode" : {
+    "none" : {
+
+    }
+  },
+  "generatedSourceTargetSet" : [
+
+  ],
+  "pluginDescriptions" : [
+
+  ],
+  "swiftCommands" : {
+    "C.DreamRanking-arm64-apple-macosx-debug.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/sources",
+      "importPath" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/DiversityReranker.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/DreamRanker.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/FairnessPass.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/HelpType.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/Models.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/RankingConfig.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/Reasons.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/Scoring.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "DreamRanking",
+      "moduleOutputPath" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/Modules/DreamRanking.swiftmodule",
+      "objects" : [
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/DiversityReranker.swift.o",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/DreamRanker.swift.o",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/FairnessPass.swift.o",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/HelpType.swift.o",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/Models.swift.o",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/RankingConfig.swift.o",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/Reasons.swift.o",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/Scoring.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx14.0",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-j10",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/include/DreamRanking-Swift.h",
+        "-swift-version",
+        "5",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "dreamranking"
+      ],
+      "outputFileMapPath" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/DiversityReranker.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/DreamRanker.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/FairnessPass.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/HelpType.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/Models.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/RankingConfig.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/Reasons.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/Scoring.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/Modules/DreamRanking.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/DiversityReranker.swift",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/DreamRanker.swift",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/FairnessPass.swift",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/HelpType.swift",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/Models.swift",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/RankingConfig.swift",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/Reasons.swift",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/Scoring.swift"
+      ],
+      "tempsPath" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build",
+      "wholeModuleOptimization" : false
+    },
+    "C.DreamRankingPackageTests-arm64-apple-macosx-debug.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingPackageTests.build/sources",
+      "importPath" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingPackageTests.derived/runner.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/Modules/DreamRankingTests.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingPackageTests.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "DreamRankingPackageTests",
+      "moduleOutputPath" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/Modules/DreamRankingPackageTests.swiftmodule",
+      "objects" : [
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingPackageTests.build/runner.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx14.0",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-Xfrontend",
+        "-enable-cross-import-overlays",
+        "-j10",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingPackageTests.build/include/DreamRankingPackageTests-Swift.h",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "dreamranking"
+      ],
+      "outputFileMapPath" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingPackageTests.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingPackageTests.build/runner.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/Modules/DreamRankingPackageTests.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingPackageTests.derived/runner.swift"
+      ],
+      "tempsPath" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingPackageTests.build",
+      "wholeModuleOptimization" : false
+    },
+    "C.DreamRankingTests-arm64-apple-macosx-debug.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/sources",
+      "importPath" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/CandidateFilterTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/DiversityTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/ExploreConfigTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/FairnessSlotTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/ScoringTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/SevenDaySimulationTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/Simulation/FeedSimulation.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/TestSupport.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/ViewerIsolationTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/Modules/DreamRanking.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "DreamRankingTests",
+      "moduleOutputPath" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/Modules/DreamRankingTests.swiftmodule",
+      "objects" : [
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/CandidateFilterTests.swift.o",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/DiversityTests.swift.o",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/ExploreConfigTests.swift.o",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/FairnessSlotTests.swift.o",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/ScoringTests.swift.o",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/SevenDaySimulationTests.swift.o",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/FeedSimulation.swift.o",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/TestSupport.swift.o",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/ViewerIsolationTests.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx14.0",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-Xfrontend",
+        "-enable-cross-import-overlays",
+        "-j10",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-swift-version",
+        "5",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "dreamranking"
+      ],
+      "outputFileMapPath" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/CandidateFilterTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/DiversityTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/ExploreConfigTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/FairnessSlotTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/ScoringTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/SevenDaySimulationTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/FeedSimulation.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/TestSupport.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/ViewerIsolationTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/Modules/DreamRankingTests.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/CandidateFilterTests.swift",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/DiversityTests.swift",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/ExploreConfigTests.swift",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/FairnessSlotTests.swift",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/ScoringTests.swift",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/SevenDaySimulationTests.swift",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/Simulation/FeedSimulation.swift",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/TestSupport.swift",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/ViewerIsolationTests.swift"
+      ],
+      "tempsPath" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build",
+      "wholeModuleOptimization" : false
+    },
+    "C.ranking-demo-arm64-apple-macosx-debug.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/ranking_demo.build/sources",
+      "importPath" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/ranking-demo/main.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/Modules/DreamRanking.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/ranking_demo.build/sources"
+        }
+      ],
+      "isLibrary" : false,
+      "moduleName" : "ranking_demo",
+      "moduleOutputPath" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/Modules/ranking_demo.swiftmodule",
+      "objects" : [
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/ranking_demo.build/main.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx14.0",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-index-store-path",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/index/store",
+        "-Onone",
+        "-enable-testing",
+        "-j10",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-Xfrontend",
+        "-entry-point-function-name",
+        "-Xfrontend",
+        "ranking_demo_main",
+        "-swift-version",
+        "5",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "dreamranking"
+      ],
+      "outputFileMapPath" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/ranking_demo.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/ranking_demo.build/main.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/Modules/ranking_demo.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/ranking-demo/main.swift"
+      ],
+      "tempsPath" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/ranking_demo.build",
+      "wholeModuleOptimization" : false
+    }
+  },
+  "swiftFrontendCommands" : {
+
+  },
+  "swiftTargetScanArgs" : {
+    "DreamRanking" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "DreamRanking",
+      "-package-name",
+      "dreamranking",
+      "-c",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/DiversityReranker.swift",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/DreamRanker.swift",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/FairnessPass.swift",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/HelpType.swift",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/Models.swift",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/RankingConfig.swift",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/Reasons.swift",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/Scoring.swift",
+      "-I",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx14.0",
+      "-incremental",
+      "-enable-batch-mode",
+      "-serialize-diagnostics",
+      "-index-store-path",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-j10",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-emit-objc-header",
+      "-emit-objc-header-path",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/include/DreamRanking-Swift.h",
+      "-swift-version",
+      "5",
+      "-plugin-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "dreamranking",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ],
+    "DreamRankingPackageTests" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "DreamRankingPackageTests",
+      "-package-name",
+      "dreamranking",
+      "-c",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingPackageTests.derived/runner.swift",
+      "-I",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx14.0",
+      "-incremental",
+      "-enable-batch-mode",
+      "-serialize-diagnostics",
+      "-index-store-path",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-Xfrontend",
+      "-enable-cross-import-overlays",
+      "-j10",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-emit-objc-header",
+      "-emit-objc-header-path",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingPackageTests.build/include/DreamRankingPackageTests-Swift.h",
+      "-plugin-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "dreamranking",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ],
+    "DreamRankingTests" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "DreamRankingTests",
+      "-package-name",
+      "dreamranking",
+      "-c",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/CandidateFilterTests.swift",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/DiversityTests.swift",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/ExploreConfigTests.swift",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/FairnessSlotTests.swift",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/ScoringTests.swift",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/SevenDaySimulationTests.swift",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/Simulation/FeedSimulation.swift",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/TestSupport.swift",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/ViewerIsolationTests.swift",
+      "-I",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx14.0",
+      "-incremental",
+      "-enable-batch-mode",
+      "-serialize-diagnostics",
+      "-index-store-path",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-Xfrontend",
+      "-enable-cross-import-overlays",
+      "-j10",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-swift-version",
+      "5",
+      "-plugin-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "dreamranking",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ],
+    "ranking_demo" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "ranking_demo",
+      "-package-name",
+      "dreamranking",
+      "-c",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/ranking-demo/main.swift",
+      "-I",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/Modules",
+      "-target",
+      "arm64-apple-macosx14.0",
+      "-incremental",
+      "-enable-batch-mode",
+      "-serialize-diagnostics",
+      "-index-store-path",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/index/store",
+      "-Onone",
+      "-enable-testing",
+      "-j10",
+      "-DSWIFT_PACKAGE",
+      "-DDEBUG",
+      "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+      "-module-cache-path",
+      "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/ModuleCache",
+      "-parseable-output",
+      "-Xfrontend",
+      "-entry-point-function-name",
+      "-Xfrontend",
+      "ranking_demo_main",
+      "-swift-version",
+      "5",
+      "-plugin-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "dreamranking",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ]
+  },
+  "targetDependencyMap" : {
+    "DreamRanking" : [
+
+    ],
+    "DreamRankingPackageTests" : [
+      "DreamRankingTests",
+      "DreamRanking"
+    ],
+    "DreamRankingTests" : [
+      "DreamRanking"
+    ],
+    "ranking_demo" : [
+      "DreamRanking"
+    ]
+  },
+  "testDiscoveryCommands" : {
+
+  },
+  "testEntryPointCommands" : {
+    "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingPackageTests.derived/runner.swift" : {
+      "inputs" : [
+
+      ],
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingPackageTests.derived/runner.swift"
+        }
+      ]
+    }
+  },
+  "traitConfiguration" : {
+    "default" : {
+
+    }
+  },
+  "writeCommands" : {
+    "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/DiversityReranker.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/DreamRanker.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/FairnessPass.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/HelpType.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/Models.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/RankingConfig.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/Reasons.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/DreamRanking/Scoring.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/sources"
+    },
+    "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingPackageTests.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingPackageTests.derived/runner.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingPackageTests.build/sources"
+    },
+    "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingPackageTests.product/Objects.LinkFileList" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<link-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/DiversityReranker.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/DreamRanker.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/FairnessPass.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/HelpType.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/Models.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/RankingConfig.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/Reasons.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/Scoring.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingPackageTests.build/runner.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/CandidateFilterTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/DiversityTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/ExploreConfigTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/FairnessSlotTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/FeedSimulation.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/ScoringTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/SevenDaySimulationTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/TestSupport.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/ViewerIsolationTests.swift.o"
+        }
+      ],
+      "outputFilePath" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingPackageTests.product/Objects.LinkFileList"
+    },
+    "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/CandidateFilterTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/DiversityTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/ExploreConfigTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/FairnessSlotTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/ScoringTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/SevenDaySimulationTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/Simulation/FeedSimulation.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/TestSupport.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Tests/DreamRankingTests/ViewerIsolationTests.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRankingTests.build/sources"
+    },
+    "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/ranking-demo-entitlement.plist" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<entitlement-plist>"
+        },
+        {
+          "kind" : "virtual",
+          "name" : "<com.apple.security.get-task-allow>"
+        }
+      ],
+      "outputFilePath" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/ranking-demo-entitlement.plist"
+    },
+    "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/ranking-demo.product/Objects.LinkFileList" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<link-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/DiversityReranker.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/DreamRanker.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/FairnessPass.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/HelpType.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/Models.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/RankingConfig.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/Reasons.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/DreamRanking.build/Scoring.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/ranking_demo.build/main.swift.o"
+        }
+      ],
+      "outputFilePath" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/ranking-demo.product/Objects.LinkFileList"
+    },
+    "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/ranking_demo.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/ranking-demo/main.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/ranking_demo.build/sources"
+    },
+    "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt" : {
+      "alwaysOutOfDate" : true,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<swift-get-version>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+        }
+      ],
+      "outputFilePath" : "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+    }
+  }
+}

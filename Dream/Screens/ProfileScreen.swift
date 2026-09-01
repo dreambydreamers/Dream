@@ -14,6 +14,7 @@ struct ProfileScreen: View {
     @StateObject private var model = ProfileViewModel()
     @ObservedObject private var auth = AuthService.shared
     @ObservedObject private var feedRepo = DreamRepository.shared
+    @ObservedObject private var exploreRepo = ExploreMediaRepository.shared
     @ObservedObject private var savedStore = SavedDreamsStore.shared
     @State private var presentedDream: Dream?
     @State private var playingMedia: DreamMedia?
@@ -21,16 +22,27 @@ struct ProfileScreen: View {
     @State private var postingUpdate = false
     @State private var profileTab: ProfileTab = .dreams
     @State private var shareFromSaved: Dream?
+    @State private var selectedUpdate: ExploreMediaItem?
+    @State private var profileForUser: UUID?
+    @ObservedObject private var moderation = ModerationRepository.shared
+    @State private var reportingProfile = false
+    @State private var confirmingBlock = false
+    @State private var moderationToast: String?
+    /// The pinned top bar only shows while the profile is at rest at the top —
+    /// once you scroll into the content it gets out of the way.
+    @State private var topBarVisible = true
 
     enum ProfileTab { case dreams, updates, saved }
 
     var body: some View {
         ZStack(alignment: .top) {
-            DreamTheme.paper.ignoresSafeArea()
+            DreamTheme.Surface.page.ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 0) {
-                    header.padding(.top, onBack == nil ? 60 : 64)
+                    // Over-feed presentation floats a top bar at y=56..94, so the
+                    // header starts below it instead of colliding with the avatar.
+                    header.padding(.top, onBack == nil ? 60 : 106)
                     if !model.skills.isEmpty {
                         skills.padding(.top, 20)
                     }
@@ -53,9 +65,21 @@ struct ProfileScreen: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 120)
             }
+            // `contentOffset + contentInsets.top` is 0 at rest whatever the safe
+            // area is, so the threshold means "scrolled off the top" everywhere.
+            .onScrollGeometryChange(for: CGFloat.self) {
+                $0.contentOffset.y + $0.contentInsets.top
+            } action: { _, offset in
+                let shouldShow = offset <= 12
+                if shouldShow != topBarVisible {
+                    withAnimation(.easeOut(duration: 0.18)) { topBarVisible = shouldShow }
+                }
+            }
 
             if let onBack {
                 topBar(onBack: onBack)
+                    .opacity(topBarVisible ? 1 : 0)
+                    .allowsHitTesting(topBarVisible)
             }
         }
         .task(id: userId) { await model.load(userId: userId, isCurrentUser: isCurrentUser) }
@@ -80,6 +104,25 @@ struct ProfileScreen: View {
                     }
                 )
             }
+        }
+        .fullScreenCover(item: $selectedUpdate) { item in
+            ExploreMediaDetailSheet(
+                initialItem: item,
+                items: exploreRepo.items.isEmpty ? model.updateMedia : exploreRepo.items,
+                onOpenProfile: { openedItem in
+                    selectedUpdate = nil
+                    if openedItem.ownerId != userId {
+                        DispatchQueue.main.async { profileForUser = openedItem.ownerId }
+                    }
+                },
+                onOpenDream: { openedItem in
+                    selectedUpdate = nil
+                    DispatchQueue.main.async { presentedDream = openedItem.dream }
+                }
+            )
+        }
+        .fullScreenCover(item: $profileForUser) { uid in
+            ProfileScreen(userId: uid, onBack: { profileForUser = nil })
         }
         .sheet(item: $shareFromSaved) { d in
             InAppShareSheet(dream: d, onClose: { shareFromSaved = nil })
@@ -109,6 +152,76 @@ struct ProfileScreen: View {
         // Only the pushed-over-feed profile (onBack != nil) gets edge-swipe back;
         // the root profile tab is reached by tab/page swipe instead.
         .modifier(ConditionalBackSwipe(onBack: onBack))
+        .onChange(of: exploreRepo.items.map(\.id)) { _, _ in
+            Task { await model.reload(userId: userId, isCurrentUser: isCurrentUser) }
+        }
+        .task { await moderation.loadBlocksIfNeeded() }
+        .sheet(isPresented: $reportingProfile) {
+            ReportSheet(
+                target: .profile,
+                targetId: userId,
+                reportedUserId: userId,
+                excerpt: "@\(model.handle) — \(model.name)",
+                subjectName: "@\(model.handle)",
+                onClose: { reportingProfile = false },
+                onBlock: { block() }
+            )
+        }
+        .confirmationDialog("Block @\(model.handle)?", isPresented: $confirmingBlock, titleVisibility: .visible) {
+            Button("Block", role: .destructive) { block() }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("You won't see their dreams or comments, and they can't message you or offer help. They aren't told.")
+        }
+        .overlay(alignment: .bottom) {
+            if let moderationToast {
+                Toast(message: moderationToast, tone: .success)
+                    .padding(.horizontal, DreamSpace.screenGutter)
+                    .padding(.bottom, DreamTheme.Layout.tabBarClearance)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(DreamMotion.smooth(), value: moderationToast)
+    }
+
+    /// Blocks the profile's owner. Leaves the screen when it was pushed over
+    /// the feed — their content is gone, so there is nothing left to show.
+    private func block() {
+        confirmingBlock = false
+        Task {
+            do {
+                try await ModerationRepository.shared.block(userId)
+                if let onBack {
+                    onBack()
+                } else {
+                    flashModerationToast("Blocked @\(model.handle)")
+                }
+            } catch {
+                print("[ProfileScreen] block failed: \(error)")
+                flashModerationToast("Couldn't block that account")
+            }
+        }
+    }
+
+    private func unblock() {
+        Task {
+            do {
+                try await ModerationRepository.shared.unblock(userId)
+                flashModerationToast("Unblocked @\(model.handle)")
+                await model.reload(userId: userId, isCurrentUser: isCurrentUser)
+            } catch {
+                print("[ProfileScreen] unblock failed: \(error)")
+                flashModerationToast("Couldn't unblock that account")
+            }
+        }
+    }
+
+    private func flashModerationToast(_ message: String) {
+        moderationToast = message
+        Task {
+            try? await Task.sleep(nanoseconds: 2_200_000_000)
+            moderationToast = nil
+        }
     }
 
     // MARK: - Header
@@ -121,20 +234,19 @@ struct ProfileScreen: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(model.name)
-                        .font(DreamTheme.Font.display(26, weight: .regular))
-                        .tracking(-0.5)
-                        .foregroundStyle(DreamTheme.ink)
+                        .dreamStyle(.title(22))
+                        .foregroundStyle(DreamTheme.Text.primary)
                     Text("@\(model.handle)")
-                        .font(DreamTheme.Font.text(14, weight: .medium))
-                        .foregroundStyle(DreamTheme.ink2)
+                        .dreamStyle(.ui(12, weight: .medium))
+                        .foregroundStyle(DreamTheme.Text.secondary)
                     if !model.location.isEmpty {
                         HStack(spacing: 4) {
                             Image(systemName: "mappin.and.ellipse")
                                 .font(.system(size: 11))
                             Text(model.location)
-                                .font(DreamTheme.Font.text(13))
+                                .dreamStyle(.ui(12, weight: .regular))
                         }
-                        .foregroundStyle(DreamTheme.ink3)
+                        .foregroundStyle(DreamTheme.Text.tertiary)
                         .padding(.top, 1)
                     }
                 }
@@ -148,26 +260,14 @@ struct ProfileScreen: View {
     @ViewBuilder
     private var actionButton: some View {
         if isCurrentUser {
-            HStack(spacing: 10) {
-                Button { editing = true } label: {
-                    Text("Edit Profile")
-                        .font(DreamTheme.Font.text(14, weight: .semibold))
-                        .foregroundStyle(DreamTheme.ink)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 11)
-                        .overlay(Capsule().stroke(DreamTheme.line, lineWidth: 1))
+            HStack(spacing: DreamSpace.s5) {
+                DreamButton(title: "Edit profile", variant: .secondary, size: .md, fullWidth: true) {
+                    editing = true
                 }
-                .buttonStyle(.plain)
-
-                Button { Task { await auth.signOut() } } label: {
-                    Image(systemName: "rectangle.portrait.and.arrow.right")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(DreamTheme.ink2)
-                        .frame(width: 44, height: 44)
-                        .overlay(Circle().stroke(DreamTheme.line, lineWidth: 1))
+                IconButton(systemName: "rectangle.portrait.and.arrow.right",
+                           accessibilityLabel: "Sign out", variant: .solid, size: 44) {
+                    Task { await auth.signOut() }
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Sign out")
             }
         } else {
             FollowButton(isFollowing: model.isFollowing, style: .fullWidth) {
@@ -181,14 +281,14 @@ struct ProfileScreen: View {
     private var skills: some View {
         VStack(alignment: .leading, spacing: 10) {
             eyebrow("Skills")
-            FlowLayout(spacing: 8, lineSpacing: 8) {
+            FlowLayout(spacing: DreamSpace.s2, lineSpacing: DreamSpace.s2) {
                 ForEach(model.skills, id: \.self) { skill in
                     Text(skill)
-                        .font(DreamTheme.Font.text(13, weight: .semibold))
-                        .foregroundStyle(DreamTheme.blueDeep)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 7)
-                        .background(Capsule().fill(DreamTheme.blueSoft))
+                        .dreamStyle(.ui(12))
+                        .foregroundStyle(DreamTheme.Accent.deep)
+                        .padding(.horizontal, 13)
+                        .padding(.vertical, DreamSpace.s4)
+                        .background(DreamTheme.Accent.soft, in: DreamShape.sm)
                 }
             }
         }
@@ -210,41 +310,21 @@ struct ProfileScreen: View {
     // MARK: - Profile tab bar (Dreams / Updates)
 
     private var profileTabBar: some View {
-        HStack(spacing: 0) {
-            tabBarButton("Dreams", icon: "play.square.stack", tab: .dreams)
-            tabBarButton("Updates", icon: "square.grid.2x2", tab: .updates)
-            tabBarButton("Saved", icon: "bookmark.fill", tab: .saved)
-        }
-    }
-
-    private func tabBarButton(_ label: String, icon: String, tab: ProfileTab) -> some View {
-        Button {
-            withAnimation(.easeInOut(duration: 0.2)) { profileTab = tab }
-        } label: {
-            VStack(spacing: 6) {
-                HStack(spacing: 6) {
-                    Image(systemName: icon)
-                        .font(.system(size: 14, weight: profileTab == tab ? .semibold : .regular))
-                    Text(label)
-                        .font(DreamTheme.Font.text(14, weight: profileTab == tab ? .semibold : .regular))
-                }
-                .foregroundStyle(profileTab == tab ? DreamTheme.ink : DreamTheme.ink3)
-                Rectangle()
-                    .fill(profileTab == tab ? DreamTheme.ink : Color.clear)
-                    .frame(height: 1.5)
-            }
-        }
-        .buttonStyle(.plain)
-        .frame(maxWidth: .infinity)
+        SegmentedControl(
+            options: [.init(ProfileTab.dreams, "Dreams"),
+                      .init(ProfileTab.updates, "Updates"),
+                      .init(ProfileTab.saved, "Saved")],
+            selection: $profileTab,
+            fullWidth: true
+        )
+        .padding(.horizontal, DreamSpace.screenGutter)
     }
 
     // MARK: - Updates grid (daily life posts from this user)
 
     @ViewBuilder
     private var updatesGrid: some View {
-        let userPosts = ExplorePost.mock.filter { $0.handle == model.handle }
-
-        if userPosts.isEmpty {
+        if model.updateMedia.isEmpty {
             VStack(spacing: 10) {
                 Image(systemName: "photo.on.rectangle.angled")
                     .font(.system(size: 28, weight: .light))
@@ -257,8 +337,9 @@ struct ProfileScreen: View {
             .padding(.vertical, 48)
         } else {
             ThreeColumnGrid {
-                ForEach(userPosts) { post in
-                    PostGridCell(post: post)
+                ForEach(model.updateMedia) { item in
+                    ExploreMediaGridCell(item: item)
+                        .onTapGesture { selectedUpdate = item }
                 }
             }
         }
@@ -390,11 +471,14 @@ struct ProfileScreen: View {
                             Text("View dream")
                             Image(systemName: "arrow.right")
                         }
-                        .font(DreamTheme.Font.text(13, weight: .semibold))
-                        .foregroundStyle(DreamTheme.ink)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(Capsule().fill(.white))
+                        .dreamStyle(.ui(13))
+                        // Sits on a white chip over video, so both colors are
+                        // fixed. `Text.primary` here would invert in dark mode
+                        // and leave light text on a white fill.
+                        .foregroundStyle(Color(hex: 0x14171A))
+                        .padding(.horizontal, DreamSpace.s7)
+                        .padding(.vertical, DreamSpace.s4)
+                        .background(DreamTheme.OnMedia.base, in: DreamShape.sm)
                     }
                     .buttonStyle(.plain)
                 }
@@ -450,16 +534,14 @@ struct ProfileScreen: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "moon.stars")
-                .font(.system(size: 28, weight: .light))
-                .foregroundStyle(DreamTheme.ink3)
-            Text(isCurrentUser ? "You haven't shared a dream yet." : "No dreams yet.")
-                .font(DreamTheme.Font.text(14))
-                .foregroundStyle(DreamTheme.ink2)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 40)
+        EmptyState(
+            icon: "moon.stars",
+            title: "No dreams",
+            accent: "yet",
+            message: isCurrentUser
+                ? "Share your first dream and the people who can help will find it."
+                : "This dreamer hasn't shared anything yet."
+        )
     }
 
     // MARK: - Top bar (over-feed presentation)
@@ -467,20 +549,64 @@ struct ProfileScreen: View {
     private func topBar(onBack: @escaping () -> Void) -> some View {
         HStack {
             Button(action: onBack) {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(DreamTheme.ink)
-                    .frame(width: 38, height: 38)
-                    .background(Color.white.opacity(0.9), in: Circle())
-                    .background(.ultraThinMaterial, in: Circle())
-                    .overlay(Circle().strokeBorder(DreamTheme.line, lineWidth: 0.5))
+                topBarIcon("chevron.left", size: 16, tint: DreamTheme.ink)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Back")
             Spacer()
+            // Moderation lives here rather than in the header so it is reachable
+            // on any profile opened from the feed, next to the back affordance.
+            if !isCurrentUser {
+                Menu {
+                    Button {
+                        reportingProfile = true
+                    } label: {
+                        Label("Report account", systemImage: "flag")
+                    }
+                    if moderation.isBlocked(userId) {
+                        Button {
+                            unblock()
+                        } label: {
+                            Label("Unblock @\(model.handle)", systemImage: "hand.raised.slash")
+                        }
+                    } else {
+                        Button(role: .destructive) {
+                            confirmingBlock = true
+                        } label: {
+                            Label("Block @\(model.handle)", systemImage: "hand.raised")
+                        }
+                    }
+                } label: {
+                    topBarIcon("ellipsis", size: 15, tint: DreamTheme.ink2)
+                }
+                .accessibilityLabel("More options")
+            }
         }
         .padding(.horizontal, 16)
         .padding(.top, 56)
+        // The bar is pinned outside the ScrollView; this scrim fades scrolling
+        // content out beneath it so the buttons never look like they move with it.
+        .background(alignment: .top) {
+            LinearGradient(
+                colors: [DreamTheme.Surface.page, DreamTheme.Surface.page.opacity(0)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 118)
+            .ignoresSafeArea(edges: .top)
+            .allowsHitTesting(false)
+        }
+    }
+
+    /// Opaque circular chrome for the pinned top bar. Deliberately not translucent —
+    /// content passing behind a see-through pill reads as the button itself moving.
+    private func topBarIcon(_ name: String, size: CGFloat, tint: Color) -> some View {
+        Image(systemName: name)
+            .font(.system(size: size, weight: .semibold))
+            .foregroundStyle(tint)
+            .frame(width: 38, height: 38)
+            .background(DreamTheme.Surface.card, in: Circle())
+            .overlay(Circle().strokeBorder(DreamTheme.line, lineWidth: 0.5))
     }
 
     private func eyebrow(_ text: String) -> some View {
@@ -500,6 +626,7 @@ final class ProfileViewModel: ObservableObject {
     @Published var dreams: [Dream] = []
     @Published var featuredDream: Dream?
     @Published var otherVideos: [DreamMedia] = []
+    @Published var updateMedia: [ExploreMediaItem] = []
     @Published var videosCount = 0
     @Published var followersCount = 0
     @Published var offersCount = 0
@@ -522,7 +649,8 @@ final class ProfileViewModel: ObservableObject {
         async let dreams = DreamRepository.shared.dreams(ownedBy: userId)
         async let stats = ProfileRepository.shared.stats(userId: userId)
         async let following = isCurrentUser ? false : ProfileRepository.shared.isFollowing(userId)
-        let (p, d, s, f) = await (profile, dreams, stats, following)
+        async let updates = ExploreMediaRepository.shared.media(ownedBy: userId, includePrimaryVideos: false)
+        let (p, d, s, f, u) = await (profile, dreams, stats, following, updates)
 
         if let p {
             name = p.name ?? "Dreamer"
@@ -544,6 +672,7 @@ final class ProfileViewModel: ObservableObject {
         followersCount = s?.followersCount ?? 0
         offersCount = s?.offersCount ?? 0
         isFollowing = f
+        updateMedia = u
 
         // Featured dream = the one the user pinned, else their most recent.
         let featured = d.first(where: { $0.isFeatured }) ?? d.first

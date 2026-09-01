@@ -16,7 +16,7 @@ struct JourneyStep: Identifiable, Hashable {
     }
 }
 
-enum DreamStage: String {
+enum DreamStage: String, CaseIterable {
     case idea = "Just an Idea"
     case early = "Early Progress"
     case needs = "Needs Help"
@@ -57,6 +57,17 @@ struct Dream: Identifiable, Hashable {
     /// Per-video heading for "update" clips. `nil` for the cover video, which
     /// shows the dream's own `title`. See `displayTitle`.
     var videoTitle: String? = nil
+    /// Per-video caption for update clips. `nil` for older rows and cover
+    /// videos, which fall back to the dream's own description.
+    var videoCaption: String? = nil
+    /// Duration of this card's clip. Drives watch-time classification
+    /// (skip / watch_progress / complete) in the engagement logger.
+    var videoDurationMs: Int? = nil
+    /// Comment count shown on the feed's comment button.
+    var comments: Int = 0
+    /// Like count shown on the feed's heart. Per card, not per dream — see
+    /// `feedID`. `LikesStore` overrides this with a live value once loaded.
+    var likes: Int = 0
 }
 
 extension Dream {
@@ -70,5 +81,15 @@ extension Dream {
     var displayTitle: String {
         if let videoTitle, !videoTitle.isEmpty { return videoTitle }
         return title
+    }
+
+    /// Description shown on a feed card: an update clip's own caption when it
+    /// has one, otherwise the parent dream description.
+    var displayDescription: String {
+        if let caption = videoCaption?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !caption.isEmpty {
+            return caption
+        }
+        return desc
     }
 }

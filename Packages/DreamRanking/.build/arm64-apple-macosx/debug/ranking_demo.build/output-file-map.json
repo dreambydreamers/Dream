@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/ranking_demo.build/primary.swiftdeps"
+  },
+  "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/Sources/ranking-demo/main.swift": {
+    "dependencies": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/ranking_demo.build/main.d",
+    "object": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/ranking_demo.build/main.swift.o",
+    "swiftmodule": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/ranking_demo.build/main~partial.swiftmodule",
+    "swift-dependencies": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/ranking_demo.build/main.swiftdeps",
+    "diagnostics": "/Users/ivang/Projects/Code/Dream/Packages/DreamRanking/.build/arm64-apple-macosx/debug/ranking_demo.build/main.dia"
+  }
+}

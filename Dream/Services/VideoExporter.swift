@@ -65,6 +65,9 @@ final class VideoActionsModel: ObservableObject {
     @Published var toast: String?
 
     private var toastTask: Task<Void, Never>?
+    /// The temp copy backing `shareItem`, kept so it can be deleted once the
+    /// share sheet is done with it.
+    private var exportedURL: URL?
 
     /// Shares the video at a private storage path through the native share sheet.
     func share(storagePath: String?) {
@@ -73,7 +76,11 @@ final class VideoActionsModel: ObservableObject {
         Task {
             defer { isPreparing = false }
             do {
+                // The previous export is no longer reachable from the UI; drop
+                // it before adding another. Each one is a full copy of the clip.
+                discardExportedFile()
                 let url = try await VideoExporter.prepareLocalCopy(storagePath: storagePath)
+                exportedURL = url
                 shareItem = ShareItem(url: url)
             } catch {
                 show(error: error)
@@ -90,11 +97,23 @@ final class VideoActionsModel: ObservableObject {
             do {
                 let url = try await VideoExporter.prepareLocalCopy(storagePath: storagePath)
                 try await VideoExporter.saveToPhotos(localURL: url)
+                // Photos owns its own copy now, so this one is dead weight.
+                try? FileManager.default.removeItem(at: url)
                 flash("Saved to Photos")
             } catch {
                 show(error: error)
             }
         }
+    }
+
+    /// Removes the temp copy backing the last share. Called when a new export
+    /// starts and when the share sheet closes — without it every share/save
+    /// left a full copy of the clip in the temp directory for the OS to reap
+    /// whenever it felt like it.
+    func discardExportedFile() {
+        guard let exportedURL else { return }
+        try? FileManager.default.removeItem(at: exportedURL)
+        self.exportedURL = nil
     }
 
     /// Saves an already-local clip (e.g. a freshly recorded compose preview) to
@@ -135,7 +154,7 @@ private struct VideoActionsModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .sheet(item: $model.shareItem) { item in
+            .sheet(item: $model.shareItem, onDismiss: { model.discardExportedFile() }) { item in
                 ShareSheet(items: [item.url])
             }
             .alert(

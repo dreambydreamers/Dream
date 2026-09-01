@@ -46,16 +46,22 @@ Dream gives that answer a place to live, then helps the right people raise their
 
 ## Product
 
-Dream is built around a full-screen vertical video feed. A dream's cover clip and every update clip the owner posts each appear as their own feed card, interleaved by recency across the whole community.
+Dream is built around a full-screen vertical video feed plus a real mixed-media Explore grid. Both surfaces are ordered by a **two-sided matching algorithm** whose success metric is successful connections — help offers that become conversations that become delivered support — not watch time. Under-exposed dreams get guaranteed feed slots; a dream with zero offers is treated as a failure of the system, not of the dream.
 
 | Surface | What it does |
 |---|---|
-| Discover | TikTok-style feed with private signed video playback, saved videos, native sharing, in-app sends, follows, dream detail, and "I can help". |
-| Explore | Visual grid plus Supabase full-text search across dreams and people. |
+| Discover | TikTok-style feed ranked by "which dream can this person actually help" (capability matching + fairness slots), with per-clip likes and comments (double-tap the video to like), saved videos, native sharing, in-app sends, follows, dream detail, "Not interested", and "I can help". |
+| Explore | Instagram-style grid ranked for browsing (fresh + interests first, same fairness), photo/video detail browsing with likes and per-update comments, and Supabase full-text search across dreams and people. |
 | Activity | Messages-first inbox with notifications, help offers, unread badges, and live Realtime updates. |
 | Chat | One direct 1:1 conversation per user pair, with text, shared dream videos, typing, presence, and read receipts. |
-| Profile | Dreams, updates, saved videos, achievements, follows, avatar upload, profile editing, and post-update entry points. |
-| Create and Update | Shared compose flow for new dreams and update clips, with on-device video transcoding before upload. |
+| Profile | Dreams, real photo/video updates, saved videos, achievements, follows, avatar upload, and profile editing — including the supporter profile ("How You Can Help") that powers matching. |
+| Create and Update | Shared compose flow for new dreams and photo/video updates; videos transcode before upload and photos are orientation-fixed, downscaled JPEGs. |
+
+How the feed decides what you see (full detail in [docs/RANKING_TUNING.md](docs/RANKING_TUNING.md)):
+
+1. SQL candidate generation finds ~300 dreams per viewer from independent sources (help-type match, skill overlap, interests, location, follows, fresh posts, under-exposed dreams).
+2. A pure Swift ranker (`Packages/DreamRanking`) scores them — capability match weighs heaviest — reserves fairness slots for under-exposed dreams **before** scoring, and enforces creator/category diversity.
+3. Watch signals only shape the watching viewer's own profile. Skipping a video never lowers that dream's reach for anyone else.
 
 ## How It Works
 
@@ -81,10 +87,14 @@ Important directories:
 |---|---|
 | `Dream/Screens` | Full-screen SwiftUI product surfaces. |
 | `Dream/Components` | Reusable UI, media, navigation, sharing, and compose pieces. |
-| `Dream/Services` | Supabase repositories, auth, chat/activity, upload/export/transcode, and video preloading. |
+| `Dream/Services` | Supabase repositories, auth, chat/activity, engagement logging, ranked feed queue, upload/export/transcode, and video preloading. |
 | `Dream/Models` | App-facing value models. |
 | `Dream/Theme` | Fixed light-mode colors, fonts, and category palettes. |
-| `supabase/migrations` | Database schema, RLS, storage, Realtime, RPCs, search, and security hardening. |
+| `Packages/DreamRanking` | The pure, zero-dependency recommendation ranker with its test suite and 7-day feed simulation. |
+| `supabase/migrations` | Database schema, RLS, storage, Realtime, RPCs, search, recommendation instrumentation, and security hardening. |
+| `supabase/tests` | Transactional pgTAP suites (messaging, ranking, comments) — safe to run against a live project. |
+| `supabase/seed.sql` + `supabase/queries` | Local-only seed data and the fairness report for inspecting feed behavior. |
+| `docs` | [RANKING_TUNING.md](docs/RANKING_TUNING.md) — every ranking weight, what it does, and how to evaluate changes. |
 
 For deeper implementation notes, read [AGENTS.md](AGENTS.md).
 
@@ -93,10 +103,11 @@ For deeper implementation notes, read [AGENTS.md](AGENTS.md).
 | Layer | Stack |
 |---|---|
 | App | SwiftUI, Swift 5.0, Swift concurrency, Combine |
-| Media | AVFoundation, PhotosUI, on-device video transcoding |
+| Recommendations | Pure Swift ranking package (no ML, heuristics with fairness guarantees), SQL candidate generation, on-device queue |
+| Media | AVFoundation, PhotosUI, on-device video transcoding, JPEG photo compression |
 | Backend | Supabase Postgres, Auth, Storage, Realtime |
 | Security | Row Level Security, authenticated RPC workflows, private Realtime channel policies |
-| Storage | Private `dream-videos` bucket with signed URLs; public poster and avatar buckets |
+| Storage | Private `dream-videos` bucket with signed URLs; public `dream-posters`, `dream-images`, and `avatars` buckets |
 | Target | iOS 26.4 |
 
 ## Getting Started
@@ -121,7 +132,14 @@ xcodebuild -project Dream.xcodeproj -scheme Dream \
   build
 ```
 
-There is no test suite yet. Verification is build, simulator launch, and a screenshot.
+Run the recommendation ranker's test suite (26 tests, including a simulated 7-day feed run):
+
+```bash
+cd Packages/DreamRanking
+swift test
+```
+
+The app itself has no XCTest target yet — UI verification is build, simulator launch, and a screenshot. Backend behavior is covered by transactional pgTAP suites in `supabase/tests/`.
 
 For the full developer setup, backend options, build caveats, and preflight checklist, see [DEVELOPERS.md](DEVELOPERS.md).
 
@@ -132,6 +150,7 @@ Dream is open source because the product itself is about shared effort. Develope
 Good first places to help:
 
 - Improve the SwiftUI product experience.
+- Tune the recommendation weights against the fairness report (see [docs/RANKING_TUNING.md](docs/RANKING_TUNING.md)).
 - Tighten video playback, upload, and feed performance.
 - Expand accessibility and localization.
 - Improve Supabase migrations, policies, and Realtime workflows.

@@ -21,11 +21,20 @@ import UIKit
 struct DreamVideoBackground: View {
     let dream: Dream
     var isMuted: Bool = false
+    /// Paused from the outside — something (a sheet, a cover) is on top of the
+    /// video. Kept separate from the viewer's own tap-to-pause so dismissing
+    /// the cover resumes only a video that was actually playing.
+    var isPaused: Bool = false
+    /// Double-tap to like. Nil on surfaces with no like action, which also
+    /// turns off the heart burst.
+    var onDoubleTap: (() -> Void)? = nil
 
     @State private var player: AVQueuePlayer?
     @State private var isPlaying = true
     /// Tracks AVPlayerLayer.isReadyForDisplay; drives the opacity gate below.
     @State private var videoVisible = false
+    @State private var burstScale: CGFloat = 0.5
+    @State private var burstOpacity: Double = 0
 
     var body: some View {
         GeometryReader { geo in
@@ -52,14 +61,36 @@ struct DreamVideoBackground: View {
                         .shadow(color: .black.opacity(0.4), radius: 10)
                         .transition(.opacity.combined(with: .scale))
                 }
+
+                // Double-tap-to-like burst.
+                if onDoubleTap != nil {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 108))
+                        .foregroundStyle(.white)
+                        .shadow(color: .black.opacity(0.35), radius: 14)
+                        .scaleEffect(burstScale)
+                        .opacity(burstOpacity)
+                        .allowsHitTesting(false)
+                }
             }
             .frame(width: geo.size.width, height: geo.size.height)
             .clipped()
             .contentShape(Rectangle())
+            // Double first: with both attached SwiftUI resolves the two-tap
+            // gesture before falling through to pause/resume.
+            .onTapGesture(count: 2) { likeFromDoubleTap() }
             .onTapGesture { togglePlayback() }
         }
         .task(id: dream.feedID) { await loadVideo() }
         .onChange(of: isMuted) { _, muted in player?.isMuted = muted }
+        .onChange(of: isPaused) { _, paused in
+            guard let player else { return }
+            if paused {
+                player.pause()
+            } else if isPlaying {
+                player.play()
+            }
+        }
         .onDisappear {
             // Just pause — the preloader owns the player's lifecycle so it
             // stays warm in the cache for an instant restart.
@@ -82,6 +113,17 @@ struct DreamVideoBackground: View {
         }
     }
 
+    /// Instagram-style: a double tap only ever likes (never unlikes), and the
+    /// heart pops whether or not this one changed anything.
+    private func likeFromDoubleTap() {
+        guard let onDoubleTap else { return }
+        onDoubleTap()
+        burstScale = 0.5
+        burstOpacity = 1
+        withAnimation(DreamMotion.spring) { burstScale = 1.1 }
+        withAnimation(DreamMotion.exit(DreamMotion.slow).delay(0.28)) { burstOpacity = 0 }
+    }
+
     private func loadVideo() async {
         // Reset visibility gate for the incoming dream; poster shows until the
         // new player's first frame is rendered.
@@ -97,7 +139,9 @@ struct DreamVideoBackground: View {
             cached.isMuted = isMuted
             player = cached
             cached.seek(to: .zero) { _ in }
-            cached.play()
+            // A cover was already up when this card loaded — build the player
+            // anyway (the poster needs it warm) but don't play behind the sheet.
+            if !isPaused { cached.play() }
             return
         }
 
@@ -112,7 +156,7 @@ struct DreamVideoBackground: View {
         // can fire while the player is warming up — no black gap.
         player = queue
         queue.seek(to: .zero) { _ in }
-        queue.play()
+        if !isPaused { queue.play() }
     }
 }
 
